@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy AiBox DevPortal"
+  short_description: "Build and refresh the AiBox DevPortal container"
+  default_prompt: "Validate recent AiBox DevPortal changes, rebuild the Docker service, and verify the browser endpoint."

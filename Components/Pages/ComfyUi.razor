@@ -1,0 +1,43 @@
+@page "/comfyui"
+@rendermode InteractiveServer
+
+<PageTitle>ComfyUI</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>ComfyUI</h1>
+        <p>@health?.Url</p>
+    </div>
+    <RadzenButton Text="Check" Icon="health_and_safety" ButtonStyle="ButtonStyle.Light" Click="LoadHealthAsync" Disabled="@isLoading" />
+</div>
+
+<RadzenCard>
+    @if (health is null)
+    {
+        <p>Checking service status...</p>
+    }
+    else
+    {
+        <RadzenBadge Text="@health.Status" BadgeStyle="@(health.IsAvailable ? BadgeStyle.Success : BadgeStyle.Danger)" />
+    }
+</RadzenCard>
+
+@code {
+    [Inject]
+    private IComfyUiService ComfyUiService { get; set; } = default!;
+
+    private ServiceHealth? health;
+    private bool isLoading;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadHealthAsync();
+    }
+
+    private async Task LoadHealthAsync()
+    {
+        isLoading = true;
+        health = await ComfyUiService.GetHealthAsync();
+        isLoading = false;
+    }
+}

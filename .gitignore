@@ -1,0 +1,13 @@
+bin/
+obj/
+
+.DS_Store
+._*
+
+.env
+.env.*
+*.user
+*.suo
+
+.vscode/*
+!.vscode/extensions.json

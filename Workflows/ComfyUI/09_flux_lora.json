@@ -1,0 +1,27 @@
+{
+  "1": {
+    "class_type": "EmptyImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1,
+      "color": 2236962
+    },
+    "_meta": {
+      "title": "Flux LoRA Placeholder: Missing Flux And LoRA Models"
+    }
+  },
+  "2": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "1",
+        0
+      ],
+      "filename_prefix": "09_flux_lora_missing_models"
+    },
+    "_meta": {
+      "title": "Save Placeholder"
+    }
+  }
+}

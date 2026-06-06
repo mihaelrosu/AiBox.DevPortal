@@ -1,0 +1,85 @@
+﻿@inherits LayoutComponentBase
+@inject ThemeService ThemeService
+
+<RadzenLayout Style="min-height: 100vh;">
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Style="min-height: 3.5rem; padding: 0 1.5rem;">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                <RadzenSidebarToggle Click="@ToggleSidebar" />
+                <RadzenText Text="Development" TextStyle="TextStyle.Subtitle2" />
+            </RadzenStack>
+
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenLabel Text="Theme" Component="theme-selector" />
+                <RadzenDropDown TValue="string"
+                                Name="theme-selector"
+                                Data="@themes"
+                                TextProperty="Name"
+                                ValueProperty="Value"
+                                Value="@selectedTheme"
+                                Change="@ChangeTheme"
+                                Style="width: 14rem;" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenHeader>
+
+    <RadzenSidebar @bind-Expanded="@sidebarExpanded" Style="width: 320px;">
+        <NavMenu />
+    </RadzenSidebar>
+
+    <RadzenBody>
+        <RadzenStack Gap="1rem" Style="padding: 1.25rem 1.5rem 2rem 2rem;">
+            @Body
+        </RadzenStack>
+    </RadzenBody>
+</RadzenLayout>
+
+<RadzenComponents />
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">×</span>
+</div>
+
+@code {
+    private bool sidebarExpanded = true;
+    private string selectedTheme = "material";
+
+    private readonly ThemeOption[] themes =
+    [
+        new("Material", "material"),
+        new("Material Dark", "material-dark"),
+        new("Standard", "standard"),
+        new("Standard Dark", "standard-dark"),
+        new("Software", "software"),
+        new("Software Dark", "software-dark"),
+        new("Humanistic", "humanistic"),
+        new("Humanistic Dark", "humanistic-dark"),
+        new("Default", "default"),
+        new("Dark", "dark")
+    ];
+
+    protected override void OnInitialized()
+    {
+        selectedTheme = string.IsNullOrWhiteSpace(ThemeService.Theme) ? selectedTheme : ThemeService.Theme;
+    }
+
+    private void ToggleSidebar()
+    {
+        sidebarExpanded = !sidebarExpanded;
+    }
+
+    private void ChangeTheme(object? value)
+    {
+        if (value is not string theme || string.IsNullOrWhiteSpace(theme))
+        {
+            return;
+        }
+
+        selectedTheme = theme;
+        ThemeService.SetTheme(theme);
+    }
+
+    private sealed record ThemeOption(string Name, string Value);
+}

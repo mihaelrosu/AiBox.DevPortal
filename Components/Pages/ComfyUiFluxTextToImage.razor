@@ -1,0 +1,73 @@
+@page "/comfyui/flux/text-to-image"
+@rendermode InteractiveServer
+
+<PageTitle>Flux Text to Image</PageTitle>
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+    <RadzenText Text="Flux Text to Image" TextStyle="TextStyle.H4" />
+    <RadzenText Text="Template: 07_flux_text2image.json" TextStyle="TextStyle.Body2" />
+    <RadzenButton Text="Generate" Icon="image" ButtonStyle="ButtonStyle.Primary" Click="@GenerateAsync" Disabled="@isGenerating" />
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Generation Settings" TextStyle="TextStyle.H6" />
+            <RadzenFormField Text="Prompt"><RadzenTextArea @bind-Value="prompt" Rows="5" /></RadzenFormField>
+            <RadzenFormField Text="Negative Prompt"><RadzenTextArea @bind-Value="negativePrompt" Rows="4" /></RadzenFormField>
+            <RadzenFormField Text="Width"><RadzenNumeric @bind-Value="width" Min="64" Max="2048" Step="64" /></RadzenFormField>
+            <RadzenFormField Text="Height"><RadzenNumeric @bind-Value="height" Min="64" Max="2048" Step="64" /></RadzenFormField>
+            <RadzenFormField Text="Steps"><RadzenNumeric @bind-Value="steps" Min="1" Max="150" /></RadzenFormField>
+            <RadzenFormField Text="Seed"><RadzenNumeric @bind-Value="seed" /></RadzenFormField>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Result" TextStyle="TextStyle.H6" />
+            @if (isGenerating)
+            {
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.75rem" Style="min-height: 22rem;">
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Medium" />
+                    <RadzenText Text="Generating image..." TextStyle="TextStyle.Body2" />
+                </RadzenStack>
+            }
+            else if (result is not null)
+            {
+                <RadzenImage Path="@result.ImageUrl" AlternateText="Generated result" Style="width: 100%; max-height: 72vh; object-fit: contain;" />
+                <RadzenText Text="@($"Used seed: {result.Seed}")" TextStyle="TextStyle.Body2" />
+            }
+            else
+            {
+                <RadzenText Text="Generated image preview will appear here." TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    [Inject] private IComfyUiService ComfyUiService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    private string prompt = "high quality Flux image";
+    private string negativePrompt = "blurry, low quality, distorted, deformed";
+    private int width = 1024;
+    private int height = 1024;
+    private int steps = 28;
+    private long seed = -1;
+    private bool isGenerating;
+    private ComfyUiGenerationResult? result;
+
+    private async Task GenerateAsync()
+    {
+        isGenerating = true;
+        try
+        {
+            var usedSeed = ComfyUiWorkflowActions.ResolveSeed(seed);
+            var workflow = ComfyUiWorkflowActions.Parse(await ComfyUiService.GetWorkflowAsync("07_flux_text2image.json"));
+            ComfyUiWorkflowActions.ApplyPrompts(workflow, prompt, negativePrompt);
+            ComfyUiWorkflowActions.ApplyLatentSize(workflow, width, height);
+            ComfyUiWorkflowActions.ApplySampler(workflow, usedSeed, steps);
+            result = await ComfyUiService.QueuePromptAndWaitForImageAsync(ComfyUiWorkflowActions.Serialize(workflow), usedSeed);
+        }
+        catch (Exception exception) { NotificationService.Notify(NotificationSeverity.Error, "Generation failed", exception.Message); }
+        finally { isGenerating = false; }
+    }
+}

@@ -1,0 +1,135 @@
+@page "/history"
+@rendermode InteractiveServer
+
+<PageTitle>Generated Image History</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center">
+        <RadzenColumn>
+            <RadzenText Text="History" TextStyle="TextStyle.H4" />
+            <RadzenText Text="Generated images. Select a row to open details." TextStyle="TextStyle.Body2" />
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Primary" Click="@LoadAsync" Disabled="@isLoading" Style="width: 100%;" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+            <RadzenFormField Text="Search prompts" Style="min-width: 18rem; flex: 1;">
+                <RadzenTextBox @bind-Value="searchText" @bind-Value:after="@ApplySearch" Placeholder="Search prompt, negative prompt, model, or image name" />
+            </RadzenFormField>
+            <RadzenButton Text="Clear" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@ClearSearch" Disabled="@string.IsNullOrWhiteSpace(searchText)" />
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenDataGrid TItem="GeneratedImage"
+                    Data="@filteredImages"
+                    IsLoading="@isLoading"
+                    AllowPaging="true"
+                    AllowSorting="true"
+                    PageSize="12"
+                    RowSelect="@OpenDetails"
+                    EmptyText="No generated images found.">
+        <Columns>
+            <RadzenDataGridColumn TItem="GeneratedImage" Title="Thumbnail" Sortable="false" Filterable="false" Width="120px">
+                <Template Context="image">
+                    <RadzenImage Path="@image.ImageUrl" AlternateText="@GetImageName(image)" Style="width: 88px; height: 88px; object-fit: cover; border-radius: 4px; cursor: pointer;" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="GeneratedImage" Property="Created" Title="Date" Width="190px">
+                <Template Context="image">
+                    @image.Created.LocalDateTime.ToString("yyyy-MM-dd HH:mm")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="GeneratedImage" Title="Image name">
+                <Template Context="image">
+                    @GetImageName(image)
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="GeneratedImage" Property="Model" Title="Model" />
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+    [Inject]
+    private IGeneratedImageHistoryService GeneratedImageHistoryService { get; set; } = default!;
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    private IReadOnlyList<GeneratedImage> images = [];
+    private IReadOnlyList<GeneratedImage> filteredImages = [];
+    private string? searchText;
+    private bool isLoading;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            images = await GeneratedImageHistoryService.GetAllAsync();
+            ApplySearch();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ApplySearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredImages = images;
+            return;
+        }
+
+        filteredImages = images
+            .Where(image =>
+                image.Prompt.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                image.NegativePrompt.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                image.Model.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                GetImageName(image).Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
+
+    private void ClearSearch()
+    {
+        searchText = null;
+        ApplySearch();
+    }
+
+    private void OpenDetails(GeneratedImage image)
+    {
+        NavigationManager.NavigateTo($"history/{image.Id}");
+    }
+
+    private static string GetImageName(GeneratedImage image)
+    {
+        if (string.IsNullOrWhiteSpace(image.ImageUrl))
+        {
+            return image.Id;
+        }
+
+        var marker = "filename=";
+        var markerIndex = image.ImageUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+
+        if (markerIndex >= 0)
+        {
+            var start = markerIndex + marker.Length;
+            var end = image.ImageUrl.IndexOf('&', start);
+            var fileName = end >= 0 ? image.ImageUrl[start..end] : image.ImageUrl[start..];
+            return Uri.UnescapeDataString(fileName);
+        }
+
+        return Path.GetFileName(image.ImageUrl) is { Length: > 0 } name ? name : image.Id;
+    }
+}

@@ -1,0 +1,66 @@
+@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p>AiBox tool status and quick links.</p>
+    </div>
+    <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Filled" Click="RefreshAsync" Disabled="@isLoading" />
+</div>
+
+<div class="dashboard-grid">
+    @foreach (var tool in tools)
+    {
+        <RadzenCard class="service-card">
+            <div class="service-card-header">
+                <div>
+                    <h2>@tool.ToolName</h2>
+                    <a class="tool-url" href="@tool.Url" target="_blank" rel="noopener">@tool.Url</a>
+                </div>
+                <RadzenBadge Text="@tool.Status" BadgeStyle="@GetBadgeStyle(tool)" />
+            </div>
+
+            <a class="tool-open-button rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default" href="@tool.Url" target="_blank" rel="noopener">
+                <span class="rz-button-box">
+                    <i class="notranslate rz-button-icon-left rzi">open_in_new</i>
+                    <span class="rz-button-text">Open</span>
+                </span>
+            </a>
+        </RadzenCard>
+    }
+</div>
+
+@code {
+    [Inject]
+    private IToolStatusService ToolStatusService { get; set; } = default!;
+
+    private IReadOnlyList<AiBoxToolLink> tools = [];
+    private bool isLoading;
+
+    protected override Task OnInitializedAsync()
+    {
+        return RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            tools = await ToolStatusService.GetToolsAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static BadgeStyle GetBadgeStyle(AiBoxToolLink tool)
+    {
+        return tool.IsOnline ? BadgeStyle.Success : BadgeStyle.Danger;
+    }
+}

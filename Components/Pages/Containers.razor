@@ -1,0 +1,117 @@
+@page "/containers"
+@rendermode InteractiveServer
+
+<PageTitle>Containers</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Containers</h1>
+        <p>Docker containers from /var/run/docker.sock.</p>
+    </div>
+    <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Light" Click="LoadContainersAsync" Disabled="@isLoading" />
+</div>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" Text="@errorMessage" />
+}
+
+<RadzenDataGrid Data="@containers" TItem="DockerContainerInfo" AllowPaging="true" PageSize="12" AllowSorting="true" IsLoading="@isLoading" class="portal-grid">
+    <Columns>
+        <RadzenDataGridColumn TItem="DockerContainerInfo" Property="Name" Title="Name" />
+        <RadzenDataGridColumn TItem="DockerContainerInfo" Property="Image" Title="Image" />
+        <RadzenDataGridColumn TItem="DockerContainerInfo" Property="Status" Title="Status" />
+        <RadzenDataGridColumn TItem="DockerContainerInfo" Property="State" Title="State" />
+        <RadzenDataGridColumn TItem="DockerContainerInfo" Property="Ports" Title="Ports" />
+        <RadzenDataGridColumn TItem="DockerContainerInfo" Property="Created" Title="Created" FormatString="{0:g}" />
+        <RadzenDataGridColumn TItem="DockerContainerInfo" Title="Actions" Sortable="false" Filterable="false">
+            <Template Context="container">
+                <div class="action-row">
+                    <RadzenButton Icon="play_arrow" Text="Start" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@(() => StartAsync(container))" Disabled="@isLoading" />
+                    <RadzenButton Icon="stop" Text="Stop" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Click="@(() => StopAsync(container))" Disabled="@isLoading" />
+                    <RadzenButton Icon="restart_alt" Text="Restart" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Warning" Click="@(() => RestartAsync(container))" Disabled="@isLoading" />
+                </div>
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    [Inject]
+    private IDockerService DockerService { get; set; } = default!;
+
+    [Inject]
+    private NotificationService NotificationService { get; set; } = default!;
+
+    private List<DockerContainerInfo> containers = [];
+    private bool isLoading;
+    private string? errorMessage;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadContainersAsync();
+    }
+
+    private async Task LoadContainersAsync()
+    {
+        await RunDockerActionAsync(async () =>
+        {
+            containers = await DockerService.GetContainersAsync();
+        });
+    }
+
+    private Task StartAsync(DockerContainerInfo container)
+    {
+        return RunDockerActionAsync(async () =>
+        {
+            await DockerService.StartAsync(container.Id);
+            NotifySuccess($"{container.Name} started.");
+            containers = await DockerService.GetContainersAsync();
+        });
+    }
+
+    private Task StopAsync(DockerContainerInfo container)
+    {
+        return RunDockerActionAsync(async () =>
+        {
+            await DockerService.StopAsync(container.Id);
+            NotifySuccess($"{container.Name} stopped.");
+            containers = await DockerService.GetContainersAsync();
+        });
+    }
+
+    private Task RestartAsync(DockerContainerInfo container)
+    {
+        return RunDockerActionAsync(async () =>
+        {
+            await DockerService.RestartAsync(container.Id);
+            NotifySuccess($"{container.Name} restarted.");
+            containers = await DockerService.GetContainersAsync();
+        });
+    }
+
+    private async Task RunDockerActionAsync(Func<Task> action)
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            await action();
+        }
+        catch (Exception exception)
+        {
+            errorMessage = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Docker action failed", exception.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NotifySuccess(string message)
+    {
+        NotificationService.Notify(NotificationSeverity.Success, "Docker action complete", message);
+    }
+}

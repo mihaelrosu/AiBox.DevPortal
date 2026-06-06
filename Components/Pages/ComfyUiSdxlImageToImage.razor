@@ -1,0 +1,78 @@
+@page "/comfyui/sdxl/image-to-image"
+@rendermode InteractiveServer
+
+<PageTitle>SDXL Image to Image</PageTitle>
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+    <RadzenText Text="SDXL Image to Image" TextStyle="TextStyle.H4" />
+    <RadzenText Text="Template: 02_sdxl_image2image.json" TextStyle="TextStyle.Body2" />
+    <RadzenButton Text="Generate" Icon="image" ButtonStyle="ButtonStyle.Primary" Click="@GenerateAsync" Disabled="@(isGenerating || image is null)" />
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Generation Settings" TextStyle="TextStyle.H6" />
+            <RadzenFormField Text="Upload/source image">
+                <InputFile OnChange="@SelectImage" style="margin: 1rem;" />
+            </RadzenFormField>
+            <RadzenFormField Text="Prompt"><RadzenTextArea @bind-Value="prompt" Rows="5" /></RadzenFormField>
+            <RadzenFormField Text="Negative prompt"><RadzenTextArea @bind-Value="negativePrompt" Rows="5" /></RadzenFormField>
+            <RadzenFormField Text="Denoise"><RadzenNumeric @bind-Value="denoise" Min="0" Max="1" Step="0.05" /></RadzenFormField>
+            <RadzenFormField Text="Seed"><RadzenNumeric @bind-Value="seed" /></RadzenFormField>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Result" TextStyle="TextStyle.H6" />
+            @if (isGenerating)
+            {
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.75rem" Style="min-height: 22rem;">
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Medium" />
+                    <RadzenText Text="Generating image..." TextStyle="TextStyle.Body2" />
+                </RadzenStack>
+            }
+            else if (result is not null)
+            {
+                <RadzenImage Path="@result.ImageUrl" AlternateText="Generated result" Style="width: 100%; max-height: 72vh; object-fit: contain;" />
+                <RadzenText Text="@($"Used seed: {result.Seed}")" TextStyle="TextStyle.Body2" />
+            }
+            else
+            {
+                <RadzenText Text="Generated image preview will appear here." TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    [Inject] private IComfyUiService ComfyUiService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    private IBrowserFile? image;
+    private string prompt = "refined high quality SDXL image, preserve composition";
+    private string negativePrompt = "low quality, blurry, distorted, watermark, text";
+    private double denoise = 0.55;
+    private long seed = -1;
+    private bool isGenerating;
+    private ComfyUiGenerationResult? result;
+
+    private void SelectImage(InputFileChangeEventArgs args) => image = args.File;
+
+    private async Task GenerateAsync()
+    {
+        if (image is null) return;
+        isGenerating = true;
+        try
+        {
+            await using var stream = image.OpenReadStream(100 * 1024 * 1024);
+            var imageName = await ComfyUiService.SaveInputImageAsync(image.Name, stream);
+            var usedSeed = ComfyUiWorkflowActions.ResolveSeed(seed);
+            var workflow = ComfyUiWorkflowActions.Parse(await ComfyUiService.GetWorkflowAsync("02_sdxl_image2image.json"));
+            ComfyUiWorkflowActions.ApplyLoadImage(workflow, imageName);
+            ComfyUiWorkflowActions.ApplyPrompts(workflow, prompt, negativePrompt);
+            ComfyUiWorkflowActions.ApplySampler(workflow, usedSeed, denoise: denoise);
+            result = await ComfyUiService.QueuePromptAndWaitForImageAsync(ComfyUiWorkflowActions.Serialize(workflow), usedSeed);
+        }
+        catch (Exception exception) { NotificationService.Notify(NotificationSeverity.Error, "Generation failed", exception.Message); }
+        finally { isGenerating = false; }
+    }
+}

@@ -1,0 +1,42 @@
+{
+  "1": {
+    "class_type": "EmptyImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1,
+      "color": 4473924
+    },
+    "_meta": {
+      "title": "Replace With Control Image"
+    }
+  },
+  "2": {
+    "class_type": "CannyEdgePreprocessor",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "low_threshold": 100,
+      "high_threshold": 200,
+      "resolution": 1024
+    },
+    "_meta": {
+      "title": "Canny Preprocessor"
+    }
+  },
+  "3": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "filename_prefix": "06_sdxl_controlnet_canny_preprocess_only"
+    },
+    "_meta": {
+      "title": "Save Canny Preview"
+    }
+  }
+}

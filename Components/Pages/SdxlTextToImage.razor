@@ -1,0 +1,347 @@
+@page "/sdxl-t2i"
+@rendermode InteractiveServer
+
+<PageTitle>SDXL Text to Image</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>SDXL Text to Image</h1>
+        <p>Generate an SDXL image through ComfyUI.</p>
+    </div>
+</div>
+
+<RadzenCard>
+    <RadzenTemplateForm TItem="SdxlTextToImageRequest" Data="@request" Submit="@GenerateAsync">
+        <div class="sdxl-prompt-toolbar">
+            <RadzenFormField Text="Style">
+                <RadzenDropDown @bind-Value="selectedStyle" Data="@styles" AllowClear="true" Placeholder="Select style" />
+            </RadzenFormField>
+
+            <RadzenButton Text="Improve prompt with local LLM" Icon="auto_fix_high" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@ImprovePromptAsync" Disabled="@(isGenerating || isImprovingPrompt)" />
+            <RadzenButton Text="Create negative prompt" Icon="playlist_add" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@CreateNegativePromptAsync" Disabled="@(isGenerating || isCreatingNegativePrompt)" />
+        </div>
+
+        <div class="sdxl-form-grid">
+            <RadzenFormField Text="Positive prompt">
+                <RadzenTextArea @bind-Value="request.PositivePrompt" Rows="5" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Negative prompt">
+                <RadzenTextArea @bind-Value="request.NegativePrompt" Rows="5" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Width">
+                <RadzenNumeric @bind-Value="request.Width" Min="64" Max="2048" Step="64" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Height">
+                <RadzenNumeric @bind-Value="request.Height" Min="64" Max="2048" Step="64" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Steps">
+                <RadzenNumeric @bind-Value="request.Steps" Min="1" Max="150" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="CFG scale">
+                <RadzenNumeric @bind-Value="request.CfgScale" Min="1" Max="30" Step="0.5" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Seed">
+                <RadzenNumeric @bind-Value="request.Seed" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Checkpoint name">
+                <RadzenTextBox @bind-Value="request.CheckpointName" />
+            </RadzenFormField>
+        </div>
+
+        <div class="action-row sdxl-actions">
+            <RadzenButton Text="Generate Image" Icon="image" ButtonStyle="ButtonStyle.Primary" ButtonType="ButtonType.Submit" Disabled="@isGenerating" />
+            <RadzenButton Text="Reuse Seed" Icon="replay" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@ReuseSeed" Disabled="@(isGenerating || result is null)" />
+            <RadzenButton Text="Random Seed" Icon="shuffle" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@UseRandomSeed" Disabled="@isGenerating" />
+        </div>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+<RadzenCard class="sdxl-result-card">
+    <div class="sdxl-result-header">
+        <div>
+            <h2>Preview</h2>
+            <p>@statusText</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(result?.ImageUrl))
+        {
+            <a class="sdxl-open-image-button rz-button rz-button-md rz-variant-filled rz-light rz-shade-default" href="@result.ImageUrl" target="_blank" rel="noopener">
+                <span class="rz-button-box">
+                    <i class="notranslate rz-button-icon-left rzi">open_in_new</i>
+                    <span class="rz-button-text">Open image</span>
+                </span>
+            </a>
+        }
+    </div>
+
+    <div class="sdxl-preview-frame @(isGenerating ? "is-generating" : null)">
+        @if (isGenerating)
+        {
+            <div class="sdxl-preview-placeholder">
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Medium" />
+                <span>Rendering image...</span>
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(result?.ImageUrl))
+        {
+            <img class="sdxl-result-image" src="@result.ImageUrl" alt="Generated SDXL result" />
+        }
+        else
+        {
+            <div class="sdxl-preview-placeholder">
+                <span>Generated image preview will appear here.</span>
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(result?.PromptId))
+    {
+        <p class="sdxl-prompt-id">Prompt ID: @result.PromptId</p>
+    }
+</RadzenCard>
+
+@if (result is not null)
+{
+    <RadzenCard class="sdxl-metadata-card">
+        <div class="sdxl-result-header">
+            <div>
+                <h2>Generation Metadata</h2>
+                <p>Settings sent to ComfyUI for this image.</p>
+            </div>
+
+            <div class="action-row">
+                <RadzenButton Text="Copy Prompt" Icon="content_copy" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@CopyPromptAsync" />
+                <RadzenButton Text="Copy Negative Prompt" Icon="content_copy" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@CopyNegativePromptAsync" />
+                <RadzenButton Text="Create Variation" Icon="auto_awesome" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@CreateVariationAsync" Disabled="@isGenerating" />
+            </div>
+        </div>
+
+        <dl class="sdxl-metadata-list">
+            <dt>Actual seed used</dt>
+            <dd>@result.Seed</dd>
+
+            <dt>Model name</dt>
+            <dd>@result.Model</dd>
+
+            <dt>Width</dt>
+            <dd>@result.Width</dd>
+
+            <dt>Height</dt>
+            <dd>@result.Height</dd>
+
+            <dt>Steps</dt>
+            <dd>@result.Steps</dd>
+
+            <dt>CFG</dt>
+            <dd>@result.Cfg</dd>
+
+            <dt>Sampler</dt>
+            <dd>@result.Sampler</dd>
+
+            <dt>Scheduler</dt>
+            <dd>@result.Scheduler</dd>
+
+            <dt>Prompt</dt>
+            <dd>@result.PositivePrompt</dd>
+
+            <dt>Negative prompt</dt>
+            <dd>@result.NegativePrompt</dd>
+        </dl>
+    </RadzenCard>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "seed")]
+    private long? QuerySeed { get; set; }
+
+    [SupplyParameterFromQuery(Name = "prompt")]
+    private string? QueryPrompt { get; set; }
+
+    [SupplyParameterFromQuery(Name = "negativePrompt")]
+    private string? QueryNegativePrompt { get; set; }
+
+    [Inject]
+    private ISdxlTextToImageService SdxlTextToImageService { get; set; } = default!;
+
+    [Inject]
+    private IPromptEnhancerService PromptEnhancerService { get; set; } = default!;
+
+    [Inject]
+    private NotificationService NotificationService { get; set; } = default!;
+
+    [Inject]
+    private IGeneratedImageHistoryService GeneratedImageHistoryService { get; set; } = default!;
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private readonly string[] styles =
+    [
+        "Realistic photo",
+        "Product photo",
+        "Cinematic",
+        "Fantasy art",
+        "Oil painting",
+        "Anime",
+        "Isometric 3D",
+        "UI icon"
+    ];
+
+    private readonly SdxlTextToImageRequest request = new()
+    {
+        PositivePrompt = "cinematic photo of a futuristic workstation, detailed, sharp focus",
+        NegativePrompt = "blurry, low quality, distorted",
+        Width = 1024,
+        Height = 1024,
+        Steps = 30,
+        CfgScale = 7,
+        Seed = -1,
+        CheckpointName = "sd_xl_base_1.0.safetensors"
+    };
+
+    private SdxlTextToImageResult? result;
+    private bool isGenerating;
+    private bool isImprovingPrompt;
+    private bool isCreatingNegativePrompt;
+    private string? selectedStyle;
+    private string statusText = "Ready.";
+
+    protected override void OnInitialized()
+    {
+        if (QuerySeed.HasValue)
+        {
+            request.Seed = QuerySeed.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(QueryPrompt))
+        {
+            request.PositivePrompt = QueryPrompt;
+        }
+
+        if (!string.IsNullOrWhiteSpace(QueryNegativePrompt))
+        {
+            request.NegativePrompt = QueryNegativePrompt;
+        }
+    }
+
+    private async Task ImprovePromptAsync()
+    {
+        isImprovingPrompt = true;
+
+        try
+        {
+            var enhanced = await PromptEnhancerService.ImproveSdxlPromptAsync(request.PositivePrompt, selectedStyle);
+            request.PositivePrompt = enhanced.Prompt;
+            NotificationService.Notify(NotificationSeverity.Success, "Prompt improved", "The positive prompt was updated.");
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Prompt improvement failed", exception.Message);
+        }
+        finally
+        {
+            isImprovingPrompt = false;
+        }
+    }
+
+    private async Task CreateNegativePromptAsync()
+    {
+        isCreatingNegativePrompt = true;
+
+        try
+        {
+            var enhanced = await PromptEnhancerService.CreateSdxlNegativePromptAsync(request.PositivePrompt, selectedStyle);
+            request.NegativePrompt = enhanced.Prompt;
+            NotificationService.Notify(NotificationSeverity.Success, "Negative prompt created", "The negative prompt was updated.");
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Negative prompt failed", exception.Message);
+        }
+        finally
+        {
+            isCreatingNegativePrompt = false;
+        }
+    }
+
+    private void ReuseSeed()
+    {
+        if (result is null)
+        {
+            return;
+        }
+
+        request.Seed = result.Seed;
+        NotificationService.Notify(NotificationSeverity.Info, "Seed reused", $"Seed set to {request.Seed}.");
+    }
+
+    private void UseRandomSeed()
+    {
+        request.Seed = -1;
+        NotificationService.Notify(NotificationSeverity.Info, "Random seed", "Seed set to -1.");
+    }
+
+    private async Task CopyPromptAsync()
+    {
+        if (result is null)
+        {
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync("aiBoxCopyToClipboard", result.PositivePrompt);
+        NotificationService.Notify(NotificationSeverity.Success, "Prompt copied", "Positive prompt copied to clipboard.");
+    }
+
+    private async Task CopyNegativePromptAsync()
+    {
+        if (result is null)
+        {
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync("aiBoxCopyToClipboard", result.NegativePrompt);
+        NotificationService.Notify(NotificationSeverity.Success, "Negative prompt copied", "Negative prompt copied to clipboard.");
+    }
+
+    private async Task CreateVariationAsync()
+    {
+        if (result is null)
+        {
+            return;
+        }
+
+        request.Seed = result.Seed == long.MaxValue ? 0 : result.Seed + 1;
+        await GenerateAsync(request);
+    }
+
+    private async Task GenerateAsync(SdxlTextToImageRequest _)
+    {
+        isGenerating = true;
+        result = null;
+        statusText = "Submitting workflow to ComfyUI...";
+
+        try
+        {
+            result = await SdxlTextToImageService.GenerateAsync(request);
+            await GeneratedImageHistoryService.SaveAsync(result);
+            statusText = $"Generated image for prompt {result.PromptId}.";
+            NotificationService.Notify(NotificationSeverity.Success, "Image generated", "ComfyUI returned an output image.");
+        }
+        catch (Exception exception)
+        {
+            statusText = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Generation failed", exception.Message);
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+}

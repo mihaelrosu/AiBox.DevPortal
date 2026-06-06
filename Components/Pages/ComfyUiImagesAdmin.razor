@@ -1,0 +1,250 @@
+@page "/admin/comfyui/images"
+@rendermode InteractiveServer
+
+<PageTitle>ComfyUI Images Admin</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>ComfyUI Images</h1>
+        <p>@status?.Url</p>
+    </div>
+    <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Primary" Click="@LoadAsync" Disabled="@isLoading" />
+</div>
+
+<RadzenCard>
+    <div class="admin-status-row">
+        <div>
+            <h2>Status</h2>
+            @if (status is null)
+            {
+                <p>Checking ComfyUI...</p>
+            }
+            else
+            {
+                <RadzenBadge Text="@status.Status" BadgeStyle="@(status.IsAvailable ? BadgeStyle.Success : BadgeStyle.Danger)" />
+            }
+        </div>
+        <RadzenButton Text="Backup workflows" Icon="archive" ButtonStyle="ButtonStyle.Light" Click="@BackupWorkflowsAsync" Disabled="@isLoading" />
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(lastBackupPath))
+    {
+        <p class="admin-muted-text">Last backup: @lastBackupPath</p>
+    }
+</RadzenCard>
+
+<div class="admin-comfy-grid">
+    <RadzenCard>
+        <h2>Workflow List</h2>
+
+        <div class="admin-workflow-list">
+            @foreach (var workflow in workflows)
+            {
+                <button type="button" class="admin-workflow-button @(selectedWorkflow?.FileName == workflow.FileName ? "is-selected" : null)" @onclick="@(() => SelectWorkflowAsync(workflow))">
+                    <span>@workflow.FileName</span>
+                    <small>@workflow.SizeBytes bytes</small>
+                </button>
+            }
+        </div>
+    </RadzenCard>
+
+    <RadzenCard>
+        <div class="sdxl-result-header">
+            <div>
+                <h2>Workflow JSON Editor</h2>
+                <p>@(selectedWorkflow?.FileName ?? "Select a workflow")</p>
+            </div>
+            <div class="action-row">
+                <RadzenButton Text="Validate JSON" Icon="fact_check" ButtonStyle="ButtonStyle.Light" Click="@ValidateJson" Disabled="@string.IsNullOrWhiteSpace(workflowJson)" />
+                <RadzenButton Text="Save workflow" Icon="save" ButtonStyle="ButtonStyle.Light" Click="@SaveWorkflowAsync" Disabled="@(selectedWorkflow is null || string.IsNullOrWhiteSpace(workflowJson))" />
+                <RadzenButton Text="Queue selected workflow" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary" Click="@QueueWorkflowAsync" Disabled="@(selectedWorkflow is null || string.IsNullOrWhiteSpace(workflowJson) || isQueueing)" />
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(validationMessage))
+        {
+            <RadzenAlert AlertStyle="@validationAlertStyle" ShowIcon="true">
+                @validationMessage
+            </RadzenAlert>
+        }
+
+        <RadzenTextArea class="admin-json-editor" @bind-Value="workflowJson" Rows="28" />
+    </RadzenCard>
+</div>
+
+<div class="admin-model-grid">
+    <RadzenCard>
+        <h2>Checkpoints</h2>
+        @RenderModelList(modelInventory.Checkpoints)
+    </RadzenCard>
+    <RadzenCard>
+        <h2>LoRAs</h2>
+        @RenderModelList(modelInventory.Loras)
+    </RadzenCard>
+    <RadzenCard>
+        <h2>Upscalers</h2>
+        @RenderModelList(modelInventory.Upscalers)
+    </RadzenCard>
+    <RadzenCard>
+        <h2>ControlNet</h2>
+        @RenderModelList(modelInventory.ControlNetModels)
+    </RadzenCard>
+    <RadzenCard>
+        <h2>Flux files</h2>
+        @RenderModelList(modelInventory.FluxFiles)
+    </RadzenCard>
+</div>
+
+@code {
+    [Inject]
+    private IComfyUiService ComfyUiService { get; set; } = default!;
+
+    [Inject]
+    private NotificationService NotificationService { get; set; } = default!;
+
+    private ServiceHealth? status;
+    private IReadOnlyList<ComfyUiWorkflowFile> workflows = [];
+    private ComfyUiWorkflowFile? selectedWorkflow;
+    private ComfyUiModelInventory modelInventory = new();
+    private string workflowJson = string.Empty;
+    private string? validationMessage;
+    private AlertStyle validationAlertStyle = AlertStyle.Info;
+    private string? lastBackupPath;
+    private bool isLoading;
+    private bool isQueueing;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            status = await ComfyUiService.GetStatusAsync();
+            workflows = await ComfyUiService.GetWorkflowsAsync();
+            modelInventory = await ComfyUiService.GetModelsAsync();
+
+            if (selectedWorkflow is null && workflows.Count > 0)
+            {
+                await SelectWorkflowAsync(workflows[0]);
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SelectWorkflowAsync(ComfyUiWorkflowFile workflow)
+    {
+        selectedWorkflow = workflow;
+        workflowJson = await ComfyUiService.GetWorkflowAsync(workflow.FileName);
+        validationMessage = null;
+    }
+
+    private void ValidateJson()
+    {
+        try
+        {
+            _ = System.Text.Json.Nodes.JsonNode.Parse(workflowJson);
+            validationMessage = "JSON is valid.";
+            validationAlertStyle = AlertStyle.Success;
+        }
+        catch (Exception exception)
+        {
+            validationMessage = exception.Message;
+            validationAlertStyle = AlertStyle.Danger;
+        }
+    }
+
+    private async Task SaveWorkflowAsync()
+    {
+        if (selectedWorkflow is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await ComfyUiService.SaveWorkflowAsync(selectedWorkflow.FileName, workflowJson);
+            workflows = await ComfyUiService.GetWorkflowsAsync();
+            validationMessage = "Workflow saved. A backup was created before overwrite.";
+            validationAlertStyle = AlertStyle.Success;
+            NotificationService.Notify(NotificationSeverity.Success, "Workflow saved", selectedWorkflow.FileName);
+        }
+        catch (Exception exception)
+        {
+            validationMessage = exception.Message;
+            validationAlertStyle = AlertStyle.Danger;
+            NotificationService.Notify(NotificationSeverity.Error, "Save failed", exception.Message);
+        }
+    }
+
+    private async Task BackupWorkflowsAsync()
+    {
+        try
+        {
+            lastBackupPath = await ComfyUiService.BackupWorkflowsAsync();
+            NotificationService.Notify(NotificationSeverity.Success, "Backup created", lastBackupPath);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Backup failed", exception.Message);
+        }
+    }
+
+    private async Task QueueWorkflowAsync()
+    {
+        isQueueing = true;
+
+        try
+        {
+            ValidateJson();
+
+            if (validationAlertStyle == AlertStyle.Danger)
+            {
+                return;
+            }
+
+            var result = await ComfyUiService.QueuePromptAsync(workflowJson);
+            NotificationService.Notify(NotificationSeverity.Success, "Workflow queued", string.IsNullOrWhiteSpace(result.PromptId) ? result.Message : result.PromptId);
+        }
+        catch (Exception exception)
+        {
+            validationMessage = exception.Message;
+            validationAlertStyle = AlertStyle.Danger;
+            NotificationService.Notify(NotificationSeverity.Error, "Queue failed", exception.Message);
+        }
+        finally
+        {
+            isQueueing = false;
+        }
+    }
+
+    private static RenderFragment RenderModelList(IReadOnlyList<string> files) => builder =>
+    {
+        if (files.Count == 0)
+        {
+            builder.OpenElement(0, "p");
+            builder.AddContent(1, "No files found.");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(2, "ul");
+        builder.AddAttribute(3, "class", "admin-model-list");
+
+        for (var index = 0; index < files.Count; index++)
+        {
+            builder.OpenElement(4 + index, "li");
+            builder.AddContent(5 + index, files[index]);
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+}

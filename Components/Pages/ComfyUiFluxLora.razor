@@ -1,0 +1,80 @@
+@page "/comfyui/flux/lora"
+@rendermode InteractiveServer
+
+<PageTitle>Flux LoRA Image</PageTitle>
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+    <RadzenText Text="Flux LoRA Image" TextStyle="TextStyle.H4" />
+    <RadzenText Text="Template: 09_flux_lora.json" TextStyle="TextStyle.Body2" />
+    <RadzenButton Text="Generate" Icon="auto_awesome" ButtonStyle="ButtonStyle.Primary" Click="@GenerateAsync" Disabled="@(isGenerating || string.IsNullOrWhiteSpace(lora))" />
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Generation Settings" TextStyle="TextStyle.H6" />
+            <RadzenFormField Text="Prompt"><RadzenTextArea @bind-Value="prompt" Rows="5" /></RadzenFormField>
+            <RadzenFormField Text="LoRA"><RadzenDropDown @bind-Value="lora" Data="@loras" Placeholder="Select LoRA" /></RadzenFormField>
+            @if (loras.Count == 0)
+            {
+                <RadzenText Text="No LoRA models are installed." TextStyle="TextStyle.Body2" />
+            }
+            <RadzenFormField Text="LoRA strength"><RadzenNumeric @bind-Value="strength" Min="-2" Max="2" Step="0.05" /></RadzenFormField>
+            <RadzenFormField Text="Seed"><RadzenNumeric @bind-Value="seed" /></RadzenFormField>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Result" TextStyle="TextStyle.H6" />
+            @if (isGenerating)
+            {
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.75rem" Style="min-height: 22rem;">
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Medium" />
+                    <RadzenText Text="Generating image..." TextStyle="TextStyle.Body2" />
+                </RadzenStack>
+            }
+            else if (result is not null)
+            {
+                <RadzenImage Path="@result.ImageUrl" AlternateText="Generated result" Style="width: 100%; max-height: 72vh; object-fit: contain;" />
+                <RadzenText Text="@($"Used seed: {result.Seed}")" TextStyle="TextStyle.Body2" />
+            }
+            else
+            {
+                <RadzenText Text="Generated image preview will appear here." TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    [Inject] private IComfyUiService ComfyUiService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    private IReadOnlyList<string> loras = [];
+    private string? lora;
+    private string prompt = "high quality Flux LoRA image";
+    private double strength = 0.8;
+    private long seed = -1;
+    private bool isGenerating;
+    private ComfyUiGenerationResult? result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loras = await ComfyUiService.GetLorasAsync();
+        lora = loras.FirstOrDefault();
+    }
+
+    private async Task GenerateAsync()
+    {
+        isGenerating = true;
+        try
+        {
+            var usedSeed = ComfyUiWorkflowActions.ResolveSeed(seed);
+            var workflow = ComfyUiWorkflowActions.Parse(await ComfyUiService.GetWorkflowAsync("09_flux_lora.json"));
+            ComfyUiWorkflowActions.ApplyPrompts(workflow, prompt);
+            if (!string.IsNullOrWhiteSpace(lora)) ComfyUiWorkflowActions.ApplyLora(workflow, lora, strength);
+            ComfyUiWorkflowActions.ApplySampler(workflow, usedSeed);
+            result = await ComfyUiService.QueuePromptAndWaitForImageAsync(ComfyUiWorkflowActions.Serialize(workflow), usedSeed);
+        }
+        catch (Exception exception) { NotificationService.Notify(NotificationSeverity.Error, "Generation failed", exception.Message); }
+        finally { isGenerating = false; }
+    }
+}

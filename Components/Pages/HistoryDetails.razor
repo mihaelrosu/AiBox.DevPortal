@@ -1,0 +1,201 @@
+@page "/history/{Id}"
+@rendermode InteractiveServer
+
+<PageTitle>Generated Image Details</PageTitle>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+}
+else if (image is null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Image not found" TextStyle="TextStyle.H5" />
+            <RadzenButton Text="Back to History" Icon="arrow_back" ButtonStyle="ButtonStyle.Primary" Click="@BackToHistory" />
+        </RadzenStack>
+    </RadzenCard>
+}
+else
+{
+    <RadzenStack Gap="1rem">
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn>
+                <RadzenText Text="@GetImageName(image)" TextStyle="TextStyle.H4" />
+                <RadzenText Text="@image.Created.LocalDateTime.ToString("yyyy-MM-dd HH:mm")" TextStyle="TextStyle.Body2" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Back" Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Click="@BackToHistory" />
+                    <RadzenButton Text="Reuse Seed" Icon="replay" ButtonStyle="ButtonStyle.Light" Click="@ReuseSeed" />
+                    <RadzenButton Text="Regenerate" Icon="image" ButtonStyle="ButtonStyle.Primary" Click="@(() => RegenerateAsync(false))" Disabled="@isGenerating" />
+                    <RadzenButton Text="Variation +1" Icon="auto_awesome" ButtonStyle="ButtonStyle.Light" Click="@(() => RegenerateAsync(true))" Disabled="@isGenerating" />
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow>
+            <RadzenColumn Size="12" SizeLG="7">
+                <RadzenCard>
+                    <RadzenImage Path="@image.ImageUrl" AlternateText="@GetImageName(image)" Style="width: 100%; max-height: 72vh; object-fit: contain;" />
+                </RadzenCard>
+            </RadzenColumn>
+
+            <RadzenColumn Size="12" SizeLG="5">
+                <RadzenStack Gap="1rem">
+                    <RadzenCard>
+                        <RadzenText Text="Generation Metadata" TextStyle="TextStyle.H6" />
+                        <RadzenDataList Data="@metadata" TItem="MetadataItem">
+                            <Template Context="item">
+                                <RadzenRow>
+                                    <RadzenColumn Size="5">
+                                        <RadzenText Text="@item.Name" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="7">
+                                        <RadzenText Text="@item.Value" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </Template>
+                        </RadzenDataList>
+                    </RadzenCard>
+
+                    <RadzenCard>
+                        <RadzenText Text="Prompt" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="@image.Prompt" TextStyle="TextStyle.Body1" />
+                    </RadzenCard>
+
+                    <RadzenCard>
+                        <RadzenText Text="Negative Prompt" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="@image.NegativePrompt" TextStyle="TextStyle.Body1" />
+                    </RadzenCard>
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenStack>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    [Inject]
+    private IGeneratedImageHistoryService GeneratedImageHistoryService { get; set; } = default!;
+
+    [Inject]
+    private ISdxlTextToImageService SdxlTextToImageService { get; set; } = default!;
+
+    [Inject]
+    private NotificationService NotificationService { get; set; } = default!;
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    private GeneratedImage? image;
+    private IReadOnlyList<MetadataItem> metadata = [];
+    private bool isLoading;
+    private bool isGenerating;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            image = await GeneratedImageHistoryService.GetByIdAsync(Id);
+            metadata = image is null ? [] :
+            [
+                new("Seed", image.Seed.ToString()),
+                new("Model", image.Model),
+                new("Size", $"{image.Width} x {image.Height}"),
+                new("Steps", image.Steps.ToString()),
+                new("CFG", image.CFG.ToString()),
+                new("Image URL", image.ImageUrl)
+            ];
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void BackToHistory()
+    {
+        NavigationManager.NavigateTo("history");
+    }
+
+    private void ReuseSeed()
+    {
+        if (image is null)
+        {
+            return;
+        }
+
+        var url = "sdxl-t2i" +
+            $"?seed={image.Seed}" +
+            $"&prompt={Uri.EscapeDataString(image.Prompt)}" +
+            $"&negativePrompt={Uri.EscapeDataString(image.NegativePrompt)}";
+
+        NavigationManager.NavigateTo(url);
+    }
+
+    private async Task RegenerateAsync(bool variation)
+    {
+        if (image is null)
+        {
+            return;
+        }
+
+        isGenerating = true;
+
+        try
+        {
+            var request = new SdxlTextToImageRequest
+            {
+                PositivePrompt = image.Prompt,
+                NegativePrompt = image.NegativePrompt,
+                CheckpointName = image.Model,
+                Width = image.Width,
+                Height = image.Height,
+                Steps = image.Steps,
+                CfgScale = image.CFG,
+                Seed = variation ? image.Seed + 1 : image.Seed
+            };
+
+            var result = await SdxlTextToImageService.GenerateAsync(request);
+            var saved = await GeneratedImageHistoryService.SaveAsync(result);
+            NotificationService.Notify(NotificationSeverity.Success, variation ? "Variation created" : "Image regenerated", $"Saved generation {saved.Id}.");
+            NavigationManager.NavigateTo($"history/{saved.Id}");
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Generation failed", exception.Message);
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private static string GetImageName(GeneratedImage image)
+    {
+        if (string.IsNullOrWhiteSpace(image.ImageUrl))
+        {
+            return image.Id;
+        }
+
+        var marker = "filename=";
+        var markerIndex = image.ImageUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+
+        if (markerIndex >= 0)
+        {
+            var start = markerIndex + marker.Length;
+            var end = image.ImageUrl.IndexOf('&', start);
+            var fileName = end >= 0 ? image.ImageUrl[start..end] : image.ImageUrl[start..];
+            return Uri.UnescapeDataString(fileName);
+        }
+
+        return Path.GetFileName(image.ImageUrl) is { Length: > 0 } name ? name : image.Id;
+    }
+
+    private sealed record MetadataItem(string Name, string Value);
+}

@@ -1,0 +1,85 @@
+@page "/admin/comfyui/models"
+@rendermode InteractiveServer
+
+<PageTitle>ComfyUI Model Inventory</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>ComfyUI Model Inventory</h1>
+        <p>Local model files available to ComfyUI workflows.</p>
+    </div>
+    <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Primary" Click="@LoadAsync" Disabled="@isLoading" />
+</div>
+
+<div class="admin-model-grid">
+    <RadzenCard>
+        <h2>Checkpoints</h2>
+        @RenderModelList(modelInventory.Checkpoints)
+    </RadzenCard>
+    <RadzenCard>
+        <h2>LoRAs</h2>
+        @RenderModelList(modelInventory.Loras)
+    </RadzenCard>
+    <RadzenCard>
+        <h2>Upscalers</h2>
+        @RenderModelList(modelInventory.Upscalers)
+    </RadzenCard>
+    <RadzenCard>
+        <h2>ControlNet</h2>
+        @RenderModelList(modelInventory.ControlNetModels)
+    </RadzenCard>
+    <RadzenCard>
+        <h2>Flux files</h2>
+        @RenderModelList(modelInventory.FluxFiles)
+    </RadzenCard>
+</div>
+
+@code {
+    [Inject]
+    private IComfyUiService ComfyUiService { get; set; } = default!;
+
+    private ComfyUiModelInventory modelInventory = new();
+    private bool isLoading;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            modelInventory = await ComfyUiService.GetModelsAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static RenderFragment RenderModelList(IReadOnlyList<string> files) => builder =>
+    {
+        if (files.Count == 0)
+        {
+            builder.OpenElement(0, "p");
+            builder.AddContent(1, "No files found.");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(2, "ul");
+        builder.AddAttribute(3, "class", "admin-model-list");
+
+        for (var index = 0; index < files.Count; index++)
+        {
+            builder.OpenElement(4 + index, "li");
+            builder.AddContent(5 + index, files[index]);
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+}

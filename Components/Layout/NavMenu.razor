@@ -1,0 +1,28 @@
+﻿<RadzenPanelMenu>
+    <RadzenPanelMenuItem Text="Image Generators" Icon="image" Expanded="true">
+        <RadzenPanelMenuItem Text="SDXL Text to Image" Icon="image" Path="comfyui/sdxl/text-to-image" />
+        <RadzenPanelMenuItem Text="SDXL Image to Image" Icon="compare" Path="comfyui/sdxl/image-to-image" />
+        <RadzenPanelMenuItem Text="SDXL LoRA Image" Icon="style" Path="comfyui/sdxl/lora" />
+        <RadzenPanelMenuItem Text="SDXL Upscale" Icon="zoom_out_map" Path="comfyui/sdxl/upscale" />
+        <RadzenPanelMenuItem Text="SDXL Face Detailer" Icon="face" Path="comfyui/sdxl/face-detailer" />
+        <RadzenPanelMenuItem Text="Flux Text to Image" Icon="auto_awesome" Path="comfyui/flux/text-to-image" />
+        <RadzenPanelMenuItem Text="Flux Image to Image" Icon="compare_arrows" Path="comfyui/flux/image-to-image" />
+        <RadzenPanelMenuItem Text="Flux LoRA Image" Icon="filter_vintage" Path="comfyui/flux/lora" />
+    </RadzenPanelMenuItem>
+
+    <RadzenPanelMenuItem Text="Admin" Icon="admin_panel_settings" Expanded="true">
+        <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="" />
+        <RadzenPanelMenuItem Text="Containers" Icon="dns" Path="containers" />
+        <RadzenPanelMenuItem Text="Projects" Icon="folder" Path="projects" />
+        <RadzenPanelMenuItem Text="Logs" Icon="receipt_long" Path="logs" />
+        <RadzenPanelMenuItem Text="Settings" Icon="settings" Path="settings" />
+        <RadzenPanelMenuItem Text="ComfyUI Workflow Manager" Icon="account_tree" Expanded="true">
+            <RadzenPanelMenuItem Text="Workflow Editor" Icon="edit_note" Path="admin/comfyui/images" />
+            <RadzenPanelMenuItem Text="Model Inventory" Icon="inventory_2" Path="admin/comfyui/models" />
+            <RadzenPanelMenuItem Text="History" Icon="history" Path="history" />
+        </RadzenPanelMenuItem>
+        <RadzenPanelMenuItem Text="Ollama" Icon="psychology" Path="ollama" />
+    </RadzenPanelMenuItem>
+
+    <RadzenPanelMenuItem Text="Open WebUI" Icon="open_in_new" Path="http://ai-box.local:3000" Target="_blank" />
+</RadzenPanelMenu>

@@ -1,0 +1,21 @@
+@page "/settings"
+
+<PageTitle>Settings</PageTitle>
+
+<h1>Settings</h1>
+
+<RadzenCard>
+    <dl class="settings-list">
+        <dt>Environment</dt>
+        <dd>@Configuration["AiBox:Environment"]</dd>
+        <dt>ComfyUI URL</dt>
+        <dd>@Configuration["AiBox:ComfyUrl"]</dd>
+        <dt>Ollama URL</dt>
+        <dd>@Configuration["AiBox:OllamaUrl"]</dd>
+    </dl>
+</RadzenCard>
+
+@code {
+    [Inject]
+    private IConfiguration Configuration { get; set; } = default!;
+}

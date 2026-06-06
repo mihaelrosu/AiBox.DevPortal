@@ -1,0 +1,78 @@
+@page "/comfyui/sdxl/upscale"
+@rendermode InteractiveServer
+
+<PageTitle>SDXL Upscale</PageTitle>
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+    <RadzenText Text="SDXL Upscale" TextStyle="TextStyle.H4" />
+    <RadzenText Text="Template: 04_sdxl_upscale.json" TextStyle="TextStyle.Body2" />
+    <RadzenButton Text="Generate" Icon="image" ButtonStyle="ButtonStyle.Primary" Click="@GenerateAsync" Disabled="@(isGenerating || image is null)" />
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Upscale Settings" TextStyle="TextStyle.H6" />
+            <RadzenFormField Text="Upload/source image">
+                <InputFile OnChange="@SelectImage" style="margin: 1rem;" />
+            </RadzenFormField>
+            <RadzenFormField Text="Upscaler"><RadzenDropDown @bind-Value="upscaler" Data="@upscalers" Placeholder="Select upscaler" /></RadzenFormField>
+            <RadzenFormField Text="Scale"><RadzenNumeric @bind-Value="scale" Min="1" Max="4" Step="1" /></RadzenFormField>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Result" TextStyle="TextStyle.H6" />
+            @if (isGenerating)
+            {
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.75rem" Style="min-height: 22rem;">
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Medium" />
+                    <RadzenText Text="Generating image..." TextStyle="TextStyle.Body2" />
+                </RadzenStack>
+            }
+            else if (result is not null)
+            {
+                <RadzenImage Path="@result.ImageUrl" AlternateText="Generated result" Style="width: 100%; max-height: 72vh; object-fit: contain;" />
+            }
+            else
+            {
+                <RadzenText Text="Generated image preview will appear here." TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    [Inject] private IComfyUiService ComfyUiService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    private IReadOnlyList<string> upscalers = [];
+    private string? upscaler;
+    private IBrowserFile? image;
+    private int scale = 2;
+    private bool isGenerating;
+    private ComfyUiGenerationResult? result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        upscalers = await ComfyUiService.GetUpscalersAsync();
+        upscaler = upscalers.FirstOrDefault();
+    }
+
+    private void SelectImage(InputFileChangeEventArgs args) => image = args.File;
+
+    private async Task GenerateAsync()
+    {
+        if (image is null) return;
+        isGenerating = true;
+        try
+        {
+            await using var stream = image.OpenReadStream(100 * 1024 * 1024);
+            var imageName = await ComfyUiService.SaveInputImageAsync(image.Name, stream);
+            var workflow = ComfyUiWorkflowActions.Parse(await ComfyUiService.GetWorkflowAsync("04_sdxl_upscale.json"));
+            ComfyUiWorkflowActions.ApplyLoadImage(workflow, imageName);
+            if (!string.IsNullOrWhiteSpace(upscaler)) ComfyUiWorkflowActions.ApplyUpscaler(workflow, upscaler, scale);
+            result = await ComfyUiService.QueuePromptAndWaitForImageAsync(ComfyUiWorkflowActions.Serialize(workflow), 0);
+        }
+        catch (Exception exception) { NotificationService.Notify(NotificationSeverity.Error, "Generation failed", exception.Message); }
+        finally { isGenerating = false; }
+    }
+}

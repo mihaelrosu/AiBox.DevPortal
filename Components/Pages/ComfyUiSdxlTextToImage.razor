@@ -1,0 +1,90 @@
+@page "/comfyui/sdxl/text-to-image"
+@rendermode InteractiveServer
+
+<PageTitle>SDXL Text to Image</PageTitle>
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+    <RadzenText Text="SDXL Text to Image" TextStyle="TextStyle.H4" />
+    <RadzenText Text="Template: 01_sdxl_text2image.json" TextStyle="TextStyle.Body2" />
+    <RadzenButton Text="Generate" Icon="image" ButtonStyle="ButtonStyle.Primary" Click="@GenerateAsync" Disabled="@isGenerating" />
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Generation Settings" TextStyle="TextStyle.H6" />
+            <RadzenFormField Text="Positive prompt"><RadzenTextArea @bind-Value="positivePrompt" Rows="5" /></RadzenFormField>
+            <RadzenFormField Text="Negative prompt"><RadzenTextArea @bind-Value="negativePrompt" Rows="5" /></RadzenFormField>
+            <RadzenFormField Text="Width"><RadzenNumeric @bind-Value="width" Min="64" Max="2048" Step="64" /></RadzenFormField>
+            <RadzenFormField Text="Height"><RadzenNumeric @bind-Value="height" Min="64" Max="2048" Step="64" /></RadzenFormField>
+            <RadzenFormField Text="Steps"><RadzenNumeric @bind-Value="steps" Min="1" Max="150" /></RadzenFormField>
+            <RadzenFormField Text="CFG"><RadzenNumeric @bind-Value="cfg" Min="1" Max="30" Step="0.5" /></RadzenFormField>
+            <RadzenFormField Text="Sampler"><RadzenDropDown @bind-Value="sampler" Data="@samplers" /></RadzenFormField>
+            <RadzenFormField Text="Scheduler"><RadzenDropDown @bind-Value="scheduler" Data="@schedulers" /></RadzenFormField>
+            <RadzenFormField Text="Seed (-1 = random)"><RadzenNumeric @bind-Value="seed" /></RadzenFormField>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1rem">
+            <RadzenText Text="Result" TextStyle="TextStyle.H6" />
+            @if (isGenerating)
+            {
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.75rem" Style="min-height: 22rem;">
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Medium" />
+                    <RadzenText Text="Generating image..." TextStyle="TextStyle.Body2" />
+                </RadzenStack>
+            }
+            else if (result is not null)
+            {
+                <RadzenImage Path="@result.ImageUrl" AlternateText="Generated result" Style="width: 100%; max-height: 72vh; object-fit: contain;" />
+                <RadzenText Text="@($"Used seed: {result.Seed}")" TextStyle="TextStyle.Body2" />
+            }
+            else
+            {
+                <RadzenText Text="Generated image preview will appear here." TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    [Inject] private IComfyUiService ComfyUiService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
+    private readonly string[] samplers = ["euler", "dpmpp_2m", "dpmpp_2m_sde", "dpmpp_3m_sde"];
+    private readonly string[] schedulers = ["normal", "karras", "exponential", "simple"];
+    private string positivePrompt = "high quality SDXL image, detailed, natural light";
+    private string negativePrompt = "low quality, blurry, distorted, watermark, text";
+    private int width = 1024;
+    private int height = 1024;
+    private int steps = 30;
+    private double cfg = 7;
+    private string sampler = "dpmpp_2m";
+    private string scheduler = "karras";
+    private long seed = -1;
+    private ComfyUiGenerationResult? result;
+    private bool isGenerating;
+
+    private async Task GenerateAsync()
+    {
+        isGenerating = true;
+
+        try
+        {
+            var usedSeed = ComfyUiWorkflowActions.ResolveSeed(seed);
+            var workflow = ComfyUiWorkflowActions.Parse(await ComfyUiService.GetWorkflowAsync("01_sdxl_text2image.json"));
+            ComfyUiWorkflowActions.ApplyPrompts(workflow, positivePrompt, negativePrompt);
+            ComfyUiWorkflowActions.ApplyLatentSize(workflow, width, height);
+            ComfyUiWorkflowActions.ApplySampler(workflow, usedSeed, steps, cfg, sampler, scheduler);
+            result = await ComfyUiService.QueuePromptAndWaitForImageAsync(ComfyUiWorkflowActions.Serialize(workflow), usedSeed);
+            NotificationService.Notify(NotificationSeverity.Success, "Image generated", result.PromptId);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Generation failed", exception.Message);
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+}

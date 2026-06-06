@@ -1,0 +1,31 @@
+services:
+  aibox-devportal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aibox-devportal
+    ports:
+      - "14000:14000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./Data:/app/Data
+      - /home/mihael/comfyui/workflows:/app/comfyui/user/default/workflows
+      - /home/mihael/comfyui/output:/app/comfyui/output
+      - /home/mihael/comfyui/input:/app/comfyui/input
+      - /home/mihael/comfyui/models/checkpoints:/app/comfyui/models/checkpoints
+      - /home/mihael/comfyui/models/loras:/app/comfyui/models/loras
+      - /home/mihael/comfyui/models/upscale_models:/app/comfyui/models/upscale_models
+      - /home/mihael/comfyui/models/controlnet:/app/comfyui/models/controlnet
+      - /home/mihael/comfyui/models/unet:/app/comfyui/models/unet
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:14000
+      AiBox__Environment: Development
+      AiBox__ComfyUrl: http://ai-box.local:8188
+      AiBox__ComfyUI__BaseUrl: http://ai-box.local:8188
+      AiBox__ComfyUI__WorkflowFolder: /app/comfyui/user/default/workflows
+      AiBox__ComfyUI__OutputFolder: /app/comfyui/output
+      AiBox__ComfyUI__InputFolder: /app/comfyui/input
+      AiBox__OllamaUrl: http://ai-box.local:11434
+      AiBox__PromptEnhancerModel: gemma4:e2b
+    restart: unless-stopped
