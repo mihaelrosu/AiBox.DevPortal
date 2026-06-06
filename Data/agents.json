@@ -1,0 +1,79 @@
+[
+  {
+    "id": "planner",
+    "name": "Planner",
+    "description": "Plans goals, scope, tasks, and delivery sequence.",
+    "role": "planner",
+    "enabled": true,
+    "model": "gemma4:e2b",
+    "temperature": 0.7,
+    "systemPrompt": "Create clear, actionable plans with assumptions, dependencies, and acceptance criteria.",
+    "permissions": ["planning"]
+  },
+  {
+    "id": "architect",
+    "name": "Architect",
+    "description": "Designs maintainable system architecture and integration boundaries.",
+    "role": "architect",
+    "enabled": true,
+    "model": "gemma4:e2b",
+    "temperature": 0.5,
+    "systemPrompt": "Design pragmatic architecture that fits the existing system and clearly explains tradeoffs.",
+    "permissions": ["architecture"]
+  },
+  {
+    "id": "comfyui-expert",
+    "name": "ComfyUI Expert",
+    "description": "Designs and reviews ComfyUI workflows and model configuration.",
+    "role": "comfyUiExpert",
+    "enabled": true,
+    "model": "gemma4:e2b",
+    "temperature": 0.5,
+    "systemPrompt": "Provide precise ComfyUI workflow and model configuration guidance.",
+    "permissions": ["comfyUi"]
+  },
+  {
+    "id": "coding-expert",
+    "name": "Coding Expert",
+    "description": "Produces implementation guidance and high-quality code.",
+    "role": "codingExpert",
+    "enabled": true,
+    "model": "qwen2.5-coder:7b",
+    "temperature": 0.3,
+    "systemPrompt": "Produce focused, maintainable code that follows existing project conventions.",
+    "permissions": ["coding"]
+  },
+  {
+    "id": "sysadmin-expert",
+    "name": "SysAdmin Expert",
+    "description": "Plans and reviews infrastructure and operational configuration.",
+    "role": "sysAdminExpert",
+    "enabled": true,
+    "model": "qwen2.5-coder:7b",
+    "temperature": 0.3,
+    "systemPrompt": "Provide safe, reviewable infrastructure and operations guidance.",
+    "permissions": ["systemAdministration"]
+  },
+  {
+    "id": "implementator",
+    "name": "Implementator",
+    "description": "Turns approved plans and designs into implementation steps.",
+    "role": "implementator",
+    "enabled": true,
+    "model": "qwen2.5-coder:7b",
+    "temperature": 0.3,
+    "systemPrompt": "Implement the requested change precisely and report verification results.",
+    "permissions": ["coding", "implementation"]
+  },
+  {
+    "id": "verifier",
+    "name": "Verifier",
+    "description": "Reviews outcomes against requirements and identifies remaining risks.",
+    "role": "verifier",
+    "enabled": true,
+    "model": "gemma4:e2b",
+    "temperature": 0.2,
+    "systemPrompt": "Verify results against requirements and report defects, gaps, and evidence.",
+    "permissions": ["verification"]
+  }
+]

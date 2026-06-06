@@ -1,0 +1,204 @@
+@page "/workflows/history"
+@rendermode InteractiveServer
+
+<PageTitle>Workflow Execution History</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Workflow Execution History</h1>
+        <p>Saved planned workflow runs. No agents, commands, or files were executed.</p>
+    </div>
+    <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Primary" Click="@LoadAsync" Disabled="@isBusy" />
+</div>
+
+<RadzenCard>
+    <RadzenDataGrid Data="@runs" TValue="WorkflowRunRecord" AllowPaging="true" AllowSorting="true" PageSize="10"
+                    RowSelect="@((WorkflowRunRecord run) => SelectRun(run))" EmptyText="No planned workflow runs saved.">
+        <Columns>
+            <RadzenDataGridColumn TValue="WorkflowRunRecord" Property="Created" Title="Created">
+                <Template Context="run">
+                    @run.Created.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TValue="WorkflowRunRecord" Property="WorkflowName" Title="Workflow" />
+            <RadzenDataGridColumn TValue="WorkflowRunRecord" Property="ProjectName" Title="Project">
+                <Template Context="run">
+                    @(string.IsNullOrWhiteSpace(run.ProjectName) ? "Not specified" : run.ProjectName)
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TValue="WorkflowRunRecord" Title="Status">
+                <Template Context="run">
+                    <RadzenBadge Text="@run.Status.ToString()" BadgeStyle="@StatusBadgeStyle(run.Status)" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TValue="WorkflowRunRecord" Title="Steps">
+                <Template Context="run">@run.Steps.Count</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TValue="WorkflowRunRecord" Title="Actions" Sortable="false" Filterable="false">
+                <Template Context="run">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                        <RadzenButton Text="View" Icon="visibility" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                      Click="@(() => SelectRun(run))" Disabled="@isBusy" />
+                        <RadzenButton Text="Delete" Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger"
+                                      Click="@(() => DeleteAsync(run))" Disabled="@isBusy" />
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@if (selectedRun is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenText Text="@selectedRun.WorkflowName" TextStyle="TextStyle.H5" />
+                <RadzenBadge Text="@selectedRun.Status.ToString()" BadgeStyle="@StatusBadgeStyle(selectedRun.Status)" />
+            </RadzenStack>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenText Text="Created" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@selectedRun.Created.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")" TextStyle="TextStyle.Body1" />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenText Text="Project" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@(string.IsNullOrWhiteSpace(selectedRun.ProjectName) ? "Not specified" : selectedRun.ProjectName)" TextStyle="TextStyle.Body1" />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenText Text="Run ID" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@selectedRun.Id" TextStyle="TextStyle.Body1" />
+                </RadzenColumn>
+            </RadzenRow>
+
+            <div>
+                <RadzenText Text="Goal" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@selectedRun.GoalText" TextStyle="TextStyle.Body1" />
+            </div>
+        </RadzenStack>
+    </RadzenCard>
+
+    @foreach (var step in selectedRun.Steps.OrderBy(step => step.Order))
+    {
+        <RadzenCard>
+            <RadzenStack Gap="1rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenBadge Text="@step.Order.ToString()" BadgeStyle="BadgeStyle.Primary" />
+                        <RadzenText Text="@step.StepName" TextStyle="TextStyle.H6" />
+                    </RadzenStack>
+                    <RadzenBadge Text="@step.Status.ToString()" BadgeStyle="BadgeStyle.Info" />
+                </RadzenStack>
+
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenText Text="Agent" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@step.AgentName" TextStyle="TextStyle.Subtitle1" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenText Text="Model" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@step.Model" TextStyle="TextStyle.Subtitle1" />
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <div>
+                    <RadzenText Text="Instruction" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@step.Instruction" TextStyle="TextStyle.Body1" />
+                </div>
+
+                <div>
+                    <RadzenText Text="Generated Prompt" TextStyle="TextStyle.Caption" />
+                    <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@step.GeneratedTaskPrompt</pre>
+                </div>
+            </RadzenStack>
+        </RadzenCard>
+    }
+}
+
+@code {
+    [Inject] private IWorkflowRunHistoryService HistoryService { get; set; } = default!;
+    [Inject] private DialogService DialogService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private IReadOnlyList<WorkflowRunRecord> runs = [];
+    private WorkflowRunRecord? selectedRun;
+    private bool isBusy;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isBusy = true;
+
+        try
+        {
+            runs = await HistoryService.GetAllAsync();
+
+            if (selectedRun is not null)
+            {
+                selectedRun = runs.FirstOrDefault(run => run.Id == selectedRun.Id);
+            }
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void SelectRun(WorkflowRunRecord run)
+    {
+        NavigationManager.NavigateTo($"workflows/history/{run.Id}");
+    }
+
+    private async Task DeleteAsync(WorkflowRunRecord run)
+    {
+        var confirmed = await DialogService.Confirm(
+            $"Delete planned run for '{run.WorkflowName}'?",
+            "Delete workflow run",
+            new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Cancel" });
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            await HistoryService.DeleteAsync(run.Id);
+
+            if (selectedRun?.Id == run.Id)
+            {
+                selectedRun = null;
+            }
+
+            runs = await HistoryService.GetAllAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Delete failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private static BadgeStyle StatusBadgeStyle(WorkflowRunStatus status)
+    {
+        return status switch
+        {
+            WorkflowRunStatus.Completed => BadgeStyle.Success,
+            WorkflowRunStatus.Failed => BadgeStyle.Danger,
+            WorkflowRunStatus.Cancelled => BadgeStyle.Warning,
+            WorkflowRunStatus.Running => BadgeStyle.Info,
+            _ => BadgeStyle.Secondary
+        };
+    }
+}

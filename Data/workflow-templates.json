@@ -1,0 +1,64 @@
+[
+  {
+    "id": "portal-feature",
+    "name": "Portal Feature",
+    "description": "Plans, designs, implements, and verifies an AI-Box Portal feature.",
+    "category": "portalFeature",
+    "enabled": true,
+    "steps": [
+      { "id": "portal-feature-1", "order": 1, "name": "Planner", "agentId": "planner", "instruction": "Complete the Planner step for the portal feature request.", "enabled": true, "includePreviousResults": false, "previousResultMode": "none" },
+      { "id": "portal-feature-2", "order": 2, "name": "Architect", "agentId": "architect", "instruction": "Complete the Architect step for the portal feature request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "lastCompletedStep" },
+      { "id": "portal-feature-3", "order": 3, "name": "Coding Expert", "agentId": "coding-expert", "instruction": "Complete the Coding Expert step for the portal feature request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "allPreviousSteps" },
+      { "id": "portal-feature-4", "order": 4, "name": "Implementator", "agentId": "implementator", "instruction": "Complete the Implementator step for the portal feature request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "allPreviousSteps" },
+      { "id": "portal-feature-5", "order": 5, "name": "Verifier", "agentId": "verifier", "instruction": "Complete the Verifier step for the portal feature request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "allPreviousSteps" }
+    ]
+  },
+  {
+    "id": "comfyui-workflow",
+    "name": "ComfyUI Workflow",
+    "description": "Plans, designs, implements, and verifies a ComfyUI workflow.",
+    "category": "comfyUIWorkflow",
+    "enabled": true,
+    "steps": [
+      { "id": "comfyui-workflow-1", "order": 1, "name": "Planner", "agentId": "planner", "instruction": "Complete the Planner step for the ComfyUI workflow request.", "enabled": true, "includePreviousResults": false, "previousResultMode": "none" },
+      { "id": "comfyui-workflow-2", "order": 2, "name": "ComfyUI Expert", "agentId": "comfyui-expert", "instruction": "Complete the ComfyUI Expert step for the ComfyUI workflow request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "lastCompletedStep" },
+      { "id": "comfyui-workflow-3", "order": 3, "name": "Coding Expert", "agentId": "coding-expert", "instruction": "Complete the Coding Expert step for the ComfyUI workflow request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "allPreviousSteps" },
+      { "id": "comfyui-workflow-4", "order": 4, "name": "Verifier", "agentId": "verifier", "instruction": "Complete the Verifier step for the ComfyUI workflow request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "allPreviousSteps" }
+    ]
+  },
+  {
+    "id": "sysadmin-task",
+    "name": "SysAdmin Task",
+    "description": "Plans, implements, and verifies a system administration task.",
+    "category": "sysAdminTask",
+    "enabled": true,
+    "steps": [
+      { "id": "sysadmin-task-1", "order": 1, "name": "Planner", "agentId": "planner", "instruction": "Complete the Planner step for the sysadmin task request.", "enabled": true, "includePreviousResults": false, "previousResultMode": "none" },
+      { "id": "sysadmin-task-2", "order": 2, "name": "SysAdmin Expert", "agentId": "sysadmin-expert", "instruction": "Complete the SysAdmin Expert step for the sysadmin task request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "lastCompletedStep" },
+      { "id": "sysadmin-task-3", "order": 3, "name": "Implementator", "agentId": "implementator", "instruction": "Complete the Implementator step for the sysadmin task request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "allPreviousSteps" },
+      { "id": "sysadmin-task-4", "order": 4, "name": "Verifier", "agentId": "verifier", "instruction": "Complete the Verifier step for the sysadmin task request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "allPreviousSteps" }
+    ]
+  },
+  {
+    "id": "coding-fix",
+    "name": "Coding Fix",
+    "description": "Implements and verifies a focused coding fix.",
+    "category": "codingTask",
+    "enabled": true,
+    "steps": [
+      { "id": "coding-fix-1", "order": 1, "name": "Coding Expert", "agentId": "coding-expert", "instruction": "Complete the Coding Expert step for the coding fix request.", "enabled": true, "includePreviousResults": false, "previousResultMode": "none" },
+      { "id": "coding-fix-2", "order": 2, "name": "Verifier", "agentId": "verifier", "instruction": "Complete the Verifier step for the coding fix request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "lastCompletedStep" }
+    ]
+  },
+  {
+    "id": "image-prompt-improvement",
+    "name": "Image Prompt Improvement",
+    "description": "Improves and verifies an image generation prompt.",
+    "category": "imagePromptTask",
+    "enabled": true,
+    "steps": [
+      { "id": "image-prompt-improvement-1", "order": 1, "name": "ComfyUI Expert", "agentId": "comfyui-expert", "instruction": "Complete the ComfyUI Expert step for the image prompt improvement request.", "enabled": true, "includePreviousResults": false, "previousResultMode": "none" },
+      { "id": "image-prompt-improvement-2", "order": 2, "name": "Verifier", "agentId": "verifier", "instruction": "Complete the Verifier step for the image prompt improvement request.", "enabled": true, "includePreviousResults": true, "previousResultMode": "lastCompletedStep" }
+    ]
+  }
+]

@@ -1,0 +1,188 @@
+@page "/workflows/preview"
+@rendermode InteractiveServer
+
+<PageTitle>Workflow Run Preview</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Workflow Run Preview</h1>
+        <p>Preview ordered agent prompts without executing agents, commands, or file changes.</p>
+    </div>
+</div>
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenFormField Text="Workflow" Style="width: 100%;">
+            <RadzenDropDown TValue="string"
+                            Data="@workflows"
+                            TextProperty="Name"
+                            ValueProperty="Id"
+                            @bind-Value="@request.WorkflowId"
+                            AllowClear="true"
+                            Placeholder="Select a workflow"
+                            Style="width: 100%;" />
+        </RadzenFormField>
+
+        <RadzenFormField Text="Project name (optional)" Style="width: 100%;">
+            <RadzenTextBox @bind-Value="@request.ProjectName" Style="width: 100%;" />
+        </RadzenFormField>
+
+        <RadzenFormField Text="Goal" Style="width: 100%;">
+            <RadzenTextArea @bind-Value="@request.GoalText" Rows="5" Style="width: 100%;" />
+        </RadzenFormField>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem">
+            <RadzenButton Text="Preview" Icon="preview" ButtonStyle="ButtonStyle.Primary"
+                          Click="@PreviewAsync"
+                          Disabled="@(isLoading || string.IsNullOrWhiteSpace(request.WorkflowId) || string.IsNullOrWhiteSpace(request.GoalText))" />
+            <RadzenButton Text="Save Planned Run" Icon="save" ButtonStyle="ButtonStyle.Success"
+                          Click="@SavePlannedRunAsync"
+                          Disabled="@(isLoading || preview is null)" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+@if (preview is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="@preview.WorkflowName" TextStyle="TextStyle.H5" />
+            @if (!string.IsNullOrWhiteSpace(preview.ProjectName))
+            {
+                <RadzenText Text="@($"Project: {preview.ProjectName}")" TextStyle="TextStyle.Body2" />
+            }
+            <RadzenText Text="@($"Goal: {preview.GoalText}")" TextStyle="TextStyle.Body2" />
+            <RadzenText Text="@($"{preview.Steps.Count(step => step.Enabled)} enabled steps")" TextStyle="TextStyle.Caption" />
+        </RadzenStack>
+    </RadzenCard>
+
+    @if (preview.Steps.Count == 0)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+            This workflow has no enabled steps to preview.
+        </RadzenAlert>
+    }
+
+    @foreach (var step in preview.Steps.OrderBy(step => step.Order))
+    {
+        <RadzenCard>
+            <RadzenStack Gap="1rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenBadge Text="@step.Order.ToString()" BadgeStyle="BadgeStyle.Primary" />
+                        <RadzenText Text="@step.StepName" TextStyle="TextStyle.H6" />
+                        @if (!step.Enabled)
+                        {
+                            <RadzenBadge Text="Disabled" BadgeStyle="BadgeStyle.Secondary" />
+                        }
+                    </RadzenStack>
+                    <RadzenButton Text="Copy prompt" Icon="content_copy" ButtonStyle="ButtonStyle.Light"
+                                  Click="@(() => CopyPromptAsync(step))" />
+                </RadzenStack>
+
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenText Text="Agent" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@step.AgentName" TextStyle="TextStyle.Subtitle1" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenText Text="Model" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@step.Model" TextStyle="TextStyle.Subtitle1" />
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <div>
+                    <RadzenText Text="Step Instruction" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@step.Instruction" TextStyle="TextStyle.Body1" />
+                </div>
+
+                <div>
+                    <RadzenText Text="Generated Prompt" TextStyle="TextStyle.Caption" />
+                    <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@step.GeneratedTaskPrompt</pre>
+                </div>
+            </RadzenStack>
+        </RadzenCard>
+    }
+}
+
+@code {
+    [Inject] private IWorkflowRegistryService WorkflowRegistry { get; set; } = default!;
+    [Inject] private IWorkflowRunPreviewService PreviewService { get; set; } = default!;
+    [Inject] private IWorkflowRunHistoryService HistoryService { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
+    private IReadOnlyList<WorkflowDefinition> workflows = [];
+    private WorkflowRunPreviewRequest request = new();
+    private WorkflowRunPreviewResult? preview;
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        workflows = await WorkflowRegistry.GetAllAsync();
+        request.WorkflowId = workflows.FirstOrDefault(workflow => workflow.Enabled)?.Id
+            ?? workflows.FirstOrDefault()?.Id
+            ?? string.Empty;
+    }
+
+    private async Task PreviewAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            preview = await PreviewService.PreviewAsync(request);
+
+            if (preview is null)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Preview failed", "The selected workflow no longer exists.");
+            }
+        }
+        catch (Exception exception)
+        {
+            preview = null;
+            NotificationService.Notify(NotificationSeverity.Error, "Preview failed", exception.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CopyPromptAsync(WorkflowRunStepPreview step)
+    {
+        await JSRuntime.InvokeVoidAsync("aiBoxCopyToClipboard", step.GeneratedTaskPrompt);
+        NotificationService.Notify(NotificationSeverity.Success, "Prompt copied", step.StepName);
+    }
+
+    private async Task SavePlannedRunAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            var run = await HistoryService.CreateAsync(new WorkflowRunPreviewRequest
+            {
+                WorkflowId = preview!.WorkflowId,
+                GoalText = preview.GoalText,
+                ProjectName = preview.ProjectName
+            });
+
+            if (run is null)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Save failed", "The selected workflow no longer exists.");
+                return;
+            }
+
+            NotificationService.Notify(NotificationSeverity.Success, "Planned run saved", run.WorkflowName);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Save failed", exception.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

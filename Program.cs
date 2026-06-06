@@ -1,5 +1,8 @@
+using AiBox.DevPortal.Api;
 using AiBox.DevPortal.Components;
 using AiBox.DevPortal.Services;
+using AiBox.DevPortal.Services.Agents;
+using Microsoft.AspNetCore.Http.Features;
 using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,9 +11,24 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 100 * 1024 * 1024;
+});
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;
+});
+
 builder.Services.AddRadzenComponents();
+builder.Services.AddScoped<IAgentRegistryService, AgentRegistryService>();
+builder.Services.AddScoped<IWorkflowRegistryService, WorkflowRegistryService>();
+builder.Services.AddScoped<IWorkflowTemplateService, WorkflowTemplateService>();
+builder.Services.AddScoped<IWorkflowRunPreviewService, WorkflowRunPreviewService>();
+builder.Services.AddScoped<IWorkflowRunHistoryService, WorkflowRunHistoryService>();
 builder.Services.AddScoped<IDockerService, DockerService>();
 builder.Services.AddScoped<IGeneratedImageHistoryService, GeneratedImageHistoryService>();
+builder.Services.AddScoped<IImageToolService, ImageToolService>();
 builder.Services.AddHttpClient<IToolStatusService, ToolStatusService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(2);
@@ -29,6 +47,11 @@ builder.Services.AddHttpClient<IOllamaService, OllamaService>((serviceProvider, 
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
     client.BaseAddress = new Uri(configuration["AiBox:OllamaUrl"] ?? "http://localhost:11434");
+});
+builder.Services.AddHttpClient<ILocalLlmService, OllamaLocalLlmService>((serviceProvider, client) =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    client.BaseAddress = new Uri(configuration["Ollama:BaseUrl"] ?? configuration["AiBox:OllamaUrl"] ?? "http://localhost:11434");
 });
 builder.Services.AddHttpClient<IPromptEnhancerService, PromptEnhancerService>((serviceProvider, client) =>
 {
@@ -52,6 +75,11 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapAgentEndpoints();
+app.MapWorkflowEndpoints();
+app.MapWorkflowTemplateEndpoints();
+app.MapWorkflowRunEndpoints();
+app.MapImageToolEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

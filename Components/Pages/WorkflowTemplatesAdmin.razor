@@ -1,0 +1,156 @@
+@page "/admin/workflow-templates"
+@rendermode InteractiveServer
+
+<PageTitle>Workflow Templates</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Workflow Templates</h1>
+        <p>Create reusable AI-Box Portal workflows from the default templates.</p>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenCard>
+        <RadzenDataGrid Data="@templates" TValue="WorkflowTemplateDefinition" AllowPaging="true" PageSize="10"
+                        EmptyText="No workflow templates configured.">
+            <Columns>
+                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Property="Name" Title="Name" />
+                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Property="Category" Title="Category" />
+                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Title="Steps">
+                    <Template Context="template">
+                        @template.Steps.Count
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Title="Status">
+                    <Template Context="template">
+                        <RadzenBadge Text="@(template.Enabled ? "Enabled" : "Disabled")"
+                                     BadgeStyle="@(template.Enabled ? BadgeStyle.Success : BadgeStyle.Secondary)" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Title="Actions" Sortable="false" Filterable="false">
+                    <Template Context="template">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                            <RadzenButton Text="View" Icon="visibility" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                          Click="@(() => SelectTemplate(template))" />
+                            <RadzenButton Text="Create workflow" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary"
+                                          Click="@(() => CreateWorkflowAsync(template))"
+                                          Disabled="@(!template.Enabled || isCreating)" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+}
+
+@if (selectedTemplate is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <div>
+                    <RadzenText Text="@selectedTemplate.Name" TextStyle="TextStyle.H5" />
+                    <RadzenText Text="@selectedTemplate.Description" TextStyle="TextStyle.Body1" />
+                </div>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenBadge Text="@selectedTemplate.Category.ToString()" BadgeStyle="BadgeStyle.Info" />
+                    <RadzenButton Text="Create workflow" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@(() => CreateWorkflowAsync(selectedTemplate))"
+                                  Disabled="@(!selectedTemplate.Enabled || isCreating)" />
+                </RadzenStack>
+            </RadzenStack>
+
+            <RadzenDataGrid Data="@selectedTemplate.Steps.OrderBy(step => step.Order)" TValue="WorkflowStepDefinition"
+                            AllowPaging="false" EmptyText="This template has no steps.">
+                <Columns>
+                    <RadzenDataGridColumn TValue="WorkflowStepDefinition" Property="Order" Title="#" Width="5rem" />
+                    <RadzenDataGridColumn TValue="WorkflowStepDefinition" Property="Name" Title="Step" />
+                    <RadzenDataGridColumn TValue="WorkflowStepDefinition" Title="Agent">
+                        <Template Context="step">
+                            @AgentName(step.AgentId)
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TValue="WorkflowStepDefinition" Property="PreviousResultMode" Title="Previous Results" />
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Inject] private IWorkflowTemplateService TemplateService { get; set; } = default!;
+    [Inject] private IAgentRegistryService AgentRegistry { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private IReadOnlyList<WorkflowTemplateDefinition> templates = [];
+    private IReadOnlyDictionary<string, AgentDefinition> agentsById =
+        new Dictionary<string, AgentDefinition>(StringComparer.OrdinalIgnoreCase);
+    private WorkflowTemplateDefinition? selectedTemplate;
+    private bool isLoading;
+    private bool isCreating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            var agents = await AgentRegistry.GetAllAsync();
+            agentsById = agents.ToDictionary(agent => agent.Id, StringComparer.OrdinalIgnoreCase);
+            templates = await TemplateService.GetAllAsync();
+            selectedTemplate = templates.FirstOrDefault();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Load failed", exception.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SelectTemplate(WorkflowTemplateDefinition template)
+    {
+        selectedTemplate = template;
+    }
+
+    private async Task CreateWorkflowAsync(WorkflowTemplateDefinition template)
+    {
+        isCreating = true;
+
+        try
+        {
+            var workflow = await TemplateService.CreateWorkflowAsync(template.Id);
+
+            if (workflow is null)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Create failed", "The selected template no longer exists.");
+                return;
+            }
+
+            NotificationService.Notify(NotificationSeverity.Success, "Workflow created", workflow.Name);
+            NavigationManager.NavigateTo("admin/workflows");
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Create failed", exception.Message);
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+
+    private string AgentName(string agentId)
+    {
+        return agentsById.TryGetValue(agentId, out var agent) ? agent.Name : "Agent not found";
+    }
+}

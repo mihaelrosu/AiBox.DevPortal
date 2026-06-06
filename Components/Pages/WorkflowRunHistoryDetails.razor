@@ -1,0 +1,347 @@
+@page "/workflows/history/{RunId}"
+@rendermode InteractiveServer
+
+<PageTitle>Workflow Run Details</PageTitle>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+}
+else if (run is null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Workflow run not found" TextStyle="TextStyle.H5" />
+            <RadzenButton Text="Back to History" Icon="arrow_back" ButtonStyle="ButtonStyle.Primary" Click="@BackToHistory" />
+        </RadzenStack>
+    </RadzenCard>
+}
+else
+{
+    <div class="page-header">
+        <div>
+            <h1>@run.WorkflowName</h1>
+            <p>@run.Created.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</p>
+        </div>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+            <RadzenButton Text="Run All with Local LLM" Icon="play_circle" ButtonStyle="ButtonStyle.Primary"
+                          Click="@ExecuteAllWithLocalLlmAsync"
+                          Disabled="@(isBusy || isExecutingAll || executingStepId is not null)" />
+            @if (isExecutingAll)
+            {
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+            }
+            <RadzenButton Text="Back to History" Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Click="@BackToHistory" Disabled="@isExecutingAll" />
+        </RadzenStack>
+    </div>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenText Text="@($"{CompletedSteps} / {TotalSteps} steps completed")" TextStyle="TextStyle.H6" />
+                <RadzenBadge Text="@run.Status.ToString()" BadgeStyle="@RunStatusBadgeStyle(run.Status)" />
+            </RadzenStack>
+            <RadzenProgressBar Value="@ProgressPercent" ShowValue="false" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenText Text="Project" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@(string.IsNullOrWhiteSpace(run.ProjectName) ? "Not specified" : run.ProjectName)" TextStyle="TextStyle.Body1" />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenText Text="Run ID" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@run.Id" TextStyle="TextStyle.Body1" />
+                </RadzenColumn>
+            </RadzenRow>
+
+            <div>
+                <RadzenText Text="Goal" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@run.GoalText" TextStyle="TextStyle.Body1" />
+            </div>
+        </RadzenStack>
+    </RadzenCard>
+
+    @foreach (var step in run.Steps.OrderBy(step => step.Order))
+    {
+        <RadzenCard>
+            <RadzenStack Gap="1rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenBadge Text="@step.Order.ToString()" BadgeStyle="BadgeStyle.Primary" />
+                        <RadzenText Text="@step.StepName" TextStyle="TextStyle.H6" />
+                        <RadzenBadge Text="@step.Status.ToString()" BadgeStyle="@StepStatusBadgeStyle(step.Status)" />
+                        @if (!step.Enabled)
+                        {
+                            <RadzenBadge Text="Disabled" BadgeStyle="BadgeStyle.Secondary" />
+                        }
+                    </RadzenStack>
+                    <RadzenButton Text="Copy prompt" Icon="content_copy" ButtonStyle="ButtonStyle.Light"
+                                  Click="@(() => CopyPromptAsync(step))" />
+                </RadzenStack>
+
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenText Text="Agent" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@step.AgentName" TextStyle="TextStyle.Subtitle1" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenText Text="Model" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@step.Model" TextStyle="TextStyle.Subtitle1" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenText Text="Timing" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@TimingText(step)" TextStyle="TextStyle.Body2" />
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <div>
+                    <RadzenText Text="Instruction" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@step.Instruction" TextStyle="TextStyle.Body1" />
+                </div>
+
+                <div>
+                    <RadzenText Text="Generated Prompt" TextStyle="TextStyle.Caption" />
+                    <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@step.GeneratedTaskPrompt</pre>
+                </div>
+
+                <RadzenFormField Text="Result" Style="width: 100%;">
+                    <RadzenTextArea @bind-Value="@step.ResultText" Rows="8" Style="width: 100%;" />
+                </RadzenFormField>
+
+                <RadzenFormField Text="Notes" Style="width: 100%;">
+                    <RadzenTextArea @bind-Value="@step.Notes" Rows="4" Style="width: 100%;" />
+                </RadzenFormField>
+
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Run with Local LLM" Icon="psychology" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@(() => ExecuteWithLocalLlmAsync(step))"
+                                  Disabled="@(!step.Enabled || isBusy || isExecutingAll || executingStepId is not null)" />
+                    @if (executingStepId == step.StepId)
+                    {
+                        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                    }
+                    <RadzenButton Text="Save Result & Complete" Icon="save" ButtonStyle="ButtonStyle.Success"
+                                  Click="@(() => SaveResultAsync(step))" Disabled="@(isBusy || isExecutingAll || executingStepId is not null)" />
+                    <RadzenButton Text="Mark Running" Icon="play_arrow" ButtonStyle="ButtonStyle.Info"
+                                  Click="@(() => SetStatusAsync(step, WorkflowRunStepStatus.Running))" Disabled="@(isBusy || isExecutingAll || executingStepId is not null)" />
+                    <RadzenButton Text="Mark Completed" Icon="check_circle" ButtonStyle="ButtonStyle.Success"
+                                  Click="@(() => SetStatusAsync(step, WorkflowRunStepStatus.Completed))" Disabled="@(isBusy || isExecutingAll || executingStepId is not null)" />
+                    <RadzenButton Text="Mark Failed" Icon="error" ButtonStyle="ButtonStyle.Danger"
+                                  Click="@(() => SetStatusAsync(step, WorkflowRunStepStatus.Failed))" Disabled="@(isBusy || isExecutingAll || executingStepId is not null)" />
+                    <RadzenButton Text="Mark Skipped" Icon="skip_next" ButtonStyle="ButtonStyle.Warning"
+                                  Click="@(() => SetStatusAsync(step, WorkflowRunStepStatus.Skipped))" Disabled="@(isBusy || isExecutingAll || executingStepId is not null)" />
+                </RadzenStack>
+
+                @if (executionErrorStepId == step.StepId && !string.IsNullOrWhiteSpace(executionError))
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">
+                        @executionError
+                    </RadzenAlert>
+                }
+            </RadzenStack>
+        </RadzenCard>
+    }
+}
+
+@code {
+    [Parameter] public string RunId { get; set; } = string.Empty;
+
+    [Inject] private IWorkflowRunHistoryService HistoryService { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private WorkflowRunRecord? run;
+    private bool isLoading;
+    private bool isBusy;
+    private bool isExecutingAll;
+    private string? executingStepId;
+    private string? executionErrorStepId;
+    private string? executionError;
+
+    private int CompletedSteps => run?.Steps.Count(step => step.Enabled && step.Status == WorkflowRunStepStatus.Completed) ?? 0;
+    private int TotalSteps => run?.Steps.Count(step => step.Enabled) ?? 0;
+    private double ProgressPercent => TotalSteps > 0 ? CompletedSteps * 100d / TotalSteps : 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            run = await HistoryService.GetByIdAsync(RunId);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SaveResultAsync(WorkflowRunStepRecord step)
+    {
+        isBusy = true;
+
+        try
+        {
+            run = await HistoryService.UpdateStepResultAsync(RunId, step.StepId, new WorkflowRunStepResultUpdateRequest
+            {
+                ResultText = step.ResultText,
+                Notes = step.Notes
+            });
+            NotificationService.Notify(NotificationSeverity.Success, "Step result saved", step.StepName);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Save failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task SetStatusAsync(WorkflowRunStepRecord step, WorkflowRunStepStatus status)
+    {
+        isBusy = true;
+
+        try
+        {
+            run = await HistoryService.UpdateStepStatusAsync(RunId, step.StepId, status);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Status update failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ExecuteWithLocalLlmAsync(WorkflowRunStepRecord step)
+    {
+        executingStepId = step.StepId;
+        executionErrorStepId = null;
+        executionError = null;
+        step.Status = WorkflowRunStepStatus.Running;
+        step.StartedAt ??= DateTimeOffset.UtcNow;
+        step.CompletedAt = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            run = await HistoryService.ExecuteStepWithLocalLlmAsync(RunId, step.StepId);
+
+            if (run is null)
+            {
+                executionErrorStepId = step.StepId;
+                executionError = "The workflow run or selected step no longer exists.";
+                return;
+            }
+
+            NotificationService.Notify(NotificationSeverity.Success, "Local LLM completed", step.StepName);
+        }
+        catch (Exception exception)
+        {
+            executionErrorStepId = step.StepId;
+            executionError = exception.Message;
+            run = await HistoryService.GetByIdAsync(RunId);
+            NotificationService.Notify(NotificationSeverity.Error, "Local LLM failed", exception.Message);
+        }
+        finally
+        {
+            executingStepId = null;
+        }
+    }
+
+    private async Task ExecuteAllWithLocalLlmAsync()
+    {
+        isExecutingAll = true;
+        executionErrorStepId = null;
+        executionError = null;
+
+        try
+        {
+            var executionTask = HistoryService.ExecuteAllWithLocalLlmAsync(RunId);
+
+            while (!executionTask.IsCompleted)
+            {
+                await Task.WhenAny(executionTask, Task.Delay(TimeSpan.FromMilliseconds(500)));
+
+                if (!executionTask.IsCompleted)
+                {
+                    run = await HistoryService.GetByIdAsync(RunId);
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+
+            run = await executionTask;
+
+            if (run is null)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Workflow execution failed", "The workflow run no longer exists.");
+                return;
+            }
+
+            NotificationService.Notify(NotificationSeverity.Success, "Workflow execution completed", run.WorkflowName);
+        }
+        catch (Exception exception)
+        {
+            run = await HistoryService.GetByIdAsync(RunId);
+            NotificationService.Notify(NotificationSeverity.Error, "Workflow execution failed", exception.Message);
+        }
+        finally
+        {
+            isExecutingAll = false;
+        }
+    }
+
+    private async Task CopyPromptAsync(WorkflowRunStepRecord step)
+    {
+        await JSRuntime.InvokeVoidAsync("aiBoxCopyToClipboard", step.GeneratedTaskPrompt);
+        NotificationService.Notify(NotificationSeverity.Success, "Prompt copied", step.StepName);
+    }
+
+    private void BackToHistory()
+    {
+        NavigationManager.NavigateTo("workflows/history");
+    }
+
+    private static string TimingText(WorkflowRunStepRecord step)
+    {
+        if (step.CompletedAt is not null)
+        {
+            return $"Completed {step.CompletedAt.Value.LocalDateTime:yyyy-MM-dd HH:mm:ss}";
+        }
+
+        if (step.StartedAt is not null)
+        {
+            return $"Started {step.StartedAt.Value.LocalDateTime:yyyy-MM-dd HH:mm:ss}";
+        }
+
+        return "Not started";
+    }
+
+    private static BadgeStyle RunStatusBadgeStyle(WorkflowRunStatus status)
+    {
+        return status switch
+        {
+            WorkflowRunStatus.Completed => BadgeStyle.Success,
+            WorkflowRunStatus.Failed => BadgeStyle.Danger,
+            WorkflowRunStatus.Running => BadgeStyle.Info,
+            _ => BadgeStyle.Secondary
+        };
+    }
+
+    private static BadgeStyle StepStatusBadgeStyle(WorkflowRunStepStatus status)
+    {
+        return status switch
+        {
+            WorkflowRunStepStatus.Completed => BadgeStyle.Success,
+            WorkflowRunStepStatus.Failed => BadgeStyle.Danger,
+            WorkflowRunStepStatus.Running => BadgeStyle.Info,
+            WorkflowRunStepStatus.Skipped => BadgeStyle.Warning,
+            _ => BadgeStyle.Secondary
+        };
+    }
+}

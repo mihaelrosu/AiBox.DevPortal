@@ -1,0 +1,71 @@
+[
+  {
+    "id": "4baeeee4876a4d6e92b4cd6f8247b177",
+    "name": "Create Portal Feature",
+    "description": "Plans, designs, implements, and verifies a portal feature.",
+    "enabled": true,
+    "status": "active",
+    "steps": [
+      {
+        "id": "26dc7c598bce48aea75aa75dd8068c36",
+        "order": 1,
+        "name": "Planner",
+        "type": "agent",
+        "agentId": "planner",
+        "instruction": "Complete the Planner step for the requested portal feature.",
+        "enabled": true,
+        "includePreviousResults": false,
+        "previousResultMode": "none",
+        "dependsOnStepIds": []
+      },
+      {
+        "id": "5aab7a6f1a664a9fbb1ce7604d049b85",
+        "order": 2,
+        "name": "Architect",
+        "type": "agent",
+        "agentId": "architect",
+        "instruction": "Complete the Architect step for the requested portal feature.",
+        "enabled": true,
+        "includePreviousResults": true,
+        "previousResultMode": "lastCompletedStep",
+        "dependsOnStepIds": []
+      },
+      {
+        "id": "9064c733e3344215a66d1a8e59fdfc1e",
+        "order": 3,
+        "name": "Coding Expert",
+        "type": "agent",
+        "agentId": "coding-expert",
+        "instruction": "Complete the Coding Expert step for the requested portal feature.",
+        "enabled": true,
+        "includePreviousResults": true,
+        "previousResultMode": "allPreviousSteps",
+        "dependsOnStepIds": []
+      },
+      {
+        "id": "f1e4ac2c3cc14d5e9b2e2d303b8f190e",
+        "order": 4,
+        "name": "Implementator",
+        "type": "agent",
+        "agentId": "implementator",
+        "instruction": "Complete the Implementator step for the requested portal feature.",
+        "enabled": true,
+        "includePreviousResults": true,
+        "previousResultMode": "allPreviousSteps",
+        "dependsOnStepIds": []
+      },
+      {
+        "id": "f9d46b1240564588a1f0e44669f9f954",
+        "order": 5,
+        "name": "Verifier",
+        "type": "agent",
+        "agentId": "verifier",
+        "instruction": "Complete the Verifier step for the requested portal feature.",
+        "enabled": true,
+        "includePreviousResults": true,
+        "previousResultMode": "allPreviousSteps",
+        "dependsOnStepIds": []
+      }
+    ]
+  }
+]

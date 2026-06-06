@@ -1,0 +1,267 @@
+@page "/admin/agents"
+@rendermode InteractiveServer
+
+<PageTitle>Agent Management</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Agent Management</h1>
+        <p>Configure local agent definitions. Agent execution is not enabled.</p>
+    </div>
+    <RadzenButton Text="Add agent" Icon="add" ButtonStyle="ButtonStyle.Primary" Click="@AddAgent" Disabled="@isBusy" />
+</div>
+
+<RadzenCard>
+    <RadzenDataGrid Data="@agents" TValue="AgentDefinition" AllowPaging="true" PageSize="10" EmptyText="No agents registered.">
+        <Columns>
+            <RadzenDataGridColumn TValue="AgentDefinition" Property="Name" Title="Name" />
+            <RadzenDataGridColumn TValue="AgentDefinition" Property="Role" Title="Role" />
+            <RadzenDataGridColumn TValue="AgentDefinition" Property="Model" Title="Model" />
+            <RadzenDataGridColumn TValue="AgentDefinition" Property="Temperature" Title="Temperature" />
+            <RadzenDataGridColumn TValue="AgentDefinition" Title="Status">
+                <Template Context="agent">
+                    <RadzenBadge Text="@(agent.Enabled ? "Enabled" : "Disabled")"
+                                 BadgeStyle="@(agent.Enabled ? BadgeStyle.Success : BadgeStyle.Secondary)" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TValue="AgentDefinition" Title="Permissions">
+                <Template Context="agent">
+                    @string.Join(", ", agent.Permissions)
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TValue="AgentDefinition" Title="Actions" Sortable="false" Filterable="false">
+                <Template Context="agent">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                        <RadzenButton Text="Edit" Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                      Click="@(() => EditAgent(agent))" Disabled="@isBusy" />
+                        <RadzenButton Text="@(agent.Enabled ? "Disable" : "Enable")"
+                                      Icon="@(agent.Enabled ? "toggle_off" : "toggle_on")"
+                                      Size="ButtonSize.Small"
+                                      ButtonStyle="@(agent.Enabled ? ButtonStyle.Warning : ButtonStyle.Success)"
+                                      Click="@(() => ToggleEnabledAsync(agent))"
+                                      Disabled="@isBusy" />
+                        <RadzenButton Text="Delete" Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger"
+                                      Click="@(() => DeleteAsync(agent))" Disabled="@isBusy" />
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@if (editingAgent is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="@(isAdding ? "Add agent" : $"Edit {editingAgent.Name}")" TextStyle="TextStyle.H5" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Name" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingAgent.Name" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Role" Style="width: 100%;">
+                        <RadzenDropDown TValue="AgentRole"
+                                        Data="@agentRoles"
+                                        @bind-Value="@editingAgent.Role"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Model" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingAgent.Model" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenFormField Text="Description" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@editingAgent.Description" Rows="3" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Temperature (0-2)" Style="width: 100%;">
+                        <RadzenNumeric TValue="double" @bind-Value="@editingAgent.Temperature" Min="0" Max="2" Step="0.1" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem" Style="padding-top: 1.5rem;">
+                        <RadzenSwitch @bind-Value="@editingAgent.Enabled" />
+                        <RadzenLabel Text="Enabled" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenFormField Text="System prompt" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@editingAgent.SystemPrompt" Rows="8" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Permissions" Style="width: 100%;">
+                <RadzenDropDown TValue="IEnumerable<AgentPermission>"
+                                Data="@agentPermissions"
+                                @bind-Value="@selectedPermissions"
+                                Multiple="true"
+                                AllowClear="true"
+                                Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem">
+                <RadzenButton Text="Save" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@SaveAsync" Disabled="@isBusy" />
+                <RadzenButton Text="Cancel" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@CancelEdit" Disabled="@isBusy" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Inject] private IAgentRegistryService AgentRegistry { get; set; } = default!;
+    [Inject] private DialogService DialogService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
+    private IReadOnlyList<AgentDefinition> agents = [];
+    private readonly AgentRole[] agentRoles = Enum.GetValues<AgentRole>();
+    private readonly AgentPermission[] agentPermissions = Enum.GetValues<AgentPermission>();
+    private AgentDefinition? editingAgent;
+    private IEnumerable<AgentPermission> selectedPermissions = [];
+    private bool isAdding;
+    private bool isBusy;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        agents = await AgentRegistry.GetAllAsync();
+    }
+
+    private void AddAgent()
+    {
+        editingAgent = new AgentDefinition
+        {
+            Enabled = true,
+            Role = AgentRole.Custom,
+            Temperature = 0.7
+        };
+        selectedPermissions = [];
+        isAdding = true;
+    }
+
+    private void EditAgent(AgentDefinition agent)
+    {
+        editingAgent = new AgentDefinition
+        {
+            Id = agent.Id,
+            Name = agent.Name,
+            Description = agent.Description,
+            Role = agent.Role,
+            Enabled = agent.Enabled,
+            Model = agent.Model,
+            Temperature = agent.Temperature,
+            SystemPrompt = agent.SystemPrompt,
+            Permissions = [.. agent.Permissions]
+        };
+        selectedPermissions = [.. agent.Permissions];
+        isAdding = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editingAgent is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            editingAgent.Permissions = selectedPermissions.Distinct().ToList();
+
+            if (isAdding)
+            {
+                await AgentRegistry.AddAsync(editingAgent);
+            }
+            else
+            {
+                await AgentRegistry.UpdateAsync(editingAgent.Id, editingAgent);
+            }
+
+            NotificationService.Notify(NotificationSeverity.Success, "Agent saved", editingAgent.Name);
+            CancelEdit();
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Save failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ToggleEnabledAsync(AgentDefinition agent)
+    {
+        isBusy = true;
+
+        try
+        {
+            await AgentRegistry.SetEnabledAsync(agent.Id, !agent.Enabled);
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Update failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task DeleteAsync(AgentDefinition agent)
+    {
+        var confirmed = await DialogService.Confirm(
+            $"Delete agent '{agent.Name}'?",
+            "Delete agent",
+            new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Cancel" });
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            await AgentRegistry.DeleteAsync(agent.Id);
+
+            if (editingAgent?.Id == agent.Id)
+            {
+                CancelEdit();
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Delete failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        editingAgent = null;
+        selectedPermissions = [];
+        isAdding = false;
+    }
+}
