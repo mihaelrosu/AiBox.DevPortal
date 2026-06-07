@@ -9,7 +9,10 @@ public sealed class LocalCoderService(
     IOllamaService ollamaService,
     IRepositoryScannerService repositoryScannerService,
     IRepositoryFileContextService repositoryFileContextService,
-    ILocalCoderHistoryService historyService) : ILocalCoderService
+    ILocalCoderHistoryService historyService,
+    ILocalCoderPatchService patchService,
+    ILocalCoderBuildService buildService,
+    ILocalCoderReviewService reviewService) : ILocalCoderService
 {
     public async Task<LocalCoderResult> CreatePlanAsync(LocalCoderTask task)
     {
@@ -50,9 +53,9 @@ public sealed class LocalCoderService(
     public async Task<LocalCoderResult> GeneratePatchAsync(LocalCoderTask task)
     {
         ArgumentNullException.ThrowIfNull(task);
-
-        var result = Placeholder("Placeholder diff only. Patch generation is not connected yet. No files were changed.");
-        task.Status = LocalCoderTaskStatus.PatchGenerated;
+        var record = await GetHistoryRecordAsync(task);
+        var result = await patchService.GeneratePatchAsync(task, record?.PlanText ?? string.Empty);
+        task.Status = result.Success ? LocalCoderTaskStatus.PatchGenerated : LocalCoderTaskStatus.Failed;
         await SaveResultAsync(task, result, LocalCoderHistoryOutput.Diff);
         return result;
     }
@@ -60,9 +63,15 @@ public sealed class LocalCoderService(
     public async Task<LocalCoderResult> RunBuildAsync(LocalCoderTask task)
     {
         ArgumentNullException.ThrowIfNull(task);
-
-        var result = Placeholder("Placeholder build output only. dotnet build was not executed.");
-        task.Status = LocalCoderTaskStatus.BuildSucceeded;
+        var build = await buildService.RunBuildAsync(task);
+        var result = new LocalCoderResult
+        {
+            Success = build.Success,
+            Output = FormatBuildResult(build),
+            ErrorMessage = build.Success ? string.Empty : FormatBuildResult(build),
+            CreatedAt = DateTime.UtcNow
+        };
+        task.Status = build.Success ? LocalCoderTaskStatus.BuildSucceeded : LocalCoderTaskStatus.BuildFailed;
         await SaveResultAsync(task, result, LocalCoderHistoryOutput.Build);
         return result;
     }
@@ -70,9 +79,15 @@ public sealed class LocalCoderService(
     public async Task<LocalCoderResult> ReviewAsync(LocalCoderTask task)
     {
         ArgumentNullException.ThrowIfNull(task);
-
-        var result = Placeholder("Placeholder review only. Reviewer model is not connected yet.");
-        task.Status = LocalCoderTaskStatus.Reviewed;
+        var record = await GetHistoryRecordAsync(task);
+        var patchValidation = patchService.ValidatePatch(task, record?.DiffText ?? string.Empty);
+        var result = await reviewService.ReviewAsync(
+            task,
+            record?.PlanText ?? string.Empty,
+            record?.DiffText ?? string.Empty,
+            patchValidation,
+            record?.BuildOutput ?? string.Empty);
+        task.Status = result.Success ? LocalCoderTaskStatus.Reviewed : LocalCoderTaskStatus.Failed;
         await SaveResultAsync(task, result, LocalCoderHistoryOutput.Review);
         return result;
     }
@@ -80,10 +95,17 @@ public sealed class LocalCoderService(
     public async Task<LocalCoderResult> ApplyPatchAsync(LocalCoderTask task)
     {
         ArgumentNullException.ThrowIfNull(task);
-
-        var result = Placeholder("Placeholder apply only. Patch application is disabled. No files were changed.");
-        task.Status = LocalCoderTaskStatus.ApplyDisabled;
-        await SaveResultAsync(task, result, LocalCoderHistoryOutput.Review);
+        var record = await GetHistoryRecordAsync(task);
+        var validation = patchService.ValidatePatch(task, record?.DiffText ?? string.Empty);
+        var result = validation.IsValid
+            ? Placeholder($"Patch validation succeeded for:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.TouchedPaths)}{Environment.NewLine}{Environment.NewLine}Automatic patch application remains disabled. No files were changed.")
+            : new LocalCoderResult
+            {
+                Success = false,
+                ErrorMessage = $"Patch application remains disabled because validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.Errors)}",
+                CreatedAt = DateTime.UtcNow
+            };
+        await SaveResultAsync(task, result, LocalCoderHistoryOutput.None);
         return result;
     }
 
@@ -114,6 +136,8 @@ public sealed class LocalCoderService(
 
         switch (outputType)
         {
+            case LocalCoderHistoryOutput.None:
+                break;
             case LocalCoderHistoryOutput.Plan:
                 record.PlanText = output;
                 break;
@@ -130,6 +154,30 @@ public sealed class LocalCoderService(
 
         var saved = await historyService.SaveAsync(record);
         task.HistoryId = saved.Id;
+    }
+
+    private async Task<LocalCoderTaskHistoryRecord?> GetHistoryRecordAsync(LocalCoderTask task)
+    {
+        return string.IsNullOrWhiteSpace(task.HistoryId)
+            ? null
+            : await historyService.GetByIdAsync(task.HistoryId);
+    }
+
+    private static string FormatBuildResult(LocalCoderBuildResult build)
+    {
+        return $"""
+            Command: {build.Command}
+            Started: {build.StartedAt:O}
+            Completed: {build.CompletedAt:O}
+            Exit code: {(build.ExitCode?.ToString() ?? "not available")}
+            Success: {build.Success}
+
+            Output:
+            {build.Output}
+
+            Errors:
+            {build.ErrorMessage}
+            """;
     }
 
     private static string BuildPlanningPrompt(
@@ -222,6 +270,7 @@ public sealed class LocalCoderService(
 
     private enum LocalCoderHistoryOutput
     {
+        None,
         Plan,
         Diff,
         Build,

@@ -7,7 +7,7 @@ RUN dotnet restore "AiBox.DevPortal.csproj"
 COPY . .
 RUN dotnet publish "AiBox.DevPortal.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS final
 WORKDIR /app
 
 ENV ASPNETCORE_URLS=http://+:14000

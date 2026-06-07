@@ -192,13 +192,15 @@
         </RadzenRow>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
             <RadzenButton Text="Create Plan" Icon="description" ButtonStyle="ButtonStyle.Primary" Click="@CreatePlanAsync" Disabled="@isBusy" />
-            <RadzenButton Text="Generate Patch" Icon="difference" ButtonStyle="ButtonStyle.Secondary" Click="@GeneratePatchAsync" Disabled="@isBusy" />
+            <RadzenButton Text="Generate Patch" Icon="difference" ButtonStyle="ButtonStyle.Secondary" Click="@GeneratePatchAsync"
+                          Disabled="@(isBusy || task.SelectedFilePaths.Count == 0)" />
             <RadzenButton Text="Run Build" Icon="build" ButtonStyle="ButtonStyle.Info" Click="@RunBuildAsync" Disabled="@isBusy" />
-            <RadzenButton Text="Review Result" Icon="fact_check" ButtonStyle="ButtonStyle.Warning" Click="@ReviewAsync" Disabled="@isBusy" />
-            <RadzenButton Text="Apply Disabled (Placeholder)" Icon="block" ButtonStyle="ButtonStyle.Warning" Click="@ApplyPatchAsync"
-                          Disabled="@(isBusy || string.IsNullOrWhiteSpace(patchOutput))" />
+            <RadzenButton Text="Review Result" Icon="fact_check" ButtonStyle="ButtonStyle.Warning" Click="@ReviewAsync"
+                          Disabled="@(isBusy || !PatchValidation.IsValid)" />
+            <RadzenButton Text="Apply Disabled until real apply is implemented." Icon="block" ButtonStyle="ButtonStyle.Warning" Click="@ApplyPatchAsync"
+                          Disabled="@(isBusy || !CanEnableApplyPatch)" />
         </RadzenStack>
-        <RadzenText Text="Patch application is disabled. The placeholder action records no changes and never marks the task as Applied."
+        <RadzenText Text="@(ApplyDisabledReason)"
                     TextStyle="TextStyle.Body1" Style="color: var(--rz-warning);" />
     </RadzenStack>
 </RadzenCard>
@@ -229,6 +231,7 @@
     [Inject] private ILocalCoderService LocalCoderService { get; set; } = default!;
     [Inject] private ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderMarkdownService LocalCoderMarkdownService { get; set; } = default!;
+    [Inject] private ILocalCoderPatchService LocalCoderPatchService { get; set; } = default!;
     [Inject] private IRepositoryScannerService RepositoryScannerService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
 
@@ -267,6 +270,14 @@
     private string loadedHistoryId = string.Empty;
 
     private string TaskJson => JsonSerializer.Serialize(task, JsonOptions);
+    private LocalCoderPatchValidationResult PatchValidation => LocalCoderPatchService.ValidatePatch(task, patchOutput);
+    private bool HasCompletedBuild => task.Status is LocalCoderTaskStatus.BuildSucceeded or LocalCoderTaskStatus.BuildFailed or LocalCoderTaskStatus.Reviewed;
+    private bool HasDiff => !string.IsNullOrWhiteSpace(patchOutput);
+    private bool HasApproval => task.RequireApprovalBeforeApply;
+    private bool CanEnableApplyPatch => HasDiff && PatchValidation.IsValid && HasApproval && HasCompletedBuild;
+    private string ApplyDisabledReason => CanEnableApplyPatch
+        ? "Apply remains disabled because real patch application is not implemented yet."
+        : BuildApplyDisabledReason();
     private IEnumerable<RepositoryFileSummary> FilteredContextFiles => string.IsNullOrWhiteSpace(fileFilter)
         ? availableContextFiles
         : availableContextFiles.Where(file => file.RelativePath.Contains(fileFilter.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -542,7 +553,7 @@
         output => buildOutput = output,
         LocalCoderTaskStatus.BuildSucceeded,
         LocalCoderTaskStatus.BuildFailed,
-        "Build placeholder completed");
+        "Build completed");
 
     private Task ReviewAsync() => ExecuteAsync(
         () => LocalCoderService.ReviewAsync(task),
@@ -553,16 +564,31 @@
 
     private async Task ApplyPatchAsync()
     {
-        NotificationService.Notify(
-            NotificationSeverity.Warning,
-            "Placeholder apply",
-            "Patch application is currently placeholder only. No files will be changed.");
-        await ExecuteAsync(
-            () => LocalCoderService.ApplyPatchAsync(task),
-            output => reviewOutput = output,
-            LocalCoderTaskStatus.ApplyDisabled,
-            LocalCoderTaskStatus.Failed,
-            "Apply remains disabled");
+        isBusy = true;
+
+        try
+        {
+            if (!CanEnableApplyPatch)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Apply is disabled", ApplyDisabledReason);
+                return;
+            }
+
+            var result = await LocalCoderService.ApplyPatchAsync(task);
+            NotificationService.Notify(
+                result.Success ? NotificationSeverity.Warning : NotificationSeverity.Error,
+                "Automatic apply remains disabled",
+                result.Success ? result.Output : result.ErrorMessage);
+            await LoadHistoryAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Apply validation failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task ExecuteAsync(
@@ -582,7 +608,7 @@
             NotificationService.Notify(
                 result.Success ? NotificationSeverity.Success : NotificationSeverity.Error,
                 result.Success ? successTitle : "Local Coder action failed",
-                result.Success ? "Placeholder service completed without executing commands or modifying files." : result.ErrorMessage);
+                result.Success ? SuccessMessage(successStatus) : result.ErrorMessage);
             await LoadHistoryAsync();
         }
         catch (Exception exception)
@@ -604,6 +630,40 @@
         LocalCoderTaskStatus.PatchGenerated or LocalCoderTaskStatus.Planned => BadgeStyle.Info,
         _ => BadgeStyle.Secondary
     };
+
+    private static string SuccessMessage(LocalCoderTaskStatus status) => status switch
+    {
+        LocalCoderTaskStatus.PatchGenerated => "A validated unified diff was generated. No files were changed.",
+        LocalCoderTaskStatus.BuildSucceeded => "The configured safe build command completed successfully.",
+        LocalCoderTaskStatus.Reviewed => "The local model review completed.",
+        LocalCoderTaskStatus.ApplyDisabled => "Patch validation passed, but automatic apply remains disabled and no files were changed.",
+        _ => "Local Coder action completed."
+    };
+
+    private string BuildApplyDisabledReason()
+    {
+        if (!HasDiff)
+        {
+            return "Apply remains disabled until a generated diff is available.";
+        }
+
+        if (!PatchValidation.IsValid)
+        {
+            return $"Apply remains disabled until the patch validates:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", PatchValidation.Errors)}";
+        }
+
+        if (!HasCompletedBuild)
+        {
+            return "Apply remains disabled until the build is complete. Run Build first, then Review if needed.";
+        }
+
+        if (!HasApproval)
+        {
+            return "Apply remains disabled until approval is checked.";
+        }
+
+        return "Apply remains disabled until real apply is implemented.";
+    }
 
     private static bool IsSafeContextCandidate(string relativePath)
     {
