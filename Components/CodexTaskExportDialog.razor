@@ -1,0 +1,137 @@
+@using System.Text.Json
+@inherits ComponentBase
+
+<RadzenStack Gap="1rem">
+    <RadzenText Text="Export the selected workflow run into a clean Codex task." TextStyle="TextStyle.Body1" />
+
+    <RadzenRow Gap="1rem">
+        <RadzenColumn Size="12" SizeMD="6">
+            <RadzenStack Gap="0.5rem">
+                <RadzenCheckBox @bind-Value="@request.IncludeGoal" Change="@(_ => RefreshPreviewAsync())" TValue="bool" />
+                <RadzenLabel Text="Include goal" />
+
+                <RadzenCheckBox @bind-Value="@request.IncludeProject" Change="@(_ => RefreshPreviewAsync())" TValue="bool" />
+                <RadzenLabel Text="Include project" />
+
+                <RadzenCheckBox @bind-Value="@request.IncludePlannerResult" Change="@(_ => RefreshPreviewAsync())" TValue="bool" />
+                <RadzenLabel Text="Include planner result" />
+
+                <RadzenCheckBox @bind-Value="@request.IncludeArchitectResult" Change="@(_ => RefreshPreviewAsync())" TValue="bool" />
+                <RadzenLabel Text="Include architect result" />
+
+                <RadzenCheckBox @bind-Value="@request.IncludeCodingResult" Change="@(_ => RefreshPreviewAsync())" TValue="bool" />
+                <RadzenLabel Text="Include coding result" />
+
+                <RadzenCheckBox @bind-Value="@request.IncludeVerifierResult" Change="@(_ => RefreshPreviewAsync())" TValue="bool" />
+                <RadzenLabel Text="Include verifier result" />
+            </RadzenStack>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="6">
+            <RadzenFormField Text="Output format" Style="width: 100%;">
+                <RadzenDropDown TValue="CodexTaskOutputFormat"
+                                Data="@outputFormats"
+                                @bind-Value="@request.OutputFormat"
+                                Change="@(_ => RefreshPreviewAsync())"
+                                Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Custom instructions" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@request.CustomInstructions"
+                                Rows="7"
+                                Change="@(_ => RefreshPreviewAsync())"
+                                Style="width: 100%;" />
+            </RadzenFormField>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">
+            @errorMessage
+        </RadzenAlert>
+    }
+
+    @if (exportResult is not null)
+    {
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenText Text="@exportResult.Title" TextStyle="TextStyle.H6" />
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                        <RadzenButton Text="Copy to clipboard" Icon="content_copy" ButtonStyle="ButtonStyle.Primary" Click="@CopyAsync" />
+                        <RadzenButton Text="Close" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@CloseAsync" />
+                    </RadzenStack>
+                </RadzenStack>
+                <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@exportResult.Content</pre>
+            </RadzenStack>
+        </RadzenCard>
+    }
+    else if (isLoading)
+    {
+        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+    }
+</RadzenStack>
+
+@code {
+    [Parameter] public string RunId { get; set; } = string.Empty;
+
+    [Inject] private IWorkflowRunHistoryService HistoryService { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private DialogService DialogService { get; set; } = default!;
+
+    private readonly CodexTaskOutputFormat[] outputFormats = Enum.GetValues<CodexTaskOutputFormat>();
+    private readonly CodexTaskExportRequest request = new();
+    private CodexTaskExportResult? exportResult;
+    private string? errorMessage;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshPreviewAsync();
+    }
+
+    private async Task RefreshPreviewAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            exportResult = await HistoryService.ExportCodexTaskAsync(RunId, request);
+
+            if (exportResult is null)
+            {
+                errorMessage = "The workflow run no longer exists.";
+            }
+        }
+        catch (Exception exception)
+        {
+            errorMessage = exception.Message;
+            exportResult = null;
+        }
+        finally
+        {
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task CopyAsync()
+    {
+        if (exportResult is null)
+        {
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync("aiBoxCopyToClipboard", exportResult.Content);
+        NotificationService.Notify(NotificationSeverity.Success, "Codex task copied", exportResult.Title);
+    }
+
+    private Task CloseAsync()
+    {
+        DialogService.Close(exportResult);
+        return Task.CompletedTask;
+    }
+}

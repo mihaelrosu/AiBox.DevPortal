@@ -12,22 +12,22 @@
 </div>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@workflows" TValue="WorkflowDefinition" AllowPaging="true" PageSize="10" EmptyText="No workflows configured.">
+    <RadzenDataGrid Data="@workflows" TItem="WorkflowDefinition" AllowPaging="true" PageSize="10" EmptyText="No workflows configured.">
         <Columns>
-            <RadzenDataGridColumn TValue="WorkflowDefinition" Property="Name" Title="Name" />
-            <RadzenDataGridColumn TValue="WorkflowDefinition" Property="Status" Title="Status" />
-            <RadzenDataGridColumn TValue="WorkflowDefinition" Title="Steps">
+            <RadzenDataGridColumn TItem="WorkflowDefinition" Property="Name" Title="Name" />
+            <RadzenDataGridColumn TItem="WorkflowDefinition" Property="Status" Title="Status" />
+            <RadzenDataGridColumn TItem="WorkflowDefinition" Title="Steps">
                 <Template Context="workflow">
                     @workflow.Steps.Count
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TValue="WorkflowDefinition" Title="Enabled">
+            <RadzenDataGridColumn TItem="WorkflowDefinition" Title="Enabled">
                 <Template Context="workflow">
                     <RadzenBadge Text="@(workflow.Enabled ? "Enabled" : "Disabled")"
                                  BadgeStyle="@(workflow.Enabled ? BadgeStyle.Success : BadgeStyle.Secondary)" />
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TValue="WorkflowDefinition" Title="Actions" Sortable="false" Filterable="false">
+            <RadzenDataGridColumn TItem="WorkflowDefinition" Title="Actions" Sortable="false" Filterable="false">
                 <Template Context="workflow">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                         <RadzenButton Text="Edit" Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"

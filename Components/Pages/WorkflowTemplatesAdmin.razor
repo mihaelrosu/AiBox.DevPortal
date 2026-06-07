@@ -17,23 +17,23 @@
 else
 {
     <RadzenCard>
-        <RadzenDataGrid Data="@templates" TValue="WorkflowTemplateDefinition" AllowPaging="true" PageSize="10"
+        <RadzenDataGrid Data="@templates" TItem="WorkflowTemplateDefinition" AllowPaging="true" PageSize="10"
                         EmptyText="No workflow templates configured.">
             <Columns>
-                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Property="Name" Title="Name" />
-                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Property="Category" Title="Category" />
-                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Title="Steps">
+                <RadzenDataGridColumn TItem="WorkflowTemplateDefinition" Property="Name" Title="Name" />
+                <RadzenDataGridColumn TItem="WorkflowTemplateDefinition" Property="Category" Title="Category" />
+                <RadzenDataGridColumn TItem="WorkflowTemplateDefinition" Title="Steps">
                     <Template Context="template">
                         @template.Steps.Count
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Title="Status">
+                <RadzenDataGridColumn TItem="WorkflowTemplateDefinition" Title="Status">
                     <Template Context="template">
                         <RadzenBadge Text="@(template.Enabled ? "Enabled" : "Disabled")"
                                      BadgeStyle="@(template.Enabled ? BadgeStyle.Success : BadgeStyle.Secondary)" />
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TValue="WorkflowTemplateDefinition" Title="Actions" Sortable="false" Filterable="false">
+                <RadzenDataGridColumn TItem="WorkflowTemplateDefinition" Title="Actions" Sortable="false" Filterable="false">
                     <Template Context="template">
                         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                             <RadzenButton Text="View" Icon="visibility" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
@@ -66,17 +66,17 @@ else
                 </RadzenStack>
             </RadzenStack>
 
-            <RadzenDataGrid Data="@selectedTemplate.Steps.OrderBy(step => step.Order)" TValue="WorkflowStepDefinition"
+            <RadzenDataGrid Data="@selectedTemplate.Steps.OrderBy(step => step.Order)" TItem="WorkflowStepDefinition"
                             AllowPaging="false" EmptyText="This template has no steps.">
                 <Columns>
-                    <RadzenDataGridColumn TValue="WorkflowStepDefinition" Property="Order" Title="#" Width="5rem" />
-                    <RadzenDataGridColumn TValue="WorkflowStepDefinition" Property="Name" Title="Step" />
-                    <RadzenDataGridColumn TValue="WorkflowStepDefinition" Title="Agent">
+                    <RadzenDataGridColumn TItem="WorkflowStepDefinition" Property="Order" Title="#" Width="5rem" />
+                    <RadzenDataGridColumn TItem="WorkflowStepDefinition" Property="Name" Title="Step" />
+                    <RadzenDataGridColumn TItem="WorkflowStepDefinition" Title="Agent">
                         <Template Context="step">
                             @AgentName(step.AgentId)
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TValue="WorkflowStepDefinition" Property="PreviousResultMode" Title="Previous Results" />
+                    <RadzenDataGridColumn TItem="WorkflowStepDefinition" Property="PreviousResultMode" Title="Previous Results" />
                 </Columns>
             </RadzenDataGrid>
         </RadzenStack>

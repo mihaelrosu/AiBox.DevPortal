@@ -1,0 +1,114 @@
+@inherits ComponentBase
+
+<RadzenStack Gap="1rem">
+    <RadzenFormField Text="Step name" Style="width: 100%;">
+        <RadzenTextBox @bind-Value="@step.Name" Style="width: 100%;" />
+    </RadzenFormField>
+
+    <RadzenFormField Text="Agent" Style="width: 100%;">
+        <RadzenDropDown TValue="string"
+                        Data="@Agents"
+                        TextProperty="Name"
+                        ValueProperty="Id"
+                        @bind-Value="@step.AgentId"
+                        AllowFiltering="true"
+                        AllowClear="true"
+                        Placeholder="Select an agent"
+                        Style="width: 100%;" />
+    </RadzenFormField>
+
+    <RadzenFormField Text="Instruction" Style="width: 100%;">
+        <RadzenTextArea @bind-Value="@step.Instruction" Rows="8" Style="width: 100%;" />
+    </RadzenFormField>
+
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+        <RadzenSwitch @bind-Value="@step.Enabled" />
+        <RadzenLabel Text="Enabled" />
+    </RadzenStack>
+
+    <RadzenFormField Text="Dependency mode" Style="width: 100%;">
+        <RadzenDropDown TValue="PreviousResultMode"
+                        Data="@dependencyModes"
+                        @bind-Value="@step.PreviousResultMode"
+                        Change="@OnDependencyModeChanged"
+                        Style="width: 100%;" />
+    </RadzenFormField>
+
+    @if (step.PreviousResultMode == PreviousResultMode.SelectedSteps)
+    {
+        <RadzenFormField Text="Selected previous steps" Style="width: 100%;">
+            <RadzenDropDown TValue="List<string>"
+                            Data="@PreviousSteps"
+                            TextProperty="Name"
+                            ValueProperty="Id"
+                            Multiple="true"
+                            AllowClear="true"
+                            @bind-Value="@step.DependsOnStepIds"
+                            Placeholder="Select previous steps"
+                            Style="width: 100%;" />
+        </RadzenFormField>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" JustifyContent="JustifyContent.End">
+        <RadzenButton Text="Cancel" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@Cancel" />
+        <RadzenButton Text="Save step" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@Save" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public WorkflowStepDefinition Step { get; set; } = new();
+    [Parameter] public IReadOnlyList<AgentDefinition> Agents { get; set; } = [];
+    [Parameter] public IReadOnlyList<WorkflowStepDefinition> PreviousSteps { get; set; } = [];
+
+    [Inject] private DialogService DialogService { get; set; } = default!;
+
+    private readonly PreviousResultMode[] dependencyModes = Enum.GetValues<PreviousResultMode>();
+    private WorkflowStepDefinition step = new();
+
+    protected override void OnParametersSet()
+    {
+        step = Clone(Step);
+    }
+
+    private void OnDependencyModeChanged(object? value)
+    {
+        step.PreviousResultMode = value is PreviousResultMode mode ? mode : PreviousResultMode.None;
+        step.IncludePreviousResults = step.PreviousResultMode != PreviousResultMode.None;
+        if (step.PreviousResultMode != PreviousResultMode.SelectedSteps)
+        {
+            step.DependsOnStepIds = [];
+        }
+    }
+
+    private void Save()
+    {
+        step.Name = step.Name.Trim();
+        step.Instruction = step.Instruction.Trim();
+        step.IncludePreviousResults = step.PreviousResultMode != PreviousResultMode.None;
+        if (step.PreviousResultMode == PreviousResultMode.SelectedSteps)
+        {
+            var allowed = PreviousSteps.Select(item => item.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            step.DependsOnStepIds = step.DependsOnStepIds.Where(allowed.Contains).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        DialogService.Close(step);
+    }
+
+    private void Cancel()
+    {
+        DialogService.Close(null);
+    }
+
+    private static WorkflowStepDefinition Clone(WorkflowStepDefinition source) => new()
+    {
+        Id = source.Id,
+        Order = source.Order,
+        Name = source.Name,
+        Type = source.Type,
+        AgentId = source.AgentId,
+        Instruction = source.Instruction,
+        Enabled = source.Enabled,
+        IncludePreviousResults = source.IncludePreviousResults,
+        PreviousResultMode = source.PreviousResultMode,
+        DependsOnStepIds = [.. source.DependsOnStepIds]
+    };
+}

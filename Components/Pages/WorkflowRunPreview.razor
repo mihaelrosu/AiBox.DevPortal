@@ -23,8 +23,16 @@
                             Style="width: 100%;" />
         </RadzenFormField>
 
-        <RadzenFormField Text="Project name (optional)" Style="width: 100%;">
-            <RadzenTextBox @bind-Value="@request.ProjectName" Style="width: 100%;" />
+        <RadzenFormField Text="Project" Style="width: 100%;">
+            <RadzenDropDown TValue="string"
+                            Data="@projects"
+                            TextProperty="Name"
+                            ValueProperty="Id"
+                            @bind-Value="@request.ProjectId"
+                            AllowFiltering="true"
+                            AllowClear="false"
+                            Placeholder="Select a project"
+                            Style="width: 100%;" />
         </RadzenFormField>
 
         <RadzenFormField Text="Goal" Style="width: 100%;">
@@ -42,19 +50,73 @@
     </RadzenStack>
 </RadzenCard>
 
+@if (selectedProject is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Selected Project" TextStyle="TextStyle.H6" />
+            <dl class="sdxl-metadata-list">
+                <dt>Name</dt>
+                <dd>@selectedProject.Name</dd>
+                <dt>Type</dt>
+                <dd>@selectedProject.Type</dd>
+                <dt>Local path</dt>
+                <dd>@selectedProject.LocalPath</dd>
+                <dt>Repository</dt>
+                <dd>@selectedProject.GitRepository</dd>
+                <dt>Default branch</dt>
+                <dd>@selectedProject.DefaultBranch</dd>
+                <dt>Build command</dt>
+                <dd>@selectedProject.BuildCommand</dd>
+                <dt>Run command</dt>
+                <dd>@selectedProject.RunCommand</dd>
+                <dt>Test command</dt>
+                <dd>@selectedProject.TestCommand</dd>
+            </dl>
+        </RadzenStack>
+    </RadzenCard>
+}
+
 @if (preview is not null)
 {
     <RadzenCard>
         <RadzenStack Gap="0.5rem">
             <RadzenText Text="@preview.WorkflowName" TextStyle="TextStyle.H5" />
-            @if (!string.IsNullOrWhiteSpace(preview.ProjectName))
+            @if (preview.ProjectSnapshot is not null)
             {
-                <RadzenText Text="@($"Project: {preview.ProjectName}")" TextStyle="TextStyle.Body2" />
+                <RadzenText Text="@($"Project: {preview.ProjectSnapshot.Name} ({preview.ProjectSnapshot.Type})")" TextStyle="TextStyle.Body2" />
             }
             <RadzenText Text="@($"Goal: {preview.GoalText}")" TextStyle="TextStyle.Body2" />
             <RadzenText Text="@($"{preview.Steps.Count(step => step.Enabled)} enabled steps")" TextStyle="TextStyle.Caption" />
         </RadzenStack>
     </RadzenCard>
+
+    @if (preview.ProjectSnapshot is not null)
+    {
+        <RadzenCard>
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Project Metadata" TextStyle="TextStyle.H6" />
+                <dl class="sdxl-metadata-list">
+                    <dt>Name</dt>
+                    <dd>@preview.ProjectSnapshot.Name</dd>
+                    <dt>Type</dt>
+                    <dd>@preview.ProjectSnapshot.Type</dd>
+                    <dt>Local path</dt>
+                    <dd>@preview.ProjectSnapshot.LocalPath</dd>
+                    <dt>Repository</dt>
+                    <dd>@preview.ProjectSnapshot.GitRepository</dd>
+                    <dt>Default branch</dt>
+                    <dd>@preview.ProjectSnapshot.DefaultBranch</dd>
+                    <dt>Build command</dt>
+                    <dd>@preview.ProjectSnapshot.BuildCommand</dd>
+                    <dt>Run command</dt>
+                    <dd>@preview.ProjectSnapshot.RunCommand</dd>
+                    <dt>Test command</dt>
+                    <dd>@preview.ProjectSnapshot.TestCommand</dd>
+                </dl>
+            </RadzenStack>
+        </RadzenCard>
+    }
 
     @if (preview.Steps.Count == 0)
     {
@@ -106,22 +168,37 @@
 }
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "workflowId")]
+    public string WorkflowId { get; set; } = string.Empty;
+
     [Inject] private IWorkflowRegistryService WorkflowRegistry { get; set; } = default!;
+    [Inject] private IProjectRegistryService ProjectRegistry { get; set; } = default!;
     [Inject] private IWorkflowRunPreviewService PreviewService { get; set; } = default!;
     [Inject] private IWorkflowRunHistoryService HistoryService { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
 
     private IReadOnlyList<WorkflowDefinition> workflows = [];
+    private IReadOnlyList<ProjectDefinition> projects = [];
     private WorkflowRunPreviewRequest request = new();
     private WorkflowRunPreviewResult? preview;
     private bool isLoading;
 
+    private ProjectDefinition? selectedProject =>
+        projects.FirstOrDefault(project => project.Id.Equals(request.ProjectId, StringComparison.OrdinalIgnoreCase));
+
     protected override async Task OnInitializedAsync()
     {
+        projects = await ProjectRegistry.GetAllAsync();
         workflows = await WorkflowRegistry.GetAllAsync();
-        request.WorkflowId = workflows.FirstOrDefault(workflow => workflow.Enabled)?.Id
+        request.WorkflowId = workflows.Any(workflow => workflow.Id.Equals(WorkflowId, StringComparison.OrdinalIgnoreCase))
+            ? WorkflowId
+            : workflows.FirstOrDefault(workflow => workflow.Enabled)?.Id
             ?? workflows.FirstOrDefault()?.Id
+            ?? string.Empty;
+        request.ProjectId = projects.FirstOrDefault(project => project.Enabled)?.Id
+            ?? projects.FirstOrDefault()?.Id
             ?? string.Empty;
     }
 
@@ -135,7 +212,7 @@
 
             if (preview is null)
             {
-                NotificationService.Notify(NotificationSeverity.Error, "Preview failed", "The selected workflow no longer exists.");
+                NotificationService.Notify(NotificationSeverity.Error, "Preview failed", "The selected workflow or project no longer exists.");
             }
         }
         catch (Exception exception)
@@ -165,7 +242,7 @@
             {
                 WorkflowId = preview!.WorkflowId,
                 GoalText = preview.GoalText,
-                ProjectName = preview.ProjectName
+                ProjectId = preview.ProjectId
             });
 
             if (run is null)

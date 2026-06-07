@@ -51,7 +51,22 @@
             </RadzenFormField>
 
             <RadzenFormField Text="Checkpoint name">
-                <RadzenTextBox @bind-Value="request.CheckpointName" />
+                @if (checkpointsLoaded && checkpointNames.Count > 0)
+                {
+                    <RadzenDropDown Data="@checkpointNames"
+                                    @bind-Value="request.CheckpointName"
+                                    AllowFiltering="true"
+                                    AllowClear="false"
+                                    Placeholder="Select checkpoint" />
+                }
+                else
+                {
+                    <RadzenTextBox @bind-Value="request.CheckpointName" />
+                    @if (!checkpointsLoaded)
+                    {
+                        <RadzenText Text="Checkpoint list could not be loaded. A textbox is shown as fallback." TextStyle="TextStyle.Caption" />
+                    }
+                }
             </RadzenFormField>
         </div>
 
@@ -168,6 +183,9 @@
     private string? QueryNegativePrompt { get; set; }
 
     [Inject]
+    private IComfyUiService ComfyUiService { get; set; } = default!;
+
+    [Inject]
     private ISdxlTextToImageService SdxlTextToImageService { get; set; } = default!;
 
     [Inject]
@@ -207,14 +225,18 @@
     };
 
     private SdxlTextToImageResult? result;
+    private IReadOnlyList<string> checkpointNames = [];
     private bool isGenerating;
     private bool isImprovingPrompt;
     private bool isCreatingNegativePrompt;
+    private bool checkpointsLoaded = true;
     private string? selectedStyle;
     private string statusText = "Ready.";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        await LoadCheckpointsAsync();
+
         if (QuerySeed.HasValue)
         {
             request.Seed = QuerySeed.Value;
@@ -228,6 +250,42 @@
         if (!string.IsNullOrWhiteSpace(QueryNegativePrompt))
         {
             request.NegativePrompt = QueryNegativePrompt;
+        }
+
+        ApplyDefaultCheckpoint();
+    }
+
+    private async Task LoadCheckpointsAsync()
+    {
+        try
+        {
+            checkpointNames = await ComfyUiService.GetCheckpointsAsync();
+            checkpointsLoaded = true;
+        }
+        catch (Exception exception)
+        {
+            checkpointsLoaded = false;
+            checkpointNames = [];
+            NotificationService.Notify(NotificationSeverity.Warning, "Checkpoint list unavailable", exception.Message);
+        }
+    }
+
+    private void ApplyDefaultCheckpoint()
+    {
+        if (checkpointNames.Count == 0)
+        {
+            return;
+        }
+
+        if (checkpointNames.Contains("sd_xl_base_1.0.safetensors", StringComparer.OrdinalIgnoreCase))
+        {
+            request.CheckpointName = "sd_xl_base_1.0.safetensors";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CheckpointName) || !checkpointNames.Contains(request.CheckpointName, StringComparer.OrdinalIgnoreCase))
+        {
+            request.CheckpointName = checkpointNames[0];
         }
     }
 

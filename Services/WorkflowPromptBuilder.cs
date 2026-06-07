@@ -10,19 +10,19 @@ internal static class WorkflowPromptBuilder
         WorkflowRunStepRecord step)
     {
         return Build(
+            run.ProjectSnapshot,
+            run.GoalText,
             step.AgentName,
             step.Model,
-            run.ProjectName ?? string.Empty,
-            run.GoalText,
             step.Instruction,
             SelectPreviousResults(run.Steps, step));
     }
 
     public static string Build(
+        ProjectSnapshot? projectSnapshot,
+        string goalText,
         string agentName,
         string model,
-        string projectName,
-        string goalText,
         string instruction,
         IReadOnlyCollection<WorkflowRunStepRecord>? previousResults = null)
     {
@@ -32,7 +32,13 @@ internal static class WorkflowPromptBuilder
             Model: {model}
 
             [Project]
-            {projectName}
+            Name: {projectSnapshot?.Name ?? string.Empty}
+            Type: {projectSnapshot?.Type.ToString() ?? string.Empty}
+            Local path: {projectSnapshot?.LocalPath ?? string.Empty}
+            Repository: {projectSnapshot?.GitRepository ?? string.Empty}
+            Default branch: {projectSnapshot?.DefaultBranch ?? string.Empty}
+            Build command: {projectSnapshot?.BuildCommand ?? string.Empty}
+            Test command: {projectSnapshot?.TestCommand ?? string.Empty}
 
             [Goal]
             {goalText}

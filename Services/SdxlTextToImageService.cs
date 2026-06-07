@@ -57,11 +57,12 @@ public sealed class SdxlTextToImageService(HttpClient httpClient, IWebHostEnviro
 
     private static AppliedSdxlSettings ApplyRequest(JsonObject workflow, SdxlTextToImageRequest request)
     {
-        var positivePromptApplied = false;
-        var negativePromptApplied = false;
         var seed = request.Seed < 0 ? Random.Shared.NextInt64(0, long.MaxValue) : request.Seed;
         var sampler = string.Empty;
         var scheduler = string.Empty;
+        var clipNodes = new List<JsonObject>();
+        JsonObject? positivePromptNode = null;
+        JsonObject? negativePromptNode = null;
 
         foreach (var node in workflow.Select(pair => pair.Value).OfType<JsonObject>())
         {
@@ -78,13 +79,8 @@ public sealed class SdxlTextToImageService(HttpClient httpClient, IWebHostEnviro
                 case "CheckpointLoaderSimple":
                     inputs["ckpt_name"] = request.CheckpointName;
                     break;
-                case "CLIPTextEncode" when !positivePromptApplied:
-                    inputs["text"] = request.PositivePrompt;
-                    positivePromptApplied = true;
-                    break;
                 case "CLIPTextEncode":
-                    inputs["text"] = request.NegativePrompt;
-                    negativePromptApplied = true;
+                    clipNodes.Add(node);
                     break;
                 case "EmptyLatentImage":
                     inputs["width"] = request.Width;
@@ -100,10 +96,46 @@ public sealed class SdxlTextToImageService(HttpClient httpClient, IWebHostEnviro
             }
         }
 
-        if (!positivePromptApplied || !negativePromptApplied)
+        foreach (var node in clipNodes)
+        {
+            var title = GetNodeTitle(node);
+
+            if (positivePromptNode is null && title.Contains("positive", StringComparison.OrdinalIgnoreCase))
+            {
+                positivePromptNode = node;
+                continue;
+            }
+
+            if (negativePromptNode is null && title.Contains("negative", StringComparison.OrdinalIgnoreCase))
+            {
+                negativePromptNode = node;
+            }
+        }
+
+        if (positivePromptNode is null || negativePromptNode is null)
+        {
+            var unmatchedClipNodes = clipNodes
+                .Where(node => node != positivePromptNode && node != negativePromptNode)
+                .ToArray();
+
+            if (positivePromptNode is null && unmatchedClipNodes.Length > 0)
+            {
+                positivePromptNode = unmatchedClipNodes[0];
+            }
+
+            if (negativePromptNode is null && unmatchedClipNodes.Length > 1)
+            {
+                negativePromptNode = unmatchedClipNodes[1];
+            }
+        }
+
+        if (positivePromptNode is null || negativePromptNode is null)
         {
             throw new InvalidOperationException("Workflow must contain two CLIPTextEncode nodes for positive and negative prompts.");
         }
+
+        SetTextInput(positivePromptNode, request.PositivePrompt);
+        SetTextInput(negativePromptNode, request.NegativePrompt);
 
         return new AppliedSdxlSettings(
             seed,
@@ -116,6 +148,19 @@ public sealed class SdxlTextToImageService(HttpClient httpClient, IWebHostEnviro
             scheduler,
             request.PositivePrompt,
             request.NegativePrompt);
+    }
+
+    private static string GetNodeTitle(JsonObject node)
+    {
+        return node["_meta"]?["title"]?.GetValue<string>() ?? string.Empty;
+    }
+
+    private static void SetTextInput(JsonObject node, string value)
+    {
+        var inputs = node["inputs"] as JsonObject
+            ?? throw new InvalidOperationException("Workflow node is missing an inputs object.");
+
+        inputs["text"] = value;
     }
 
     private async Task<ComfyImage> WaitForImageAsync(string promptId)

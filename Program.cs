@@ -22,6 +22,15 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<IAgentRegistryService, AgentRegistryService>();
+builder.Services.AddScoped<IExecutionPermissionProfileService, ExecutionPermissionProfileService>();
+builder.Services.AddScoped<IExecutionEngineService, ExecutionEngineService>();
+builder.Services.AddScoped<IFileOperationService, FileOperationService>();
+builder.Services.AddScoped<IGitOperationService, GitOperationService>();
+builder.Services.AddScoped<IDockerOperationService, DockerOperationService>();
+builder.Services.AddScoped<IComfyUiOperationService, ComfyUiOperationService>();
+builder.Services.AddScoped<IVerificationService, VerificationService>();
+builder.Services.AddScoped<IOrchestrationDashboardService, OrchestrationDashboardService>();
+builder.Services.AddScoped<IProjectRegistryService, ProjectRegistryService>();
 builder.Services.AddScoped<IWorkflowRegistryService, WorkflowRegistryService>();
 builder.Services.AddScoped<IWorkflowTemplateService, WorkflowTemplateService>();
 builder.Services.AddScoped<IWorkflowRunPreviewService, WorkflowRunPreviewService>();
@@ -36,27 +45,27 @@ builder.Services.AddHttpClient<IToolStatusService, ToolStatusService>(client =>
 builder.Services.AddHttpClient<IComfyUiService, ComfyUiService>((serviceProvider, client) =>
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    client.BaseAddress = new Uri(configuration["AiBox:ComfyUI:BaseUrl"] ?? configuration["AiBox:ComfyUrl"] ?? "http://localhost:8188");
+    client.BaseAddress = new Uri(configuration.GetComfyBaseUrl());
 });
 builder.Services.AddHttpClient<ISdxlTextToImageService, SdxlTextToImageService>((serviceProvider, client) =>
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    client.BaseAddress = new Uri(configuration["AiBox:ComfyUrl"] ?? "http://localhost:8188");
+    client.BaseAddress = new Uri(configuration.GetComfyBaseUrl());
 });
 builder.Services.AddHttpClient<IOllamaService, OllamaService>((serviceProvider, client) =>
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    client.BaseAddress = new Uri(configuration["AiBox:OllamaUrl"] ?? "http://localhost:11434");
+    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());
 });
 builder.Services.AddHttpClient<ILocalLlmService, OllamaLocalLlmService>((serviceProvider, client) =>
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    client.BaseAddress = new Uri(configuration["Ollama:BaseUrl"] ?? configuration["AiBox:OllamaUrl"] ?? "http://localhost:11434");
+    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());
 });
 builder.Services.AddHttpClient<IPromptEnhancerService, PromptEnhancerService>((serviceProvider, client) =>
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    client.BaseAddress = new Uri(configuration["AiBox:OllamaUrl"] ?? "http://localhost:11434");
+    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());
 });
 
 var app = builder.Build();
@@ -76,6 +85,14 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapAgentEndpoints();
+app.MapExecutionPermissionProfileEndpoints();
+app.MapExecutionEndpoints();
+app.MapFileEndpoints();
+app.MapGitEndpoints();
+app.MapDockerOperationEndpoints();
+app.MapComfyUiOperationEndpoints();
+app.MapOrchestrationEndpoints();
+app.MapProjectEndpoints();
 app.MapWorkflowEndpoints();
 app.MapWorkflowTemplateEndpoints();
 app.MapWorkflowRunEndpoints();

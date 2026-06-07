@@ -1,0 +1,72 @@
+[
+  {
+    "id": "aibox-devportal",
+    "name": "AiBox.DevPortal",
+    "type": "blazorPortal",
+    "description": "Blazor portal for AiBox management and workflow operations.",
+    "localPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+    "gitRepository": "mihaelrosu/AiBox.DevPortal",
+    "defaultBranch": "main",
+    "buildCommand": "dotnet build",
+    "runCommand": "dotnet run",
+    "testCommand": "dotnet test",
+    "defaultExecutionPermissionProfileId": "build-and-test",
+    "enabled": true
+  },
+  {
+    "id": "comfyui",
+    "name": "ComfyUI",
+    "type": "pythonTool",
+    "description": "ComfyUI installation and workflow assets used for local image generation.",
+    "localPath": "/opt/ai-box/dev/projects/ComfyUI",
+    "gitRepository": "comfyanonymous/ComfyUI",
+    "defaultBranch": "master",
+    "buildCommand": "python -m pip install -r requirements.txt",
+    "runCommand": "python main.py",
+    "testCommand": "python -m pytest",
+    "defaultExecutionPermissionProfileId": "project-write",
+    "enabled": true
+  },
+  {
+    "id": "open-webui",
+    "name": "Open WebUI",
+    "type": "dockerService",
+    "description": "Open WebUI deployment and configuration.",
+    "localPath": "/opt/ai-box/dev/projects/OpenWebUI",
+    "gitRepository": "open-webui/open-webui",
+    "defaultBranch": "main",
+    "buildCommand": "docker compose build",
+    "runCommand": "docker compose up -d",
+    "testCommand": "docker compose ps",
+    "defaultExecutionPermissionProfileId": "docker-maintenance",
+    "enabled": true
+  },
+  {
+    "id": "immich",
+    "name": "Immich",
+    "type": "dockerService",
+    "description": "Immich deployment and configuration.",
+    "localPath": "/opt/ai-box/dev/projects/Immich",
+    "gitRepository": "immich-app/immich",
+    "defaultBranch": "main",
+    "buildCommand": "docker compose build",
+    "runCommand": "docker compose up -d",
+    "testCommand": "docker compose ps",
+    "defaultExecutionPermissionProfileId": "docker-maintenance",
+    "enabled": true
+  },
+  {
+    "id": "ledgerv2",
+    "name": "LedgerV2",
+    "type": "dotNetLibrary",
+    "description": "LedgerV2 .NET codebase and supporting libraries.",
+    "localPath": "/opt/ai-box/dev/projects/LedgerV2",
+    "gitRepository": "mihaelrosu/LedgerV2",
+    "defaultBranch": "main",
+    "buildCommand": "dotnet build",
+    "runCommand": "dotnet run",
+    "testCommand": "dotnet test",
+    "defaultExecutionPermissionProfileId": "build-and-test",
+    "enabled": true
+  }
+]

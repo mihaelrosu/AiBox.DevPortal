@@ -1,0 +1,401 @@
+@page "/admin/execution-permissions"
+@rendermode InteractiveServer
+
+<PageTitle>Execution Permissions</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Execution Permissions</h1>
+        <p>Configure permission profiles for agent and project execution.</p>
+    </div>
+    <RadzenButton Text="Add profile" Icon="add" ButtonStyle="ButtonStyle.Primary" Click="@AddProfile" Disabled="@isBusy" />
+</div>
+
+<RadzenCard>
+    <RadzenDataGrid Data="@profiles" TItem="ExecutionPermissionProfile" AllowPaging="true" PageSize="10" EmptyText="No profiles configured.">
+        <Columns>
+            <RadzenDataGridColumn TItem="ExecutionPermissionProfile" Property="Name" Title="Name" />
+            <RadzenDataGridColumn TItem="ExecutionPermissionProfile" Property="Level" Title="Level" />
+            <RadzenDataGridColumn TItem="ExecutionPermissionProfile" Title="Confirmation">
+                <Template Context="profile">
+                    <RadzenBadge Text="@(profile.RequiresConfirmation ? "Required" : "Not required")"
+                                 BadgeStyle="@(profile.RequiresConfirmation ? BadgeStyle.Warning : BadgeStyle.Secondary)" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ExecutionPermissionProfile" Title="Status">
+                <Template Context="profile">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                        <RadzenBadge Text="@(profile.Enabled ? "Enabled" : "Disabled")"
+                                     BadgeStyle="@(profile.Enabled ? BadgeStyle.Success : BadgeStyle.Secondary)" />
+                        @if (IsDangerous(profile))
+                        {
+                            <RadzenBadge Text="Dangerous" BadgeStyle="@BadgeStyle.Warning" />
+                        }
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ExecutionPermissionProfile" Title="Actions" Sortable="false" Filterable="false">
+                <Template Context="profile">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                        <RadzenButton Text="Edit" Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                      Click="@(() => EditProfile(profile))" Disabled="@isBusy" />
+                        <RadzenButton Text="@(profile.Enabled ? "Disable" : "Enable")"
+                                      Icon="@(profile.Enabled ? "toggle_off" : "toggle_on")"
+                                      Size="ButtonSize.Small"
+                                      ButtonStyle="@(profile.Enabled ? ButtonStyle.Warning : ButtonStyle.Success)"
+                                      Click="@(() => ToggleEnabledAsync(profile))"
+                                      Disabled="@isBusy" />
+                        <RadzenButton Text="Delete" Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger"
+                                      Click="@(() => DeleteAsync(profile))" Disabled="@isBusy" />
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@if (editingProfile is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="@(isAdding ? "Add profile" : $"Edit {editingProfile.Name}")" TextStyle="TextStyle.H5" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Name" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingProfile.Name" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Level" Style="width: 100%;">
+                        <RadzenDropDown TValue="ExecutionPermissionLevel"
+                                        Data="@levels"
+                                        @bind-Value="@editingProfile.Level"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenFormField Text="Description" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@editingProfile.Description" Rows="3" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.Enabled" />
+                        <RadzenLabel Text="Enabled" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.RequiresConfirmation" />
+                        <RadzenLabel Text="Requires confirmation" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    @if (IsDangerous(editingProfile))
+                    {
+                        <RadzenBadge Text="Dangerous profile" BadgeStyle="@BadgeStyle.Warning" />
+                    }
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Allowed working directories (one per line)" Style="width: 100%;">
+                        <RadzenTextArea @bind-Value="@allowedWorkingDirectoriesText" Rows="4" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Blocked working directories (one per line)" Style="width: 100%;">
+                        <RadzenTextArea @bind-Value="@blockedWorkingDirectoriesText" Rows="4" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Allowed commands (one per line)" Style="width: 100%;">
+                        <RadzenTextArea @bind-Value="@allowedCommandsText" Rows="5" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Blocked commands (one per line)" Style="width: 100%;">
+                        <RadzenTextArea @bind-Value="@blockedCommandsText" Rows="5" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowReadFiles" />
+                        <RadzenLabel Text="Allow read files" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowWriteFiles" />
+                        <RadzenLabel Text="Allow write files" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowCreateFiles" />
+                        <RadzenLabel Text="Allow create files" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowDeleteFiles" />
+                        <RadzenLabel Text="Allow delete files" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowRunShell" />
+                        <RadzenLabel Text="Allow shell" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowRunDotNet" />
+                        <RadzenLabel Text="Allow dotnet" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowRunDocker" />
+                        <RadzenLabel Text="Allow docker" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowRunGit" />
+                        <RadzenLabel Text="Allow git" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenSwitch @bind-Value="@editingProfile.AllowRunPython" />
+                        <RadzenLabel Text="Allow python" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem">
+                <RadzenButton Text="Save profile" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@SaveAsync" Disabled="@isBusy" />
+                <RadzenButton Text="Cancel" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@CancelEdit" Disabled="@isBusy" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Inject] private IExecutionPermissionProfileService ProfileRegistry { get; set; } = default!;
+    [Inject] private DialogService DialogService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
+    private readonly ExecutionPermissionLevel[] levels = Enum.GetValues<ExecutionPermissionLevel>();
+    private IReadOnlyList<ExecutionPermissionProfile> profiles = [];
+    private ExecutionPermissionProfile? editingProfile;
+    private bool isAdding;
+    private bool isBusy;
+    private string allowedWorkingDirectoriesText = string.Empty;
+    private string blockedWorkingDirectoriesText = string.Empty;
+    private string allowedCommandsText = string.Empty;
+    private string blockedCommandsText = string.Empty;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        profiles = await ProfileRegistry.GetAllAsync();
+    }
+
+    private void AddProfile()
+    {
+        editingProfile = new ExecutionPermissionProfile
+        {
+            Enabled = true,
+            Level = ExecutionPermissionLevel.None,
+            RequiresConfirmation = false
+        };
+        ClearListFields();
+        isAdding = true;
+    }
+
+    private void EditProfile(ExecutionPermissionProfile profile)
+    {
+        editingProfile = new ExecutionPermissionProfile
+        {
+            Id = profile.Id,
+            Name = profile.Name,
+            Description = profile.Description,
+            Level = profile.Level,
+            Enabled = profile.Enabled,
+            AllowReadFiles = profile.AllowReadFiles,
+            AllowWriteFiles = profile.AllowWriteFiles,
+            AllowCreateFiles = profile.AllowCreateFiles,
+            AllowDeleteFiles = profile.AllowDeleteFiles,
+            AllowRunShell = profile.AllowRunShell,
+            AllowRunDotNet = profile.AllowRunDotNet,
+            AllowRunDocker = profile.AllowRunDocker,
+            AllowRunGit = profile.AllowRunGit,
+            AllowRunPython = profile.AllowRunPython,
+            AllowNetworkAccess = profile.AllowNetworkAccess,
+            AllowedWorkingDirectories = [.. profile.AllowedWorkingDirectories],
+            BlockedWorkingDirectories = [.. profile.BlockedWorkingDirectories],
+            AllowedCommands = [.. profile.AllowedCommands],
+            BlockedCommands = [.. profile.BlockedCommands],
+            RequiresConfirmation = profile.RequiresConfirmation
+        };
+        allowedWorkingDirectoriesText = JoinLines(profile.AllowedWorkingDirectories);
+        blockedWorkingDirectoriesText = JoinLines(profile.BlockedWorkingDirectories);
+        allowedCommandsText = JoinLines(profile.AllowedCommands);
+        blockedCommandsText = JoinLines(profile.BlockedCommands);
+        isAdding = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editingProfile is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            editingProfile.AllowedWorkingDirectories = SplitLines(allowedWorkingDirectoriesText);
+            editingProfile.BlockedWorkingDirectories = SplitLines(blockedWorkingDirectoriesText);
+            editingProfile.AllowedCommands = SplitLines(allowedCommandsText);
+            editingProfile.BlockedCommands = SplitLines(blockedCommandsText);
+
+            if (editingProfile.AllowDeleteFiles)
+            {
+                editingProfile.RequiresConfirmation = true;
+            }
+
+            if (isAdding)
+            {
+                await ProfileRegistry.AddAsync(editingProfile);
+            }
+            else
+            {
+                await ProfileRegistry.UpdateAsync(editingProfile.Id, editingProfile);
+            }
+
+            NotificationService.Notify(NotificationSeverity.Success, "Profile saved", editingProfile.Name);
+            CancelEdit();
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Save failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ToggleEnabledAsync(ExecutionPermissionProfile profile)
+    {
+        isBusy = true;
+
+        try
+        {
+            await ProfileRegistry.SetEnabledAsync(profile.Id, !profile.Enabled);
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Update failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task DeleteAsync(ExecutionPermissionProfile profile)
+    {
+        var confirmed = await DialogService.Confirm(
+            $"Delete execution permission profile '{profile.Name}'?",
+            "Delete profile",
+            new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Cancel" });
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            await ProfileRegistry.DeleteAsync(profile.Id);
+
+            if (editingProfile?.Id == profile.Id)
+            {
+                CancelEdit();
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Delete failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        editingProfile = null;
+        ClearListFields();
+        isAdding = false;
+    }
+
+    private static List<string> SplitLines(string? text)
+    {
+        return (text ?? string.Empty)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string JoinLines(IEnumerable<string>? values)
+    {
+        return string.Join(Environment.NewLine, values ?? []);
+    }
+
+    private void ClearListFields()
+    {
+        allowedWorkingDirectoriesText = string.Empty;
+        blockedWorkingDirectoriesText = string.Empty;
+        allowedCommandsText = string.Empty;
+        blockedCommandsText = string.Empty;
+    }
+
+    private bool IsDangerous(ExecutionPermissionProfile profile)
+    {
+        return profile.Level == ExecutionPermissionLevel.FullLocalAdmin || profile.RequiresConfirmation;
+    }
+}

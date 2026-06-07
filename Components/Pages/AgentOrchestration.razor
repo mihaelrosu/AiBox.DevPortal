@@ -1,0 +1,277 @@
+@page "/agents/orchestration"
+@rendermode InteractiveServer
+
+<PageTitle>Multi-Agent Orchestration</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Multi-Agent Orchestration</h1>
+        <p>Start, monitor, and review AI-Box agent workflows.</p>
+    </div>
+    <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Primary" Click="@LoadAsync" Disabled="@isBusy" />
+</div>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="New Run" TextStyle="TextStyle.H5" />
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Project" Style="width: 100%;">
+                        <RadzenDropDown TValue="string" Data="@dashboard.Projects" TextProperty="Name" ValueProperty="Id"
+                                        @bind-Value="@newRunProjectId" AllowFiltering="true" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Workflow template" Style="width: 100%;">
+                        <RadzenDropDown TValue="string" Data="@templates.Where(item => item.Enabled)" TextProperty="Name" ValueProperty="Id"
+                                        @bind-Value="@newRunTemplateId" AllowFiltering="true" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenFormField Text="Goal" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@newRunGoal" Rows="5" Style="width: 100%;" />
+            </RadzenFormField>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                <RadzenSwitch @bind-Value="@runImmediately" />
+                <RadzenLabel Text="Run local LLM steps immediately" />
+            </RadzenStack>
+            <RadzenButton Text="Create Planned Run" Icon="play_circle" ButtonStyle="ButtonStyle.Primary"
+                          Click="@CreateRunAsync"
+                          Disabled="@(isBusy || string.IsNullOrWhiteSpace(newRunProjectId) || string.IsNullOrWhiteSpace(newRunTemplateId) || string.IsNullOrWhiteSpace(newRunGoal))" />
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Active Runs" TextStyle="TextStyle.H5" />
+            <RadzenDataGrid Data="@dashboard.ActiveRuns" TItem="OrchestrationRunSummary" AllowPaging="true" PageSize="10" EmptyText="No active runs.">
+                <Columns>
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="WorkflowName" Title="Workflow" />
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="ProjectName" Title="Project" />
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Title="Status">
+                        <Template Context="item"><RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@RunBadge(item.Status)" /></Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="CurrentStep" Title="Current step" />
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Title="Progress">
+                        <Template Context="item">
+                            <RadzenStack Gap="0.25rem">
+                                <RadzenProgressBar Value="@item.ProgressPercent" ShowValue="false" />
+                                <RadzenText Text="@($"{item.CompletedSteps}/{item.TotalSteps}")" TextStyle="TextStyle.Caption" />
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Title="Started">
+                        <Template Context="item">@item.Started.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Title="Actions" Sortable="false" Filterable="false">
+                        <Template Context="item">
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                <RadzenButton Text="Open" Icon="open_in_new" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(() => OpenRun(item.RunId))" />
+                                <RadzenButton Text="Pause" Icon="pause" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Warning" Click="@(() => PauseAsync(item.RunId))" Disabled="@(item.Status is WorkflowRunStatus.Paused or WorkflowRunStatus.Cancelled)" />
+                                <RadzenButton Text="Cancel" Icon="cancel" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Click="@(() => CancelAsync(item.RunId))" />
+                                <RadzenButton Text="Verify" Icon="fact_check" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Info" Click="@(() => VerifyAsync(item.RunId))" />
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Recent Runs" TextStyle="TextStyle.H5" />
+            <RadzenDataGrid Data="@dashboard.RecentRuns" TItem="OrchestrationRunSummary" AllowPaging="true" PageSize="10" EmptyText="No recent runs.">
+                <Columns>
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="WorkflowName" Title="Workflow" />
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="ProjectName" Title="Project" />
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Title="Status">
+                        <Template Context="item"><RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@RunBadge(item.Status)" /></Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Title="Created">
+                        <Template Context="item">@item.Created.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Title="Verification">
+                        <Template Context="item"><RadzenBadge Text="@item.VerificationStatus.ToString()" BadgeStyle="@VerificationBadge(item.VerificationStatus)" /></Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrchestrationRunSummary" Title="Actions">
+                        <Template Context="item"><RadzenButton Text="Open" Icon="open_in_new" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(() => OpenRun(item.RunId))" /></Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenRow Gap="1rem">
+        <RadzenColumn Size="12" SizeLG="6">
+            <RadzenCard>
+                <RadzenStack Gap="1rem">
+                    <RadzenText Text="Agent Status" TextStyle="TextStyle.H5" />
+                    <RadzenDataGrid Data="@dashboard.Agents" TItem="OrchestrationAgentStatus" AllowPaging="true" PageSize="10">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="OrchestrationAgentStatus" Property="Name" Title="Agent" />
+                            <RadzenDataGridColumn TItem="OrchestrationAgentStatus" Property="Model" Title="Model" />
+                            <RadzenDataGridColumn TItem="OrchestrationAgentStatus" Property="PermissionProfile" Title="Permission profile" />
+                            <RadzenDataGridColumn TItem="OrchestrationAgentStatus" Title="Execution">
+                                <Template Context="item"><RadzenBadge Text="@(item.ExecutionAllowed ? "Allowed" : "Not allowed")" BadgeStyle="@(item.ExecutionAllowed ? BadgeStyle.Success : BadgeStyle.Secondary)" /></Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeLG="6">
+            <RadzenCard>
+                <RadzenStack Gap="1rem">
+                    <RadzenText Text="Project Status" TextStyle="TextStyle.H5" />
+                    <RadzenDataGrid Data="@dashboard.Projects" TItem="ProjectDefinition" AllowPaging="true" PageSize="10">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="ProjectDefinition" Property="Name" Title="Project" />
+                            <RadzenDataGridColumn TItem="ProjectDefinition" Property="Type" Title="Type" />
+                            <RadzenDataGridColumn TItem="ProjectDefinition" Property="LocalPath" Title="Local path" />
+                            <RadzenDataGridColumn TItem="ProjectDefinition" Property="BuildCommand" Title="Build command" />
+                            <RadzenDataGridColumn TItem="ProjectDefinition" Property="GitRepository" Title="Git repository" />
+                        </Columns>
+                    </RadzenDataGrid>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Verification Summary" TextStyle="TextStyle.H5" />
+            <RadzenDataGrid Data="@dashboard.Verifications" TItem="OrchestrationVerificationSummary" AllowPaging="true" PageSize="10" EmptyText="No verification results.">
+                <Columns>
+                    <RadzenDataGridColumn TItem="OrchestrationVerificationSummary" Property="WorkflowName" Title="Workflow" />
+                    <RadzenDataGridColumn TItem="OrchestrationVerificationSummary" Title="Status">
+                        <Template Context="item"><RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@VerificationBadge(item.Status)" /></Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OrchestrationVerificationSummary" Property="RecommendedNextAction" Title="Recommended next action" />
+                    <RadzenDataGridColumn TItem="OrchestrationVerificationSummary" Title="Created">
+                        <Template Context="item">@item.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Inject] private IOrchestrationDashboardService DashboardService { get; set; } = default!;
+    [Inject] private IWorkflowTemplateService TemplateService { get; set; } = default!;
+    [Inject] private IWorkflowRunHistoryService RunHistory { get; set; } = default!;
+    [Inject] private IVerificationService VerificationService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private OrchestrationDashboardResult dashboard = new();
+    private IReadOnlyList<WorkflowTemplateDefinition> templates = [];
+    private string newRunProjectId = string.Empty;
+    private string newRunTemplateId = string.Empty;
+    private string newRunGoal = string.Empty;
+    private bool runImmediately;
+    private bool isLoading;
+    private bool isBusy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try { await LoadAsync(); }
+        finally { isLoading = false; }
+    }
+
+    private async Task LoadAsync()
+    {
+        isBusy = true;
+        try
+        {
+            dashboard = await DashboardService.GetDashboardAsync();
+            templates = await TemplateService.GetAllAsync();
+            newRunProjectId = string.IsNullOrWhiteSpace(newRunProjectId) ? dashboard.Projects.FirstOrDefault()?.Id ?? string.Empty : newRunProjectId;
+            newRunTemplateId = string.IsNullOrWhiteSpace(newRunTemplateId) ? templates.FirstOrDefault(item => item.Enabled)?.Id ?? string.Empty : newRunTemplateId;
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dashboard load failed", exception.Message);
+        }
+        finally { isBusy = false; }
+    }
+
+    private async Task CreateRunAsync()
+    {
+        isBusy = true;
+        try
+        {
+            var workflow = await TemplateService.CreateWorkflowAsync(newRunTemplateId);
+            if (workflow is null) throw new InvalidOperationException("The selected workflow template no longer exists.");
+            var run = await RunHistory.CreateAsync(new WorkflowRunPreviewRequest { WorkflowId = workflow.Id, ProjectId = newRunProjectId, GoalText = newRunGoal });
+            if (run is null) throw new InvalidOperationException("The planned run could not be created.");
+            NotificationService.Notify(NotificationSeverity.Success, "Planned run created", run.WorkflowName);
+            newRunGoal = string.Empty;
+            await LoadAsync();
+            if (runImmediately)
+            {
+                await RunHistory.ExecuteAllWithLocalLlmAsync(run.Id);
+                await LoadAsync();
+            }
+        }
+        catch (Exception exception) { NotificationService.Notify(NotificationSeverity.Error, "Run creation failed", exception.Message); }
+        finally { isBusy = false; }
+    }
+
+    private void OpenRun(string runId) => NavigationManager.NavigateTo($"workflows/history/{runId}");
+
+    private async Task PauseAsync(string runId) => await RunActionAsync(() => RunHistory.PauseAsync(runId), "Run paused");
+    private async Task CancelAsync(string runId) => await RunActionAsync(() => RunHistory.CancelAsync(runId), "Run cancelled");
+
+    private async Task VerifyAsync(string runId)
+    {
+        isBusy = true;
+        try
+        {
+            var result = await VerificationService.VerifyAsync(runId, new VerificationRequest { RunId = runId, IncludeLocalLlmReview = true });
+            NotificationService.Notify(result.Status == VerificationStatus.Passed ? NotificationSeverity.Success : NotificationSeverity.Warning, "Verification complete", result.Summary);
+            await LoadAsync();
+        }
+        catch (Exception exception) { NotificationService.Notify(NotificationSeverity.Error, "Verification failed", exception.Message); }
+        finally { isBusy = false; }
+    }
+
+    private async Task RunActionAsync(Func<Task<WorkflowRunRecord?>> action, string title)
+    {
+        isBusy = true;
+        try
+        {
+            var run = await action();
+            if (run is null) throw new InvalidOperationException("The workflow run no longer exists.");
+            NotificationService.Notify(NotificationSeverity.Success, title, run.WorkflowName);
+            await LoadAsync();
+        }
+        catch (Exception exception) { NotificationService.Notify(NotificationSeverity.Error, "Run update failed", exception.Message); }
+        finally { isBusy = false; }
+    }
+
+    private static BadgeStyle RunBadge(WorkflowRunStatus status) => status switch
+    {
+        WorkflowRunStatus.Completed => BadgeStyle.Success,
+        WorkflowRunStatus.Failed => BadgeStyle.Danger,
+        WorkflowRunStatus.Cancelled or WorkflowRunStatus.Paused => BadgeStyle.Warning,
+        WorkflowRunStatus.Running => BadgeStyle.Info,
+        _ => BadgeStyle.Secondary
+    };
+
+    private static BadgeStyle VerificationBadge(VerificationStatus status) => status switch
+    {
+        VerificationStatus.Passed => BadgeStyle.Success,
+        VerificationStatus.Warning => BadgeStyle.Warning,
+        VerificationStatus.Failed => BadgeStyle.Danger,
+        _ => BadgeStyle.Secondary
+    };
+}

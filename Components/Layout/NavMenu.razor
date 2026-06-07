@@ -13,10 +13,11 @@
     <RadzenPanelMenuItem Text="Admin" Icon="admin_panel_settings" Expanded="true">
         <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="" />
         <RadzenPanelMenuItem Text="Containers" Icon="dns" Path="containers" />
-        <RadzenPanelMenuItem Text="Projects" Icon="folder" Path="projects" />
+        <RadzenPanelMenuItem Text="Projects" Icon="folder" Path="admin/projects" />
         <RadzenPanelMenuItem Text="Logs" Icon="receipt_long" Path="logs" />
         <RadzenPanelMenuItem Text="Settings" Icon="settings" Path="settings" />
         <RadzenPanelMenuItem Text="Agents" Icon="smart_toy" Path="admin/agents" />
+        <RadzenPanelMenuItem Text="Execution Permissions" Icon="verified_user" Path="admin/execution-permissions" />
         <RadzenPanelMenuItem Text="Workflows" Icon="account_tree" Path="admin/workflows" />
         <RadzenPanelMenuItem Text="Workflow Templates" Icon="content_copy" Path="admin/workflow-templates" />
         <RadzenPanelMenuItem Text="ComfyUI Workflow Manager" Icon="account_tree" Expanded="true">
@@ -25,12 +26,17 @@
             <RadzenPanelMenuItem Text="History" Icon="history" Path="history" />
         </RadzenPanelMenuItem>
         <RadzenPanelMenuItem Text="Ollama" Icon="psychology" Path="ollama" />
+        <RadzenPanelMenuItem Text="Open WebUI" Icon="open_in_new" Path="http://ai-box.local:3000" Target="_blank" />
+    </RadzenPanelMenuItem>
+
+    <RadzenPanelMenuItem Text="Agents" Icon="smart_toy" Expanded="true">
+        <RadzenPanelMenuItem Text="Orchestration" Icon="hub" Path="agents/orchestration" />
+        <RadzenPanelMenuItem Text="Management" Icon="manage_accounts" Path="admin/agents" />
     </RadzenPanelMenuItem>
 
     <RadzenPanelMenuItem Text="Workflows" Icon="account_tree" Expanded="true">
+        <RadzenPanelMenuItem Text="Designer" Icon="schema" Path="workflows/designer" />
         <RadzenPanelMenuItem Text="Preview Run" Icon="preview" Path="workflows/preview" />
         <RadzenPanelMenuItem Text="History" Icon="history" Path="workflows/history" />
     </RadzenPanelMenuItem>
-
-    <RadzenPanelMenuItem Text="Open WebUI" Icon="open_in_new" Path="http://ai-box.local:3000" Target="_blank" />
 </RadzenPanelMenu>

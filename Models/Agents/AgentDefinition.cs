@@ -10,5 +10,6 @@ public sealed class AgentDefinition
     public string Model { get; set; } = string.Empty;
     public double Temperature { get; set; } = 0.7;
     public string SystemPrompt { get; set; } = string.Empty;
+    public string ExecutionPermissionProfileId { get; set; } = string.Empty;
     public List<AgentPermission> Permissions { get; set; } = [];
 }

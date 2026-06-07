@@ -12,29 +12,50 @@
 </div>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@runs" TValue="WorkflowRunRecord" AllowPaging="true" AllowSorting="true" PageSize="10"
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+        <RadzenFormField Text="Project" Style="min-width: 18rem;">
+            <RadzenDropDown TValue="string"
+                            Data="@projects"
+                            TextProperty="Name"
+                            ValueProperty="Id"
+                            @bind-Value="@selectedProjectId"
+                            AllowClear="true"
+                            Placeholder="All projects"
+                            Style="width: 100%;" />
+        </RadzenFormField>
+        <RadzenButton Text="Clear" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@ClearProjectFilter" Disabled="@string.IsNullOrWhiteSpace(selectedProjectId)" />
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenCard>
+    <RadzenDataGrid Data="@filteredRuns" TItem="WorkflowRunRecord" AllowPaging="true" AllowSorting="true" PageSize="10"
                     RowSelect="@((WorkflowRunRecord run) => SelectRun(run))" EmptyText="No planned workflow runs saved.">
         <Columns>
-            <RadzenDataGridColumn TValue="WorkflowRunRecord" Property="Created" Title="Created">
+            <RadzenDataGridColumn TItem="WorkflowRunRecord" Property="Created" Title="Created">
                 <Template Context="run">
                     @run.Created.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TValue="WorkflowRunRecord" Property="WorkflowName" Title="Workflow" />
-            <RadzenDataGridColumn TValue="WorkflowRunRecord" Property="ProjectName" Title="Project">
+            <RadzenDataGridColumn TItem="WorkflowRunRecord" Property="WorkflowName" Title="Workflow" />
+            <RadzenDataGridColumn TItem="WorkflowRunRecord" Title="Project">
                 <Template Context="run">
-                    @(string.IsNullOrWhiteSpace(run.ProjectName) ? "Not specified" : run.ProjectName)
+                    @(run.ProjectSnapshot?.Name ?? "Not specified")
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TValue="WorkflowRunRecord" Title="Status">
+            <RadzenDataGridColumn TItem="WorkflowRunRecord" Title="Type">
+                <Template Context="run">
+                    @(run.ProjectSnapshot?.Type.ToString() ?? "Not specified")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="WorkflowRunRecord" Title="Status">
                 <Template Context="run">
                     <RadzenBadge Text="@run.Status.ToString()" BadgeStyle="@StatusBadgeStyle(run.Status)" />
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TValue="WorkflowRunRecord" Title="Steps">
+            <RadzenDataGridColumn TItem="WorkflowRunRecord" Title="Steps">
                 <Template Context="run">@run.Steps.Count</Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TValue="WorkflowRunRecord" Title="Actions" Sortable="false" Filterable="false">
+            <RadzenDataGridColumn TItem="WorkflowRunRecord" Title="Actions" Sortable="false" Filterable="false">
                 <Template Context="run">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                         <RadzenButton Text="View" Icon="visibility" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
@@ -64,7 +85,7 @@
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="4">
                     <RadzenText Text="Project" TextStyle="TextStyle.Caption" />
-                    <RadzenText Text="@(string.IsNullOrWhiteSpace(selectedRun.ProjectName) ? "Not specified" : selectedRun.ProjectName)" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@(selectedRun.ProjectSnapshot is null ? "Not specified" : $"{selectedRun.ProjectSnapshot.Name} ({selectedRun.ProjectSnapshot.Type})")" TextStyle="TextStyle.Body1" />
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="4">
                     <RadzenText Text="Run ID" TextStyle="TextStyle.Caption" />
@@ -118,12 +139,15 @@
 
 @code {
     [Inject] private IWorkflowRunHistoryService HistoryService { get; set; } = default!;
+    [Inject] private IProjectRegistryService ProjectRegistry { get; set; } = default!;
     [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
     private IReadOnlyList<WorkflowRunRecord> runs = [];
+    private IReadOnlyList<ProjectDefinition> projects = [];
     private WorkflowRunRecord? selectedRun;
+    private string selectedProjectId = string.Empty;
     private bool isBusy;
 
     protected override Task OnInitializedAsync()
@@ -137,6 +161,7 @@
 
         try
         {
+            projects = await ProjectRegistry.GetAllAsync();
             runs = await HistoryService.GetAllAsync();
 
             if (selectedRun is not null)
@@ -148,6 +173,16 @@
         {
             isBusy = false;
         }
+    }
+
+    private IReadOnlyList<WorkflowRunRecord> filteredRuns =>
+        string.IsNullOrWhiteSpace(selectedProjectId)
+            ? runs
+            : runs.Where(run => run.ProjectId.Equals(selectedProjectId, StringComparison.OrdinalIgnoreCase)).ToArray();
+
+    private void ClearProjectFilter()
+    {
+        selectedProjectId = string.Empty;
     }
 
     private void SelectRun(WorkflowRunRecord run)
@@ -196,7 +231,7 @@
         {
             WorkflowRunStatus.Completed => BadgeStyle.Success,
             WorkflowRunStatus.Failed => BadgeStyle.Danger,
-            WorkflowRunStatus.Cancelled => BadgeStyle.Warning,
+            WorkflowRunStatus.Cancelled or WorkflowRunStatus.Paused => BadgeStyle.Warning,
             WorkflowRunStatus.Running => BadgeStyle.Info,
             _ => BadgeStyle.Secondary
         };

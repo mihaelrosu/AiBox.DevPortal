@@ -9,9 +9,9 @@
         <dt>Environment</dt>
         <dd>@Configuration["AiBox:Environment"]</dd>
         <dt>ComfyUI URL</dt>
-        <dd>@Configuration["AiBox:ComfyUrl"]</dd>
+        <dd>@Configuration.GetComfyBaseUrl()</dd>
         <dt>Ollama URL</dt>
-        <dd>@Configuration["AiBox:OllamaUrl"]</dd>
+        <dd>@Configuration.GetOllamaBaseUrl()</dd>
     </dl>
 </RadzenCard>
 

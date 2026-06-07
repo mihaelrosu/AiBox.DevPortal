@@ -1,0 +1,316 @@
+@page "/admin/projects"
+@rendermode InteractiveServer
+
+<PageTitle>Project Management</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Project Management</h1>
+        <p>Configure the projects that workflow runs can target.</p>
+    </div>
+    <RadzenButton Text="Add project" Icon="add" ButtonStyle="ButtonStyle.Primary" Click="@AddProject" Disabled="@isBusy" />
+</div>
+
+<RadzenCard>
+    <RadzenDataGrid Data="@projects" TItem="ProjectDefinition" AllowPaging="true" PageSize="10" EmptyText="No projects configured.">
+        <Columns>
+            <RadzenDataGridColumn TItem="ProjectDefinition" Property="Name" Title="Name" />
+            <RadzenDataGridColumn TItem="ProjectDefinition" Property="Type" Title="Type" />
+            <RadzenDataGridColumn TItem="ProjectDefinition" Property="LocalPath" Title="Local path" />
+            <RadzenDataGridColumn TItem="ProjectDefinition" Property="GitRepository" Title="Repository" />
+            <RadzenDataGridColumn TItem="ProjectDefinition" Title="Default profile">
+                <Template Context="project">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                        <RadzenText Text="@ProfileSummary(project.DefaultExecutionPermissionProfileId)" />
+                        @if (IsDangerousProfile(project.DefaultExecutionPermissionProfileId))
+                        {
+                            <RadzenBadge Text="Dangerous" BadgeStyle="@BadgeStyle.Warning" />
+                        }
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ProjectDefinition" Title="Status">
+                <Template Context="project">
+                    <RadzenBadge Text="@(project.Enabled ? "Enabled" : "Disabled")"
+                                 BadgeStyle="@(project.Enabled ? BadgeStyle.Success : BadgeStyle.Secondary)" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ProjectDefinition" Title="Actions" Sortable="false" Filterable="false">
+                <Template Context="project">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                        <RadzenButton Text="Edit" Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                      Click="@(() => EditProject(project))" Disabled="@isBusy" />
+                        <RadzenButton Text="@(project.Enabled ? "Disable" : "Enable")"
+                                      Icon="@(project.Enabled ? "toggle_off" : "toggle_on")"
+                                      Size="ButtonSize.Small"
+                                      ButtonStyle="@(project.Enabled ? ButtonStyle.Warning : ButtonStyle.Success)"
+                                      Click="@(() => ToggleEnabledAsync(project))"
+                                      Disabled="@isBusy" />
+                        <RadzenButton Text="Delete" Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger"
+                                      Click="@(() => DeleteAsync(project))" Disabled="@isBusy" />
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenCard>
+
+@if (editingProject is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="@(isAdding ? "Add project" : $"Edit {editingProject.Name}")" TextStyle="TextStyle.H5" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Name" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingProject.Name" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Type" Style="width: 100%;">
+                        <RadzenDropDown TValue="ProjectType" Data="@projectTypes" @bind-Value="@editingProject.Type" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenFormField Text="Description" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@editingProject.Description" Rows="3" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Local path" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingProject.LocalPath" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Git repository" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingProject.GitRepository" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Default branch" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingProject.DefaultBranch" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Build command" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingProject.BuildCommand" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Run command" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingProject.RunCommand" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Test command" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingProject.TestCommand" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Default execution profile" Style="width: 100%;">
+                        <RadzenDropDown TValue="string"
+                                        Data="@profiles"
+                                        TextProperty="Name"
+                                        ValueProperty="Id"
+                                        @bind-Value="@editingProject.DefaultExecutionPermissionProfileId"
+                                        AllowFiltering="true"
+                                        AllowClear="false"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                    <RadzenText Text="@ProfileSummary(editingProject.DefaultExecutionPermissionProfileId)" TextStyle="TextStyle.Caption" />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem" Style="padding-top: 1.5rem;">
+                        <RadzenSwitch @bind-Value="@editingProject.Enabled" />
+                        <RadzenLabel Text="Enabled" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem">
+                <RadzenButton Text="Save project" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@SaveAsync" Disabled="@isBusy" />
+                <RadzenButton Text="Cancel" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@CancelEdit" Disabled="@isBusy" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Inject] private IProjectRegistryService ProjectRegistry { get; set; } = default!;
+    [Inject] private IExecutionPermissionProfileService ExecutionPermissionProfiles { get; set; } = default!;
+    [Inject] private DialogService DialogService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
+    private readonly ProjectType[] projectTypes = Enum.GetValues<ProjectType>();
+    private IReadOnlyList<ProjectDefinition> projects = [];
+    private IReadOnlyList<ExecutionPermissionProfile> profiles = [];
+    private ProjectDefinition? editingProject;
+    private bool isAdding;
+    private bool isBusy;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        projects = await ProjectRegistry.GetAllAsync();
+        profiles = await ExecutionPermissionProfiles.GetAllAsync();
+    }
+
+    private void AddProject()
+    {
+        editingProject = new ProjectDefinition
+        {
+            Enabled = true,
+            Type = ProjectType.Other,
+            DefaultExecutionPermissionProfileId = "project-write"
+        };
+        isAdding = true;
+    }
+
+    private void EditProject(ProjectDefinition project)
+    {
+        editingProject = Clone(project);
+        isAdding = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editingProject is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            if (isAdding)
+            {
+                await ProjectRegistry.AddAsync(editingProject);
+            }
+            else
+            {
+                await ProjectRegistry.UpdateAsync(editingProject.Id, editingProject);
+            }
+
+            NotificationService.Notify(NotificationSeverity.Success, "Project saved", editingProject.Name);
+            CancelEdit();
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Save failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ToggleEnabledAsync(ProjectDefinition project)
+    {
+        isBusy = true;
+
+        try
+        {
+            var updated = Clone(project);
+            updated.Enabled = !project.Enabled;
+            await ProjectRegistry.UpdateAsync(project.Id, updated);
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Update failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task DeleteAsync(ProjectDefinition project)
+    {
+        var confirmed = await DialogService.Confirm(
+            $"Delete project '{project.Name}'?",
+            "Delete project",
+            new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Cancel" });
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            await ProjectRegistry.DeleteAsync(project.Id);
+
+            if (editingProject?.Id == project.Id)
+            {
+                CancelEdit();
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Delete failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        editingProject = null;
+        isAdding = false;
+    }
+
+    private static ProjectDefinition Clone(ProjectDefinition project)
+    {
+        return new ProjectDefinition
+        {
+            Id = project.Id,
+            Name = project.Name,
+            Type = project.Type,
+            Description = project.Description,
+            LocalPath = project.LocalPath,
+            GitRepository = project.GitRepository,
+            DefaultBranch = project.DefaultBranch,
+            BuildCommand = project.BuildCommand,
+            RunCommand = project.RunCommand,
+            TestCommand = project.TestCommand,
+            DefaultExecutionPermissionProfileId = project.DefaultExecutionPermissionProfileId,
+            Enabled = project.Enabled
+        };
+    }
+
+    private string ProfileSummary(string profileId)
+    {
+        var profile = profiles.FirstOrDefault(profile => profile.Id.Equals(profileId, StringComparison.OrdinalIgnoreCase));
+        return profile is null
+            ? "No default execution profile selected."
+            : $"{profile.Name} - {profile.Level}";
+    }
+
+    private bool IsDangerousProfile(string profileId)
+    {
+        var profile = profiles.FirstOrDefault(profile => profile.Id.Equals(profileId, StringComparison.OrdinalIgnoreCase));
+        return profile is not null && (profile.Level == ExecutionPermissionLevel.FullLocalAdmin || profile.RequiresConfirmation);
+    }
+}

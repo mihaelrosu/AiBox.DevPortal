@@ -85,6 +85,28 @@ public static class WorkflowRunEndpoints
             .WithName("ExecuteWorkflowRunWithLocalLlm")
             .WithSummary("Runs all enabled workflow steps sequentially through local Ollama.");
 
+        group.MapPost("/{runId}/verify", async (
+                    string runId,
+                    VerificationRequest request,
+                    IVerificationService verification,
+                    CancellationToken cancellationToken) =>
+                await ExecuteAsync(async () => Results.Ok(await verification.VerifyAsync(runId, request, cancellationToken))))
+            .WithName("VerifyWorkflowRun")
+            .WithSummary("Runs deterministic and optional local-LLM verification for a workflow run.");
+
+        group.MapPost("/{runId}/export-codex-task", async (
+                    string runId,
+                    CodexTaskExportRequest request,
+                    IWorkflowRunHistoryService history,
+                    CancellationToken cancellationToken) =>
+                await ExecuteAsync(async () =>
+                {
+                    var export = await history.ExportCodexTaskAsync(runId, request, cancellationToken);
+                    return export is null ? Results.NotFound() : Results.Ok(export);
+                }))
+            .WithName("ExportCodexTask")
+            .WithSummary("Exports workflow results into a Codex task.");
+
         group.MapDelete("/{id}", async (string id, IWorkflowRunHistoryService history, CancellationToken cancellationToken) =>
                 await history.DeleteAsync(id, cancellationToken) ? Results.NoContent() : Results.NotFound())
             .WithName("DeleteWorkflowRun")
@@ -118,6 +140,10 @@ public static class WorkflowRunEndpoints
         catch (InvalidOperationException exception)
         {
             return Results.Problem(statusCode: StatusCodes.Status502BadGateway, detail: exception.Message);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return Results.Problem(statusCode: StatusCodes.Status404NotFound, detail: exception.Message);
         }
     }
 }

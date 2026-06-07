@@ -8,6 +8,7 @@
     "model": "gemma4:e2b",
     "temperature": 0.7,
     "systemPrompt": "Create clear, actionable plans with assumptions, dependencies, and acceptance criteria.",
+    "executionPermissionProfileId": "no-execution",
     "permissions": ["planning"]
   },
   {
@@ -19,6 +20,7 @@
     "model": "gemma4:e2b",
     "temperature": 0.5,
     "systemPrompt": "Design pragmatic architecture that fits the existing system and clearly explains tradeoffs.",
+    "executionPermissionProfileId": "no-execution",
     "permissions": ["architecture"]
   },
   {
@@ -30,6 +32,7 @@
     "model": "gemma4:e2b",
     "temperature": 0.5,
     "systemPrompt": "Provide precise ComfyUI workflow and model configuration guidance.",
+    "executionPermissionProfileId": "read-only",
     "permissions": ["comfyUi"]
   },
   {
@@ -41,6 +44,7 @@
     "model": "qwen2.5-coder:7b",
     "temperature": 0.3,
     "systemPrompt": "Produce focused, maintainable code that follows existing project conventions.",
+    "executionPermissionProfileId": "build-and-test",
     "permissions": ["coding"]
   },
   {
@@ -52,6 +56,7 @@
     "model": "qwen2.5-coder:7b",
     "temperature": 0.3,
     "systemPrompt": "Provide safe, reviewable infrastructure and operations guidance.",
+    "executionPermissionProfileId": "docker-maintenance",
     "permissions": ["systemAdministration"]
   },
   {
@@ -63,6 +68,7 @@
     "model": "qwen2.5-coder:7b",
     "temperature": 0.3,
     "systemPrompt": "Implement the requested change precisely and report verification results.",
+    "executionPermissionProfileId": "build-and-test",
     "permissions": ["coding", "implementation"]
   },
   {
@@ -74,6 +80,7 @@
     "model": "gemma4:e2b",
     "temperature": 0.2,
     "systemPrompt": "Verify results against requirements and report defects, gaps, and evidence.",
+    "executionPermissionProfileId": "no-execution",
     "permissions": ["verification"]
   }
 ]

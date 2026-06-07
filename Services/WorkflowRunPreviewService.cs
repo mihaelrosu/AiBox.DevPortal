@@ -5,7 +5,8 @@ namespace AiBox.DevPortal.Services;
 
 public sealed class WorkflowRunPreviewService(
     IWorkflowRegistryService workflowRegistry,
-    IAgentRegistryService agentRegistry) : IWorkflowRunPreviewService
+    IAgentRegistryService agentRegistry,
+    IProjectRegistryService projectRegistry) : IWorkflowRunPreviewService
 {
     public async Task<WorkflowRunPreviewResult?> PreviewAsync(
         WorkflowRunPreviewRequest request,
@@ -30,11 +31,23 @@ public sealed class WorkflowRunPreviewService(
             return null;
         }
 
+        if (string.IsNullOrWhiteSpace(request.ProjectId))
+        {
+            throw new ArgumentException("Project is required.", nameof(request));
+        }
+
         var agents = await agentRegistry.GetAllAsync(cancellationToken);
         var agentsById = agents.ToDictionary(agent => agent.Id, StringComparer.OrdinalIgnoreCase);
-        var projectName = request.ProjectName?.Trim() ?? string.Empty;
+        var project = await projectRegistry.GetByIdAsync(request.ProjectId, cancellationToken);
+
+        if (project is null)
+        {
+            return null;
+        }
+
         var goalText = request.GoalText.Trim();
         var steps = new List<WorkflowRunStepPreview>();
+        var projectSnapshot = ToSnapshot(project);
 
         foreach (var step in workflow.Steps.OrderBy(step => step.Order))
         {
@@ -53,7 +66,7 @@ public sealed class WorkflowRunPreviewService(
                 AgentName = agent.Name,
                 Model = agent.Model,
                 Instruction = step.Instruction,
-                GeneratedTaskPrompt = WorkflowPromptBuilder.Build(agent.Name, agent.Model, projectName, goalText, step.Instruction),
+                GeneratedTaskPrompt = WorkflowPromptBuilder.Build(projectSnapshot, goalText, agent.Name, agent.Model, step.Instruction),
                 IncludePreviousResults = step.IncludePreviousResults,
                 PreviousResultMode = step.PreviousResultMode,
                 DependsOnStepIds = [.. (step.DependsOnStepIds ?? [])]
@@ -65,8 +78,28 @@ public sealed class WorkflowRunPreviewService(
             WorkflowId = workflow.Id,
             WorkflowName = workflow.Name,
             GoalText = goalText,
-            ProjectName = string.IsNullOrWhiteSpace(projectName) ? null : projectName,
+            ProjectId = project.Id,
+            ProjectSnapshot = projectSnapshot,
             Steps = steps
+        };
+    }
+
+    private static ProjectSnapshot ToSnapshot(ProjectDefinition project)
+    {
+        return new ProjectSnapshot
+        {
+            Id = project.Id,
+            Name = project.Name,
+            Type = project.Type,
+            Description = project.Description,
+            LocalPath = project.LocalPath,
+            GitRepository = project.GitRepository,
+            DefaultBranch = project.DefaultBranch,
+            BuildCommand = project.BuildCommand,
+            RunCommand = project.RunCommand,
+            TestCommand = project.TestCommand,
+            DefaultExecutionPermissionProfileId = project.DefaultExecutionPermissionProfileId,
+            Enabled = project.Enabled
         };
     }
 

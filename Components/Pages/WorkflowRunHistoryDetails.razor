@@ -24,6 +24,9 @@ else
             <p>@run.Created.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</p>
         </div>
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+            <RadzenButton Text="Export Codex Task" Icon="description" ButtonStyle="ButtonStyle.Light"
+                          Click="@ExportCodexTaskAsync"
+                          Disabled="@(isBusy || isExecutingAll || executingStepId is not null)" />
             <RadzenButton Text="Run All with Local LLM" Icon="play_circle" ButtonStyle="ButtonStyle.Primary"
                           Click="@ExecuteAllWithLocalLlmAsync"
                           Disabled="@(isBusy || isExecutingAll || executingStepId is not null)" />
@@ -46,7 +49,7 @@ else
             <RadzenRow Gap="1rem">
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenText Text="Project" TextStyle="TextStyle.Caption" />
-                    <RadzenText Text="@(string.IsNullOrWhiteSpace(run.ProjectName) ? "Not specified" : run.ProjectName)" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@ProjectDisplayText(run.ProjectSnapshot)" TextStyle="TextStyle.Body1" />
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenText Text="Run ID" TextStyle="TextStyle.Caption" />
@@ -54,10 +57,718 @@ else
                 </RadzenColumn>
             </RadzenRow>
 
+            @if (run.ProjectSnapshot is not null)
+            {
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenText Text="Local path" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@run.ProjectSnapshot.LocalPath" TextStyle="TextStyle.Body1" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenText Text="Repository" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@run.ProjectSnapshot.GitRepository" TextStyle="TextStyle.Body1" />
+                    </RadzenColumn>
+                </RadzenRow>
+            }
+
             <div>
                 <RadzenText Text="Goal" TextStyle="TextStyle.Caption" />
                 <RadzenText Text="@run.GoalText" TextStyle="TextStyle.Body1" />
             </div>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenText Text="Verification" TextStyle="TextStyle.H5" />
+                    @if (verificationResult is not null)
+                    {
+                        <RadzenBadge Text="@verificationResult.Status.ToString()" BadgeStyle="@VerificationStatusBadgeStyle(verificationResult.Status)" />
+                    }
+                </RadzenStack>
+                <RadzenButton Text="Run Verification" Icon="fact_check" ButtonStyle="ButtonStyle.Primary"
+                              Click="@RunVerificationAsync"
+                              Disabled="@(isRunningVerification || isBusy || isExecutingAll || executingStepId is not null)" />
+            </RadzenStack>
+
+            @if (isRunningVerification)
+            {
+                <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+            }
+
+            @if (verificationResult is not null)
+            {
+                <div>
+                    <RadzenText Text="Summary" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@verificationResult.Summary" TextStyle="TextStyle.Body1" />
+                </div>
+                <div>
+                    <RadzenText Text="Recommended next action" TextStyle="TextStyle.Caption" />
+                    <RadzenText Text="@verificationResult.RecommendedNextAction" TextStyle="TextStyle.Body1" />
+                </div>
+
+                <RadzenDataGrid Data="@verificationResult.Checks" TValue="VerificationCheck" AllowPaging="false" EmptyText="No verification checks recorded.">
+                    <Columns>
+                        <RadzenDataGridColumn TValue="VerificationCheck" Property="Name" Title="Check" />
+                        <RadzenDataGridColumn TValue="VerificationCheck" Title="Status">
+                            <Template Context="item">
+                                <RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@VerificationStatusBadgeStyle(item.Status)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TValue="VerificationCheck" Title="Severity">
+                            <Template Context="item">
+                                <RadzenBadge Text="@item.Severity.ToString()" BadgeStyle="@VerificationSeverityBadgeStyle(item.Severity)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TValue="VerificationCheck" Property="Message" Title="Message" />
+                    </Columns>
+                </RadzenDataGrid>
+
+                @if (!string.IsNullOrWhiteSpace(verificationResult.LocalLlmReview))
+                {
+                    <RadzenFormField Text="Local LLM verifier review" Style="width: 100%;">
+                        <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@verificationResult.LocalLlmReview</pre>
+                    </RadzenFormField>
+                }
+            }
+
+            @if (!string.IsNullOrWhiteSpace(verificationMessage))
+            {
+                <RadzenAlert AlertStyle="@verificationAlertStyle" ShowIcon="true">@verificationMessage</RadzenAlert>
+            }
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Implementator Execution" TextStyle="TextStyle.H5" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Step" Style="width: 100%;">
+                        <RadzenDropDown TValue="string"
+                                        Data="@executionStepOptions"
+                                        TextProperty="StepName"
+                                        ValueProperty="StepId"
+                                        @bind-Value="@selectedExecutionStepId"
+                                        Change="@OnExecutionStepChangedAsync"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Command type" Style="width: 100%;">
+                        <RadzenDropDown TValue="ExecutionCommandType"
+                                        Data="@commandTypes"
+                                        @bind-Value="@executionCommandType"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Working directory" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@executionWorkingDirectory" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Command" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@executionCommand" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenFormField Text="Arguments" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@executionArguments" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Safe presets" TextStyle="TextStyle.Caption" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="dotnet build" ButtonStyle="ButtonStyle.Light" Click="@SetDotNetBuildPreset" />
+                    <RadzenButton Text="dotnet test" ButtonStyle="ButtonStyle.Light" Click="@SetDotNetTestPreset" />
+                    <RadzenButton Text="git status" ButtonStyle="ButtonStyle.Light" Click="@SetGitStatusPreset" />
+                    <RadzenButton Text="git diff" ButtonStyle="ButtonStyle.Light" Click="@SetGitDiffPreset" />
+                    <RadzenButton Text="docker ps" ButtonStyle="ButtonStyle.Light" Click="@SetDockerPsPreset" />
+                    <RadzenButton Text="docker compose ps" ButtonStyle="ButtonStyle.Light" Click="@SetDockerComposePsPreset" />
+                </RadzenStack>
+            </RadzenStack>
+
+            @if (executionRequiresConfirmation)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenSwitch @bind-Value="@executionConfirmed" />
+                    <RadzenLabel Text="I confirm this command is permitted by the selected execution profile." />
+                </RadzenStack>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" AlignItems="AlignItems.Center">
+                <RadzenButton Text="Run Command" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
+                              Click="@RunExecutionAsync"
+                              Disabled="@(isBusy || isExecutingAll || executingStepId is not null || isExecutingCommand || string.IsNullOrWhiteSpace(selectedExecutionStepId))" />
+                @if (isExecutingCommand)
+                {
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                }
+            </RadzenStack>
+
+            @if (latestExecutionResult is not null)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="1rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                            <RadzenText Text="Latest result" TextStyle="TextStyle.H6" />
+                            <RadzenBadge Text="@latestExecutionResult.Status.ToString()" BadgeStyle="@ExecutionStatusBadgeStyle(latestExecutionResult.Status)" />
+                        </RadzenStack>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Exit code" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@DisplayTextOrNa(latestExecutionResult.ExitCode?.ToString())" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Working directory" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@latestExecutionResult.WorkingDirectory" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Command" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@latestExecutionResult.CommandText" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenFormField Text="Standard output" Style="width: 100%;">
+                            <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@latestExecutionResult.StandardOutput</pre>
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="Standard error" Style="width: 100%;">
+                            <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@latestExecutionResult.StandardError</pre>
+                        </RadzenFormField>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(executionMessage))
+            {
+                <RadzenAlert AlertStyle="@executionAlertStyle" ShowIcon="true">
+                    @executionMessage
+                </RadzenAlert>
+            }
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Implementator File Operations" TextStyle="TextStyle.H5" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Operation" Style="width: 100%;">
+                        <RadzenDropDown TValue="FileOperationType"
+                                        Data="@fileOperationTypes"
+                                        @bind-Value="@fileOperationType"
+                                        Change="@OnFileOperationTypeChangedAsync"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Path" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@fileOperationPath" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                @if (RequiresTargetPath(fileOperationType))
+                {
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Target path" Style="width: 100%;">
+                            <RadzenTextBox @bind-Value="@fileOperationTargetPath" Style="width: 100%;" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                }
+            </RadzenRow>
+
+            <RadzenFormField Text="Content" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@fileOperationContent" Rows="12" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Safe presets" TextStyle="TextStyle.Caption" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Read Program.cs" ButtonStyle="ButtonStyle.Light" Click="@SetReadProgramPreset" />
+                    <RadzenButton Text="Read appsettings.json" ButtonStyle="ButtonStyle.Light" Click="@SetReadAppSettingsPreset" />
+                    <RadzenButton Text="List project root" ButtonStyle="ButtonStyle.Light" Click="@SetListProjectRootPreset" />
+                    <RadzenButton Text="List Components/Pages" ButtonStyle="ButtonStyle.Light" Click="@SetListComponentsPagesPreset" />
+                    <RadzenButton Text="List Services" ButtonStyle="ButtonStyle.Light" Click="@SetListServicesPreset" />
+                    <RadzenButton Text="Create Razor page" ButtonStyle="ButtonStyle.Light" Click="@SetCreateRazorPagePreset" />
+                    <RadzenButton Text="Create service class" ButtonStyle="ButtonStyle.Light" Click="@SetCreateServiceClassPreset" />
+                </RadzenStack>
+            </RadzenStack>
+
+            @if (fileOperationType == FileOperationType.Delete)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenSwitch @bind-Value="@fileOperationConfirmed" />
+                    <RadzenLabel Text="I confirm this delete operation is intentional." />
+                </RadzenStack>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" AlignItems="AlignItems.Center">
+                <RadzenButton Text="Execute File Operation" Icon="folder_open" ButtonStyle="ButtonStyle.Primary"
+                              Click="@ExecuteFileOperationAsync"
+                              Disabled="@(isBusy || isExecutingAll || executingStepId is not null || isExecutingCommand || isExecutingFileOperation || string.IsNullOrWhiteSpace(selectedExecutionStepId) || (fileOperationType == FileOperationType.Delete && !fileOperationConfirmed))" />
+                @if (isExecutingFileOperation)
+                {
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                }
+            </RadzenStack>
+
+            @if (fileOperationLatestResult is not null)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="1rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                            <RadzenText Text="Latest file operation" TextStyle="TextStyle.H6" />
+                            <RadzenBadge Text="@ResultLabel(fileOperationLatestResult.Success)"
+                                         BadgeStyle="@(fileOperationLatestResult.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </RadzenStack>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Operation" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@fileOperationLatestResult.OperationType.ToString()" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Path" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@fileOperationLatestResult.Path" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Target" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@DisplayTextOrNa(fileOperationLatestResult.TargetPath)" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <div>
+                            <RadzenText Text="Message" TextStyle="TextStyle.Caption" />
+                            <RadzenText Text="@fileOperationLatestResult.Message" TextStyle="TextStyle.Body1" />
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(fileOperationLatestResult.ContentPreview))
+                        {
+                            <RadzenFormField Text="Content preview" Style="width: 100%;">
+                                <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@fileOperationLatestResult.ContentPreview</pre>
+                            </RadzenFormField>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(fileOperationMessage))
+            {
+                <RadzenAlert AlertStyle="@fileOperationAlertStyle" ShowIcon="true">
+                    @fileOperationMessage
+                </RadzenAlert>
+            }
+
+            <RadzenDataGrid Data="@fileOperationHistory" TItem="FileOperationResult" AllowPaging="true" PageSize="5" EmptyText="No file operations recorded yet.">
+                <Columns>
+                    <RadzenDataGridColumn TItem="FileOperationResult" Property="CreatedAt" Title="Created">
+                        <Template Context="item">
+                            @item.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="FileOperationResult" Property="OperationType" Title="Operation" />
+                    <RadzenDataGridColumn TItem="FileOperationResult" Property="Path" Title="Path" />
+                    <RadzenDataGridColumn TItem="FileOperationResult" Property="TargetPath" Title="Target" />
+                    <RadzenDataGridColumn TItem="FileOperationResult" Title="Result">
+                        <Template Context="item">
+                            <RadzenBadge Text="@ResultLabel(item.Success)"
+                                         BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="FileOperationResult" Property="Message" Title="Message" />
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Git Operations" TextStyle="TextStyle.H5" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Operation" Style="width: 100%;">
+                        <RadzenDropDown TValue="GitOperationType"
+                                        Data="@gitOperationTypes"
+                                        @bind-Value="@gitOperationType"
+                                        Change="@OnGitOperationTypeChangedAsync"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Branch name" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@gitBranchName" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Commit message" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@gitCommitMessage" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenFormField Text="File paths" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@gitFilePaths" Rows="4" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Safe presets" TextStyle="TextStyle.Caption" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="status" ButtonStyle="ButtonStyle.Light" Click="@SetGitStatusPreset" />
+                    <RadzenButton Text="diff" ButtonStyle="ButtonStyle.Light" Click="@SetGitDiffPreset" />
+                    <RadzenButton Text="current branch" ButtonStyle="ButtonStyle.Light" Click="@SetGitCurrentBranchPreset" />
+                    <RadzenButton Text="recent log" ButtonStyle="ButtonStyle.Light" Click="@SetGitRecentLogPreset" />
+                    <RadzenButton Text="create feature branch" ButtonStyle="ButtonStyle.Light" Click="@SetGitCreateFeatureBranchPreset" />
+                    <RadzenButton Text="add selected files" ButtonStyle="ButtonStyle.Light" Click="@SetGitAddSelectedFilesPreset" />
+                    <RadzenButton Text="commit selected files" ButtonStyle="ButtonStyle.Light" Click="@SetGitCommitSelectedFilesPreset" />
+                </RadzenStack>
+            </RadzenStack>
+
+            @if (gitOperationRequiresConfirmation)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenSwitch @bind-Value="@gitConfirmed" />
+                    <RadzenLabel Text="I confirm this Git operation is intentional." />
+                </RadzenStack>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" AlignItems="AlignItems.Center">
+                <RadzenButton Text="Run Git Operation" Icon="call_split" ButtonStyle="ButtonStyle.Primary"
+                              Click="@ExecuteGitOperationAsync"
+                              Disabled="@(isBusy || isExecutingAll || executingStepId is not null || isExecutingCommand || isExecutingFileOperation || isExecutingGitOperation || string.IsNullOrWhiteSpace(selectedExecutionStepId) || (gitOperationRequiresConfirmation && !gitConfirmed))" />
+                @if (isExecutingGitOperation)
+                {
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                }
+            </RadzenStack>
+
+            @if (gitOperationLatestResult is not null)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="1rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                            <RadzenText Text="Latest Git result" TextStyle="TextStyle.H6" />
+                            <RadzenBadge Text="@ResultLabel(gitOperationLatestResult.Success)"
+                                         BadgeStyle="@(gitOperationLatestResult.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </RadzenStack>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Operation" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@gitOperationLatestResult.OperationType.ToString()" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Exit code" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@DisplayTextOrNa(gitOperationLatestResult.ExitCode?.ToString())" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Branch" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@DisplayTextOrNa(gitOperationLatestResult.BranchName)" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <div>
+                            <RadzenText Text="Message" TextStyle="TextStyle.Caption" />
+                            <RadzenText Text="@gitOperationLatestResult.Message" TextStyle="TextStyle.Body1" />
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(gitOperationLatestResult.StandardOutput))
+                        {
+                            <RadzenFormField Text="Standard output" Style="width: 100%;">
+                                <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@gitOperationLatestResult.StandardOutput</pre>
+                            </RadzenFormField>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(gitOperationLatestResult.StandardError))
+                        {
+                            <RadzenFormField Text="Standard error" Style="width: 100%;">
+                                <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@gitOperationLatestResult.StandardError</pre>
+                            </RadzenFormField>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(gitOperationMessage))
+            {
+                <RadzenAlert AlertStyle="@gitOperationAlertStyle" ShowIcon="true">
+                    @gitOperationMessage
+                </RadzenAlert>
+            }
+
+            <RadzenDataGrid Data="@gitOperationHistory" TItem="GitOperationResult" AllowPaging="true" PageSize="5" EmptyText="No Git operations recorded yet.">
+                <Columns>
+                    <RadzenDataGridColumn TItem="GitOperationResult" Property="CreatedAt" Title="Created">
+                        <Template Context="item">
+                            @item.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="GitOperationResult" Property="OperationType" Title="Operation" />
+                    <RadzenDataGridColumn TItem="GitOperationResult" Property="BranchName" Title="Branch" />
+                    <RadzenDataGridColumn TItem="GitOperationResult" Property="CommitMessage" Title="Commit message" />
+                    <RadzenDataGridColumn TItem="GitOperationResult" Title="Result">
+                        <Template Context="item">
+                            <RadzenBadge Text="@ResultLabel(item.Success)"
+                                         BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="GitOperationResult" Property="Message" Title="Message" />
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="Docker Operations" TextStyle="TextStyle.H5" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenFormField Text="Operation" Style="width: 100%;">
+                        <RadzenDropDown TValue="DockerOperationType"
+                                        Data="@dockerOperationTypes"
+                                        @bind-Value="@dockerOperationType"
+                                        Change="@OnDockerOperationTypeChangedAsync"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="5">
+                    <RadzenFormField Text="Compose file path" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@dockerComposeFilePath" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenFormField Text="Service name" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@dockerServiceName" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="1">
+                    <RadzenFormField Text="Lines" Style="width: 100%;">
+                        <RadzenNumeric TValue="int" @bind-Value="@dockerLines" Min="1" Max="10000" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Safe presets" TextStyle="TextStyle.Caption" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="docker ps" ButtonStyle="ButtonStyle.Light" Click="@SetDockerOperationPsPreset" />
+                    <RadzenButton Text="docker images" ButtonStyle="ButtonStyle.Light" Click="@SetDockerImagesPreset" />
+                    <RadzenButton Text="compose ps" ButtonStyle="ButtonStyle.Light" Click="@SetDockerComposeOperationPsPreset" />
+                    <RadzenButton Text="compose up" ButtonStyle="ButtonStyle.Light" Click="@SetDockerComposeUpPreset" />
+                    <RadzenButton Text="compose restart" ButtonStyle="ButtonStyle.Light" Click="@SetDockerComposeRestartPreset" />
+                    <RadzenButton Text="container logs" ButtonStyle="ButtonStyle.Light" Click="@SetDockerLogsPreset" />
+                </RadzenStack>
+            </RadzenStack>
+
+            @if (dockerOperationRequiresConfirmation)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenSwitch @bind-Value="@dockerConfirmed" />
+                    <RadzenLabel Text="I confirm this Docker operation is intentional." />
+                </RadzenStack>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" AlignItems="AlignItems.Center">
+                <RadzenButton Text="Run Docker Operation" Icon="deployed_code" ButtonStyle="ButtonStyle.Primary"
+                              Click="@ExecuteDockerOperationAsync"
+                              Disabled="@(isBusy || isExecutingAll || executingStepId is not null || isExecutingCommand || isExecutingFileOperation || isExecutingGitOperation || isExecutingDockerOperation || string.IsNullOrWhiteSpace(selectedExecutionStepId) || (dockerOperationRequiresConfirmation && !dockerConfirmed))" />
+                @if (isExecutingDockerOperation)
+                {
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                }
+            </RadzenStack>
+
+            @if (dockerOperationLatestResult is not null)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="1rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                            <RadzenText Text="Latest Docker result" TextStyle="TextStyle.H6" />
+                            <RadzenBadge Text="@ResultLabel(dockerOperationLatestResult.Success)"
+                                         BadgeStyle="@(dockerOperationLatestResult.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </RadzenStack>
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Operation" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@dockerOperationLatestResult.OperationType.ToString()" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Exit code" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@DisplayTextOrNa(dockerOperationLatestResult.ExitCode?.ToString())" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenText Text="Command" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@DisplayTextOrNa(dockerOperationLatestResult.CommandText)" TextStyle="TextStyle.Body1" />
+                            </RadzenColumn>
+                        </RadzenRow>
+                        <div>
+                            <RadzenText Text="Message" TextStyle="TextStyle.Caption" />
+                            <RadzenText Text="@dockerOperationLatestResult.Message" TextStyle="TextStyle.Body1" />
+                        </div>
+                        <RadzenFormField Text="Standard output" Style="width: 100%;">
+                            <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@dockerOperationLatestResult.StandardOutput</pre>
+                        </RadzenFormField>
+                        <RadzenFormField Text="Standard error" Style="width: 100%;">
+                            <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@dockerOperationLatestResult.StandardError</pre>
+                        </RadzenFormField>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(dockerOperationMessage))
+            {
+                <RadzenAlert AlertStyle="@dockerOperationAlertStyle" ShowIcon="true">@dockerOperationMessage</RadzenAlert>
+            }
+
+            <RadzenDataGrid Data="@dockerOperationHistory" TValue="DockerOperationResult" AllowPaging="true" PageSize="5" EmptyText="No Docker operations recorded yet.">
+                <Columns>
+                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="CreatedAt" Title="Created">
+                        <Template Context="item">@item.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="OperationType" Title="Operation" />
+                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="ServiceName" Title="Service" />
+                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="ExitCode" Title="Exit code" />
+                    <RadzenDataGridColumn TValue="DockerOperationResult" Title="Result">
+                        <Template Context="item">
+                            <RadzenBadge Text="@ResultLabel(item.Success)" BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="Message" Title="Message" />
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText Text="ComfyUI Operations" TextStyle="TextStyle.H5" />
+
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Operation" Style="width: 100%;">
+                        <RadzenDropDown TValue="ComfyUiOperationType"
+                                        Data="@comfyUiOperationTypes"
+                                        @bind-Value="@comfyUiOperationType"
+                                        Change="@OnComfyUiOperationTypeChangedAsync"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="8">
+                    <RadzenFormField Text="Workflow file" Style="width: 100%;">
+                        <RadzenDropDown TValue="string"
+                                        Data="@comfyUiWorkflowFiles"
+                                        TextProperty="FileName"
+                                        ValueProperty="FileName"
+                                        @bind-Value="@comfyUiWorkflowFileName"
+                                        AllowClear="true"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenFormField Text="Workflow JSON" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@comfyUiWorkflowJson" Rows="14" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Safe presets" TextStyle="TextStyle.Caption" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="check ComfyUI health" ButtonStyle="ButtonStyle.Light" Click="@SetComfyUiHealthPreset" />
+                    <RadzenButton Text="list workflows" ButtonStyle="ButtonStyle.Light" Click="@SetComfyUiListWorkflowsPreset" />
+                    <RadzenButton Text="list models" ButtonStyle="ButtonStyle.Light" Click="@SetComfyUiListModelsPreset" />
+                    <RadzenButton Text="backup workflows" ButtonStyle="ButtonStyle.Light" Click="@SetComfyUiBackupPreset" />
+                    <RadzenButton Text="queue selected workflow" ButtonStyle="ButtonStyle.Light" Click="@SetComfyUiQueuePreset" />
+                </RadzenStack>
+            </RadzenStack>
+
+            @if (comfyUiOperationRequiresConfirmation)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenSwitch @bind-Value="@comfyUiConfirmed" />
+                    <RadzenLabel Text="I confirm this ComfyUI operation is intentional." />
+                </RadzenStack>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" AlignItems="AlignItems.Center">
+                <RadzenButton Text="Run ComfyUI Operation" Icon="account_tree" ButtonStyle="ButtonStyle.Primary"
+                              Click="@ExecuteComfyUiOperationAsync"
+                              Disabled="@(isBusy || isExecutingAll || executingStepId is not null || isExecutingCommand || isExecutingFileOperation || isExecutingGitOperation || isExecutingDockerOperation || isExecutingComfyUiOperation || string.IsNullOrWhiteSpace(selectedExecutionStepId) || (comfyUiOperationRequiresConfirmation && !comfyUiConfirmed))" />
+                @if (isExecutingComfyUiOperation)
+                {
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                }
+            </RadzenStack>
+
+            @if (comfyUiOperationLatestResult is not null)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="1rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                            <RadzenText Text="Latest ComfyUI result" TextStyle="TextStyle.H6" />
+                            <RadzenBadge Text="@ResultLabel(comfyUiOperationLatestResult.Success)"
+                                         BadgeStyle="@(comfyUiOperationLatestResult.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </RadzenStack>
+                        <div>
+                            <RadzenText Text="Message" TextStyle="TextStyle.Caption" />
+                            <RadzenText Text="@comfyUiOperationLatestResult.Message" TextStyle="TextStyle.Body1" />
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(comfyUiOperationLatestResult.PromptId))
+                        {
+                            <div>
+                                <RadzenText Text="Prompt ID" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@comfyUiOperationLatestResult.PromptId" TextStyle="TextStyle.Body1" />
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(comfyUiOperationLatestResult.ImageUrl))
+                        {
+                            <div>
+                                <RadzenText Text="Image URL" TextStyle="TextStyle.Caption" />
+                                <RadzenLink Path="@comfyUiOperationLatestResult.ImageUrl" Text="@comfyUiOperationLatestResult.ImageUrl" Target="_blank" />
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(comfyUiOperationLatestResult.ResultJson))
+                        {
+                            <RadzenFormField Text="Result" Style="width: 100%;">
+                                <pre style="white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: 0.25rem; background: var(--rz-base-200);">@comfyUiOperationLatestResult.ResultJson</pre>
+                            </RadzenFormField>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(comfyUiOperationMessage))
+            {
+                <RadzenAlert AlertStyle="@comfyUiOperationAlertStyle" ShowIcon="true">@comfyUiOperationMessage</RadzenAlert>
+            }
+
+            <RadzenDataGrid Data="@comfyUiOperationHistory" TValue="ComfyUiOperationResult" AllowPaging="true" PageSize="5" EmptyText="No ComfyUI operations recorded yet.">
+                <Columns>
+                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="CreatedAt" Title="Created">
+                        <Template Context="item">@item.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="OperationType" Title="Operation" />
+                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="WorkflowFileName" Title="Workflow" />
+                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="PromptId" Title="Prompt ID" />
+                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Title="Result">
+                        <Template Context="item">
+                            <RadzenBadge Text="@ResultLabel(item.Success)" BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="Message" Title="Message" />
+                </Columns>
+            </RadzenDataGrid>
         </RadzenStack>
     </RadzenCard>
 
@@ -147,17 +858,92 @@ else
     [Parameter] public string RunId { get; set; } = string.Empty;
 
     [Inject] private IWorkflowRunHistoryService HistoryService { get; set; } = default!;
+    [Inject] private IExecutionEngineService ExecutionEngine { get; set; } = default!;
+    [Inject] private IFileOperationService FileOperations { get; set; } = default!;
+    [Inject] private IGitOperationService GitOperations { get; set; } = default!;
+    [Inject] private IDockerOperationService DockerOperations { get; set; } = default!;
+    [Inject] private IComfyUiOperationService ComfyUiOperations { get; set; } = default!;
+    [Inject] private IComfyUiService ComfyUiService { get; set; } = default!;
+    [Inject] private IVerificationService VerificationService { get; set; } = default!;
+    [Inject] private IAgentRegistryService AgentRegistry { get; set; } = default!;
+    [Inject] private IExecutionPermissionProfileService ExecutionPermissionProfiles { get; set; } = default!;
+    [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
+    private readonly ExecutionCommandType[] commandTypes = Enum.GetValues<ExecutionCommandType>();
+    private readonly FileOperationType[] fileOperationTypes = Enum.GetValues<FileOperationType>();
     private WorkflowRunRecord? run;
     private bool isLoading;
     private bool isBusy;
     private bool isExecutingAll;
+    private bool isExecutingCommand;
+    private bool isExecutingFileOperation;
     private string? executingStepId;
     private string? executionErrorStepId;
     private string? executionError;
+    private IReadOnlyList<WorkflowRunStepRecord> executionStepOptions = [];
+    private string selectedExecutionStepId = string.Empty;
+    private ExecutionCommandType executionCommandType = ExecutionCommandType.DotNet;
+    private string executionWorkingDirectory = string.Empty;
+    private string executionCommand = string.Empty;
+    private string executionArguments = string.Empty;
+    private bool executionRequiresConfirmation;
+    private bool executionConfirmed;
+    private ExecutionResult? latestExecutionResult;
+    private string? executionMessage;
+    private AlertStyle executionAlertStyle = AlertStyle.Info;
+    private FileOperationType fileOperationType = FileOperationType.ListDirectory;
+    private string fileOperationPath = string.Empty;
+    private string fileOperationTargetPath = string.Empty;
+    private string fileOperationContent = string.Empty;
+    private bool fileOperationConfirmed;
+    private FileOperationResult? fileOperationLatestResult;
+    private IReadOnlyList<FileOperationResult> fileOperationHistory = [];
+    private string? fileOperationMessage;
+    private AlertStyle fileOperationAlertStyle = AlertStyle.Info;
+    private readonly GitOperationType[] gitOperationTypes = Enum.GetValues<GitOperationType>();
+    private GitOperationType gitOperationType = GitOperationType.Status;
+    private string gitBranchName = string.Empty;
+    private string gitFilePaths = string.Empty;
+    private string gitCommitMessage = string.Empty;
+    private bool gitConfirmed;
+    private bool gitOperationRequiresConfirmation;
+    private bool gitProfileRequiresConfirmation;
+    private bool isExecutingGitOperation;
+    private GitOperationResult? gitOperationLatestResult;
+    private IReadOnlyList<GitOperationResult> gitOperationHistory = [];
+    private string? gitOperationMessage;
+    private AlertStyle gitOperationAlertStyle = AlertStyle.Info;
+    private readonly DockerOperationType[] dockerOperationTypes = Enum.GetValues<DockerOperationType>();
+    private DockerOperationType dockerOperationType = DockerOperationType.Ps;
+    private string dockerComposeFilePath = "compose.yaml";
+    private string dockerServiceName = string.Empty;
+    private int dockerLines = 100;
+    private bool dockerConfirmed;
+    private bool dockerOperationRequiresConfirmation;
+    private bool isExecutingDockerOperation;
+    private DockerOperationResult? dockerOperationLatestResult;
+    private IReadOnlyList<DockerOperationResult> dockerOperationHistory = [];
+    private string? dockerOperationMessage;
+    private AlertStyle dockerOperationAlertStyle = AlertStyle.Info;
+    private readonly ComfyUiOperationType[] comfyUiOperationTypes = Enum.GetValues<ComfyUiOperationType>();
+    private ComfyUiOperationType comfyUiOperationType = ComfyUiOperationType.Health;
+    private IReadOnlyList<ComfyUiWorkflowFile> comfyUiWorkflowFiles = [];
+    private string comfyUiWorkflowFileName = string.Empty;
+    private string comfyUiWorkflowJson = string.Empty;
+    private bool comfyUiConfirmed;
+    private bool comfyUiOperationRequiresConfirmation;
+    private bool isExecutingComfyUiOperation;
+    private ComfyUiOperationResult? comfyUiOperationLatestResult;
+    private IReadOnlyList<ComfyUiOperationResult> comfyUiOperationHistory = [];
+    private string? comfyUiOperationMessage;
+    private AlertStyle comfyUiOperationAlertStyle = AlertStyle.Info;
+    private bool isRunningVerification;
+    private VerificationResult? verificationResult;
+    private string? verificationMessage;
+    private AlertStyle verificationAlertStyle = AlertStyle.Info;
 
     private int CompletedSteps => run?.Steps.Count(step => step.Enabled && step.Status == WorkflowRunStepStatus.Completed) ?? 0;
     private int TotalSteps => run?.Steps.Count(step => step.Enabled) ?? 0;
@@ -170,6 +956,13 @@ else
         try
         {
             run = await HistoryService.GetByIdAsync(RunId);
+            await InitializeExecutionAsync();
+            await LoadFileOperationHistoryAsync();
+            await LoadGitOperationHistoryAsync();
+            await LoadDockerOperationHistoryAsync();
+            await LoadComfyUiOperationHistoryAsync();
+            await LoadComfyUiWorkflowFilesAsync();
+            verificationResult = run is null ? null : await VerificationService.GetLatestForRunAsync(run.Id);
         }
         finally
         {
@@ -197,6 +990,47 @@ else
         finally
         {
             isBusy = false;
+        }
+    }
+
+    private async Task RunVerificationAsync()
+    {
+        if (run is null)
+        {
+            return;
+        }
+
+        isRunningVerification = true;
+        verificationMessage = null;
+
+        try
+        {
+            verificationResult = await VerificationService.VerifyAsync(run.Id, new VerificationRequest
+            {
+                RunId = run.Id,
+                IncludeLocalLlmReview = true
+            });
+            verificationMessage = verificationResult.Summary;
+            verificationAlertStyle = verificationResult.Status switch
+            {
+                VerificationStatus.Passed => AlertStyle.Success,
+                VerificationStatus.Warning => AlertStyle.Warning,
+                _ => AlertStyle.Danger
+            };
+            NotificationService.Notify(
+                verificationResult.Status == VerificationStatus.Passed ? NotificationSeverity.Success : NotificationSeverity.Warning,
+                "Verification complete",
+                verificationResult.Summary);
+        }
+        catch (Exception exception)
+        {
+            verificationMessage = exception.Message;
+            verificationAlertStyle = AlertStyle.Danger;
+            NotificationService.Notify(NotificationSeverity.Error, "Verification failed", exception.Message);
+        }
+        finally
+        {
+            isRunningVerification = false;
         }
     }
 
@@ -302,9 +1136,732 @@ else
         NotificationService.Notify(NotificationSeverity.Success, "Prompt copied", step.StepName);
     }
 
+    private async Task ExportCodexTaskAsync()
+    {
+        if (run is null)
+        {
+            return;
+        }
+
+        await DialogService.OpenAsync<CodexTaskExportDialog>(
+            "Export Codex Task",
+            new Dictionary<string, object?>
+            {
+                ["RunId"] = run.Id
+            },
+            new DialogOptions
+            {
+                Width = "min(1100px, 95vw)",
+                Height = "min(90vh, 900px)",
+                Resizable = true,
+                Draggable = true,
+                CloseDialogOnEsc = true
+            });
+    }
+
     private void BackToHistory()
     {
         NavigationManager.NavigateTo("workflows/history");
+    }
+
+    private async Task InitializeExecutionAsync()
+    {
+        if (run is null)
+        {
+            executionStepOptions = [];
+            selectedExecutionStepId = string.Empty;
+            latestExecutionResult = null;
+            return;
+        }
+
+        executionStepOptions = run.Steps
+            .Where(step => step.Enabled && IsImplementatorStep(step))
+            .Concat(run.Steps.Where(step => step.Enabled && !IsImplementatorStep(step)))
+            .ToArray();
+
+        var defaultStep = executionStepOptions.FirstOrDefault() ?? run.Steps.FirstOrDefault();
+        selectedExecutionStepId = defaultStep?.StepId ?? string.Empty;
+        executionWorkingDirectory = run.ProjectSnapshot?.LocalPath ?? string.Empty;
+        executionCommandType = ExecutionCommandType.DotNet;
+        executionCommand = "build";
+        executionArguments = string.Empty;
+        executionRequiresConfirmation = false;
+        executionConfirmed = false;
+        executionMessage = null;
+        fileOperationType = FileOperationType.ListDirectory;
+        fileOperationPath = string.Empty;
+        fileOperationTargetPath = string.Empty;
+        fileOperationContent = string.Empty;
+        fileOperationConfirmed = false;
+        latestExecutionResult = selectedExecutionStepId.Length > 0
+            ? await ExecutionEngine.GetLatestForStepAsync(run.Id, selectedExecutionStepId)
+            : null;
+        gitOperationLatestResult = selectedExecutionStepId.Length > 0
+            ? await GitOperations.GetLatestForStepAsync(run.Id, selectedExecutionStepId)
+            : null;
+        dockerOperationLatestResult = selectedExecutionStepId.Length > 0
+            ? await DockerOperations.GetLatestForStepAsync(run.Id, selectedExecutionStepId)
+            : null;
+        comfyUiOperationLatestResult = selectedExecutionStepId.Length > 0
+            ? await ComfyUiOperations.GetLatestForStepAsync(run.Id, selectedExecutionStepId)
+            : null;
+
+        await RefreshExecutionRequirementsAsync();
+    }
+
+    private async Task OnExecutionStepChangedAsync(object? value)
+    {
+        selectedExecutionStepId = value?.ToString() ?? string.Empty;
+        await RefreshExecutionRequirementsAsync();
+    }
+
+    private async Task RefreshExecutionRequirementsAsync()
+    {
+        executionMessage = null;
+
+        if (run is null || string.IsNullOrWhiteSpace(selectedExecutionStepId))
+        {
+            executionRequiresConfirmation = false;
+            latestExecutionResult = null;
+            return;
+        }
+
+        latestExecutionResult = await ExecutionEngine.GetLatestForStepAsync(run.Id, selectedExecutionStepId);
+
+        var step = run.Steps.FirstOrDefault(item => item.StepId.Equals(selectedExecutionStepId, StringComparison.OrdinalIgnoreCase));
+
+        if (step is null)
+        {
+            executionRequiresConfirmation = false;
+            return;
+        }
+
+        var agent = await AgentRegistry.GetByIdAsync(step.AgentId);
+        var profileId = agent?.ExecutionPermissionProfileId;
+        var profile = !string.IsNullOrWhiteSpace(profileId)
+            ? await ExecutionPermissionProfiles.GetByIdAsync(profileId)
+            : null;
+
+        if (profile is null && run.ProjectSnapshot is not null && !string.IsNullOrWhiteSpace(run.ProjectSnapshot.DefaultExecutionPermissionProfileId))
+        {
+            profile = await ExecutionPermissionProfiles.GetByIdAsync(run.ProjectSnapshot.DefaultExecutionPermissionProfileId);
+        }
+
+        executionRequiresConfirmation = profile?.RequiresConfirmation == true || profile?.AllowDeleteFiles == true;
+        executionConfirmed = !executionRequiresConfirmation;
+
+        if (string.IsNullOrWhiteSpace(executionWorkingDirectory))
+        {
+            executionWorkingDirectory = run.ProjectSnapshot?.LocalPath ?? string.Empty;
+        }
+
+        gitProfileRequiresConfirmation = profile?.RequiresConfirmation == true;
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+        gitOperationLatestResult = await GitOperations.GetLatestForStepAsync(run.Id, selectedExecutionStepId);
+        dockerOperationRequiresConfirmation = RequiresDockerConfirmation(dockerOperationType);
+        dockerConfirmed = !dockerOperationRequiresConfirmation;
+        dockerOperationLatestResult = await DockerOperations.GetLatestForStepAsync(run.Id, selectedExecutionStepId);
+        comfyUiOperationRequiresConfirmation = RequiresComfyUiConfirmation(comfyUiOperationType);
+        comfyUiConfirmed = !comfyUiOperationRequiresConfirmation;
+        comfyUiOperationLatestResult = await ComfyUiOperations.GetLatestForStepAsync(run.Id, selectedExecutionStepId);
+    }
+
+    private async Task LoadFileOperationHistoryAsync()
+    {
+        if (run is null)
+        {
+            fileOperationHistory = [];
+            fileOperationLatestResult = null;
+            return;
+        }
+
+        fileOperationHistory = await FileOperations.GetForRunAsync(run.Id);
+        fileOperationLatestResult = fileOperationHistory.FirstOrDefault();
+        fileOperationMessage = null;
+    }
+
+    private async Task LoadGitOperationHistoryAsync()
+    {
+        if (run is null)
+        {
+            gitOperationHistory = [];
+            gitOperationLatestResult = null;
+            return;
+        }
+
+        gitOperationHistory = await GitOperations.GetForRunAsync(run.Id);
+        gitOperationLatestResult = gitOperationHistory.FirstOrDefault(item => item.StepId.Equals(selectedExecutionStepId, StringComparison.OrdinalIgnoreCase))
+            ?? gitOperationHistory.FirstOrDefault();
+        gitOperationMessage = null;
+    }
+
+    private async Task LoadDockerOperationHistoryAsync()
+    {
+        if (run is null)
+        {
+            dockerOperationHistory = [];
+            dockerOperationLatestResult = null;
+            return;
+        }
+
+        dockerOperationHistory = await DockerOperations.GetForRunAsync(run.Id);
+        dockerOperationLatestResult = dockerOperationHistory.FirstOrDefault(item => item.StepId.Equals(selectedExecutionStepId, StringComparison.OrdinalIgnoreCase))
+            ?? dockerOperationHistory.FirstOrDefault();
+        dockerOperationMessage = null;
+    }
+
+    private async Task LoadComfyUiOperationHistoryAsync()
+    {
+        if (run is null)
+        {
+            comfyUiOperationHistory = [];
+            comfyUiOperationLatestResult = null;
+            return;
+        }
+
+        comfyUiOperationHistory = await ComfyUiOperations.GetForRunAsync(run.Id);
+        comfyUiOperationLatestResult = comfyUiOperationHistory.FirstOrDefault(item => item.StepId.Equals(selectedExecutionStepId, StringComparison.OrdinalIgnoreCase))
+            ?? comfyUiOperationHistory.FirstOrDefault();
+        comfyUiOperationMessage = null;
+    }
+
+    private async Task LoadComfyUiWorkflowFilesAsync()
+    {
+        try
+        {
+            comfyUiWorkflowFiles = await ComfyUiService.GetWorkflowsAsync();
+            if (string.IsNullOrWhiteSpace(comfyUiWorkflowFileName))
+            {
+                comfyUiWorkflowFileName = comfyUiWorkflowFiles.FirstOrDefault()?.FileName ?? string.Empty;
+            }
+        }
+        catch
+        {
+            comfyUiWorkflowFiles = [];
+        }
+    }
+
+    private async Task OnFileOperationTypeChangedAsync(object? value)
+    {
+        fileOperationType = value is FileOperationType type ? type : fileOperationType;
+
+        if (fileOperationType != FileOperationType.Delete)
+        {
+            fileOperationConfirmed = false;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private async Task OnGitOperationTypeChangedAsync(object? value)
+    {
+        gitOperationType = value is GitOperationType type ? type : gitOperationType;
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+
+        await Task.CompletedTask;
+    }
+
+    private async Task OnDockerOperationTypeChangedAsync(object? value)
+    {
+        dockerOperationType = value is DockerOperationType type ? type : dockerOperationType;
+        dockerOperationRequiresConfirmation = RequiresDockerConfirmation(dockerOperationType);
+        dockerConfirmed = !dockerOperationRequiresConfirmation;
+        await Task.CompletedTask;
+    }
+
+    private async Task OnComfyUiOperationTypeChangedAsync(object? value)
+    {
+        comfyUiOperationType = value is ComfyUiOperationType type ? type : comfyUiOperationType;
+        comfyUiOperationRequiresConfirmation = RequiresComfyUiConfirmation(comfyUiOperationType);
+        comfyUiConfirmed = !comfyUiOperationRequiresConfirmation;
+        await Task.CompletedTask;
+    }
+
+    private async Task ExecuteComfyUiOperationAsync()
+    {
+        if (run is null || string.IsNullOrWhiteSpace(selectedExecutionStepId))
+        {
+            return;
+        }
+
+        isExecutingComfyUiOperation = true;
+        comfyUiOperationMessage = null;
+
+        try
+        {
+            var result = await ComfyUiOperations.ExecuteAsync(new ComfyUiOperationRequest
+            {
+                RunId = run.Id,
+                StepId = selectedExecutionStepId,
+                ProjectId = run.ProjectId,
+                OperationType = comfyUiOperationType,
+                WorkflowFileName = comfyUiWorkflowFileName,
+                WorkflowJson = comfyUiWorkflowJson,
+                Confirmed = comfyUiConfirmed
+            });
+
+            comfyUiOperationLatestResult = result;
+            if (result.Success && result.OperationType == ComfyUiOperationType.ReadWorkflow)
+            {
+                comfyUiWorkflowJson = result.WorkflowJson;
+            }
+            if (result.Success && result.OperationType is ComfyUiOperationType.SaveWorkflow or ComfyUiOperationType.ListWorkflows)
+            {
+                await LoadComfyUiWorkflowFilesAsync();
+            }
+
+            await LoadComfyUiOperationHistoryAsync();
+            comfyUiOperationMessage = result.Message;
+            comfyUiOperationAlertStyle = result.Success ? AlertStyle.Success : AlertStyle.Danger;
+            NotificationService.Notify(
+                result.Success ? NotificationSeverity.Success : NotificationSeverity.Warning,
+                "ComfyUI operation complete",
+                result.Message);
+        }
+        catch (Exception exception)
+        {
+            comfyUiOperationMessage = exception.Message;
+            comfyUiOperationAlertStyle = AlertStyle.Danger;
+            NotificationService.Notify(NotificationSeverity.Error, "ComfyUI operation failed", exception.Message);
+        }
+        finally
+        {
+            isExecutingComfyUiOperation = false;
+        }
+    }
+
+    private async Task ExecuteDockerOperationAsync()
+    {
+        if (run is null || string.IsNullOrWhiteSpace(selectedExecutionStepId))
+        {
+            return;
+        }
+
+        isExecutingDockerOperation = true;
+        dockerOperationMessage = null;
+
+        try
+        {
+            var result = await DockerOperations.ExecuteAsync(new DockerOperationRequest
+            {
+                RunId = run.Id,
+                StepId = selectedExecutionStepId,
+                ProjectId = run.ProjectId,
+                OperationType = dockerOperationType,
+                ComposeFilePath = dockerComposeFilePath,
+                ServiceName = dockerServiceName,
+                Lines = dockerLines,
+                Confirmed = dockerConfirmed
+            });
+
+            dockerOperationLatestResult = result;
+            await LoadDockerOperationHistoryAsync();
+            dockerOperationMessage = result.Message;
+            dockerOperationAlertStyle = result.Success ? AlertStyle.Success : AlertStyle.Danger;
+            NotificationService.Notify(
+                result.Success ? NotificationSeverity.Success : NotificationSeverity.Warning,
+                "Docker operation complete",
+                result.Message);
+        }
+        catch (Exception exception)
+        {
+            dockerOperationMessage = exception.Message;
+            dockerOperationAlertStyle = AlertStyle.Danger;
+            NotificationService.Notify(NotificationSeverity.Error, "Docker operation failed", exception.Message);
+        }
+        finally
+        {
+            isExecutingDockerOperation = false;
+        }
+    }
+
+    private async Task ExecuteGitOperationAsync()
+    {
+        if (run is null || string.IsNullOrWhiteSpace(selectedExecutionStepId))
+        {
+            return;
+        }
+
+        isExecutingGitOperation = true;
+        gitOperationMessage = null;
+
+        try
+        {
+            var result = await GitOperations.ExecuteAsync(new GitOperationRequest
+            {
+                RunId = run.Id,
+                StepId = selectedExecutionStepId,
+                ProjectId = run.ProjectId,
+                OperationType = gitOperationType,
+                BranchName = gitBranchName,
+                FilePaths = gitFilePaths,
+                CommitMessage = gitCommitMessage,
+                Confirmed = gitConfirmed
+            });
+
+            gitOperationLatestResult = result;
+            await LoadGitOperationHistoryAsync();
+            gitOperationMessage = result.Message;
+            gitOperationAlertStyle = result.Success ? AlertStyle.Success : AlertStyle.Danger;
+
+            NotificationService.Notify(
+                result.Success ? NotificationSeverity.Success : NotificationSeverity.Warning,
+                "Git operation complete",
+                result.Message);
+        }
+        catch (Exception exception)
+        {
+            gitOperationMessage = exception.Message;
+            gitOperationAlertStyle = AlertStyle.Danger;
+            NotificationService.Notify(NotificationSeverity.Error, "Git operation failed", exception.Message);
+        }
+        finally
+        {
+            isExecutingGitOperation = false;
+        }
+    }
+
+    private async Task ExecuteFileOperationAsync()
+    {
+        if (run is null || string.IsNullOrWhiteSpace(selectedExecutionStepId))
+        {
+            return;
+        }
+
+        isExecutingFileOperation = true;
+        fileOperationMessage = null;
+
+        try
+        {
+            var result = await FileOperations.ExecuteAsync(new FileOperationRequest
+            {
+                RunId = run.Id,
+                StepId = selectedExecutionStepId,
+                ProjectId = run.ProjectId,
+                OperationType = fileOperationType,
+                Path = fileOperationPath,
+                TargetPath = fileOperationTargetPath,
+                Content = fileOperationContent,
+                Confirmed = fileOperationConfirmed
+            });
+
+            fileOperationLatestResult = result;
+            await LoadFileOperationHistoryAsync();
+            fileOperationMessage = result.Success ? result.Message : result.Message;
+            fileOperationAlertStyle = result.Success ? AlertStyle.Success : AlertStyle.Danger;
+
+            NotificationService.Notify(
+                result.Success ? NotificationSeverity.Success : NotificationSeverity.Warning,
+                "File operation complete",
+                result.Message);
+        }
+        catch (Exception exception)
+        {
+            fileOperationMessage = exception.Message;
+            fileOperationAlertStyle = AlertStyle.Danger;
+            NotificationService.Notify(NotificationSeverity.Error, "File operation failed", exception.Message);
+        }
+        finally
+        {
+            isExecutingFileOperation = false;
+        }
+    }
+
+    private async Task RunExecutionAsync()
+    {
+        if (run is null || string.IsNullOrWhiteSpace(selectedExecutionStepId))
+        {
+            return;
+        }
+
+        isExecutingCommand = true;
+        executionMessage = null;
+
+        try
+        {
+            var result = await ExecutionEngine.ExecuteAsync(new ExecutionRequest
+            {
+                RunId = run.Id,
+                StepId = selectedExecutionStepId,
+                ProjectId = run.ProjectId,
+                WorkingDirectory = executionWorkingDirectory,
+                CommandType = executionCommandType,
+                Command = executionCommand,
+                Arguments = executionArguments,
+                RequiresConfirmation = executionRequiresConfirmation,
+                Confirmed = executionConfirmed
+            });
+
+            latestExecutionResult = result;
+            run = await HistoryService.GetByIdAsync(RunId);
+            executionMessage = result.Status == ExecutionStatus.WaitingForConfirmation
+                ? "The command was queued for confirmation."
+                : $"Command finished with status {result.Status}.";
+            executionAlertStyle = result.Status is ExecutionStatus.Completed
+                ? AlertStyle.Success
+                : result.Status is ExecutionStatus.WaitingForConfirmation
+                    ? AlertStyle.Warning
+                    : AlertStyle.Danger;
+
+            NotificationService.Notify(
+                result.Status == ExecutionStatus.Completed ? NotificationSeverity.Success : NotificationSeverity.Info,
+                "Execution complete",
+                result.Status.ToString());
+        }
+        catch (Exception exception)
+        {
+            executionMessage = exception.Message;
+            executionAlertStyle = AlertStyle.Danger;
+            NotificationService.Notify(NotificationSeverity.Error, "Execution failed", exception.Message);
+        }
+        finally
+        {
+            isExecutingCommand = false;
+        }
+    }
+
+    private void SetDotNetBuildPreset()
+    {
+        executionCommandType = ExecutionCommandType.DotNet;
+        executionCommand = "build";
+        executionArguments = string.Empty;
+    }
+
+    private void SetDotNetTestPreset()
+    {
+        executionCommandType = ExecutionCommandType.DotNet;
+        executionCommand = "test";
+        executionArguments = string.Empty;
+    }
+
+    private void SetGitStatusPreset()
+    {
+        gitOperationType = GitOperationType.Status;
+        gitBranchName = string.Empty;
+        gitFilePaths = string.Empty;
+        gitCommitMessage = string.Empty;
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+    }
+
+    private void SetGitDiffPreset()
+    {
+        gitOperationType = GitOperationType.Diff;
+        gitBranchName = string.Empty;
+        gitFilePaths = string.Empty;
+        gitCommitMessage = string.Empty;
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+    }
+
+    private void SetGitCurrentBranchPreset()
+    {
+        gitOperationType = GitOperationType.Branch;
+        gitBranchName = string.Empty;
+        gitFilePaths = string.Empty;
+        gitCommitMessage = string.Empty;
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+    }
+
+    private void SetGitRecentLogPreset()
+    {
+        gitOperationType = GitOperationType.Log;
+        gitBranchName = string.Empty;
+        gitFilePaths = string.Empty;
+        gitCommitMessage = string.Empty;
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+    }
+
+    private void SetGitCreateFeatureBranchPreset()
+    {
+        gitOperationType = GitOperationType.CreateBranch;
+        gitBranchName = $"feature/{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        gitFilePaths = string.Empty;
+        gitCommitMessage = string.Empty;
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+    }
+
+    private void SetGitAddSelectedFilesPreset()
+    {
+        gitOperationType = GitOperationType.Add;
+        gitBranchName = string.Empty;
+        gitFilePaths = string.Join(Environment.NewLine, "Program.cs", "appsettings.json");
+        gitCommitMessage = string.Empty;
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+    }
+
+    private void SetGitCommitSelectedFilesPreset()
+    {
+        gitOperationType = GitOperationType.Commit;
+        gitBranchName = string.Empty;
+        gitFilePaths = string.Join(Environment.NewLine, "Program.cs", "appsettings.json");
+        gitCommitMessage = "Update selected files";
+        gitOperationRequiresConfirmation = gitProfileRequiresConfirmation || RequiresGitConfirmation(gitOperationType);
+        gitConfirmed = !gitOperationRequiresConfirmation;
+    }
+
+    private void SetDockerPsPreset()
+    {
+        executionCommandType = ExecutionCommandType.Docker;
+        executionCommand = "ps";
+        executionArguments = string.Empty;
+    }
+
+    private void SetDockerComposePsPreset()
+    {
+        executionCommandType = ExecutionCommandType.Docker;
+        executionCommand = "compose";
+        executionArguments = "ps";
+    }
+
+    private void SetDockerOperationPsPreset() => SetDockerOperationPreset(DockerOperationType.Ps);
+    private void SetDockerImagesPreset() => SetDockerOperationPreset(DockerOperationType.Images);
+    private void SetDockerComposeOperationPsPreset() => SetDockerOperationPreset(DockerOperationType.ComposePs);
+    private void SetDockerComposeUpPreset() => SetDockerOperationPreset(DockerOperationType.ComposeUp);
+    private void SetDockerComposeRestartPreset() => SetDockerOperationPreset(DockerOperationType.ComposeRestart);
+    private void SetDockerLogsPreset() => SetDockerOperationPreset(DockerOperationType.Logs);
+
+    private void SetDockerOperationPreset(DockerOperationType operationType)
+    {
+        dockerOperationType = operationType;
+        dockerOperationRequiresConfirmation = RequiresDockerConfirmation(operationType);
+        dockerConfirmed = !dockerOperationRequiresConfirmation;
+    }
+
+    private void SetComfyUiHealthPreset() => SetComfyUiOperationPreset(ComfyUiOperationType.Health);
+    private void SetComfyUiListWorkflowsPreset() => SetComfyUiOperationPreset(ComfyUiOperationType.ListWorkflows);
+    private void SetComfyUiListModelsPreset() => SetComfyUiOperationPreset(ComfyUiOperationType.ListModels);
+    private void SetComfyUiBackupPreset() => SetComfyUiOperationPreset(ComfyUiOperationType.BackupWorkflows);
+    private void SetComfyUiQueuePreset() => SetComfyUiOperationPreset(ComfyUiOperationType.QueueWorkflow);
+
+    private void SetComfyUiOperationPreset(ComfyUiOperationType operationType)
+    {
+        comfyUiOperationType = operationType;
+        comfyUiOperationRequiresConfirmation = RequiresComfyUiConfirmation(operationType);
+        comfyUiConfirmed = !comfyUiOperationRequiresConfirmation;
+    }
+
+    private void SetReadProgramPreset()
+    {
+        fileOperationType = FileOperationType.Read;
+        fileOperationPath = "Program.cs";
+        fileOperationTargetPath = string.Empty;
+        fileOperationContent = string.Empty;
+        fileOperationConfirmed = false;
+    }
+
+    private void SetReadAppSettingsPreset()
+    {
+        fileOperationType = FileOperationType.Read;
+        fileOperationPath = "appsettings.json";
+        fileOperationTargetPath = string.Empty;
+        fileOperationContent = string.Empty;
+        fileOperationConfirmed = false;
+    }
+
+    private void SetListProjectRootPreset()
+    {
+        fileOperationType = FileOperationType.ListDirectory;
+        fileOperationPath = string.Empty;
+        fileOperationTargetPath = string.Empty;
+        fileOperationContent = string.Empty;
+        fileOperationConfirmed = false;
+    }
+
+    private void SetListComponentsPagesPreset()
+    {
+        fileOperationType = FileOperationType.ListDirectory;
+        fileOperationPath = "Components/Pages";
+        fileOperationTargetPath = string.Empty;
+        fileOperationContent = string.Empty;
+        fileOperationConfirmed = false;
+    }
+
+    private void SetListServicesPreset()
+    {
+        fileOperationType = FileOperationType.ListDirectory;
+        fileOperationPath = "Services";
+        fileOperationTargetPath = string.Empty;
+        fileOperationContent = string.Empty;
+        fileOperationConfirmed = false;
+    }
+
+    private void SetCreateRazorPagePreset()
+    {
+        fileOperationType = FileOperationType.Create;
+        fileOperationPath = "Components/Pages/NewPage.razor";
+        fileOperationTargetPath = string.Empty;
+        fileOperationContent = string.Join(Environment.NewLine,
+            "@page \"/new-page\"",
+            string.Empty,
+            "<PageTitle>New Page</PageTitle>",
+            string.Empty,
+            "<RadzenCard>",
+            "    <RadzenText Text=\"New page scaffold\" TextStyle=\"TextStyle.H4\" />",
+            "</RadzenCard>");
+        fileOperationConfirmed = false;
+    }
+
+    private void SetCreateServiceClassPreset()
+    {
+        fileOperationType = FileOperationType.Create;
+        fileOperationPath = "Services/NewService.cs";
+        fileOperationTargetPath = string.Empty;
+        fileOperationContent = string.Join(Environment.NewLine,
+            "namespace AiBox.DevPortal.Services;",
+            string.Empty,
+            "public sealed class NewService",
+            "{",
+            "}",
+            string.Empty);
+        fileOperationConfirmed = false;
+    }
+
+    private static bool RequiresTargetPath(FileOperationType type)
+    {
+        return type is FileOperationType.Rename or FileOperationType.Copy;
+    }
+
+    private static string DisplayTextOrNa(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "n/a" : value;
+    }
+
+    private static string ProjectDisplayText(ProjectSnapshot? project)
+    {
+        return project is null ? "Not specified" : $"{project.Name} ({project.Type})";
+    }
+
+    private static string ResultLabel(bool success)
+    {
+        return success ? "Success" : "Failed";
+    }
+
+    private static bool RequiresGitConfirmation(GitOperationType operationType)
+    {
+        return operationType is GitOperationType.CheckoutBranch or GitOperationType.Add or GitOperationType.Commit;
+    }
+
+    private static bool RequiresDockerConfirmation(DockerOperationType operationType)
+    {
+        return operationType is DockerOperationType.ComposeUp or DockerOperationType.ComposeDown or DockerOperationType.ComposeRestart;
+    }
+
+    private static bool RequiresComfyUiConfirmation(ComfyUiOperationType operationType)
+    {
+        return operationType is ComfyUiOperationType.QueueWorkflow or ComfyUiOperationType.BackupWorkflows;
+    }
+
+    private static bool IsImplementatorStep(WorkflowRunStepRecord step)
+    {
+        return step.AgentName.Contains("Implementator", StringComparison.OrdinalIgnoreCase)
+            || step.StepName.Contains("Implementator", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string TimingText(WorkflowRunStepRecord step)
@@ -328,6 +1885,7 @@ else
         {
             WorkflowRunStatus.Completed => BadgeStyle.Success,
             WorkflowRunStatus.Failed => BadgeStyle.Danger,
+            WorkflowRunStatus.Cancelled or WorkflowRunStatus.Paused => BadgeStyle.Warning,
             WorkflowRunStatus.Running => BadgeStyle.Info,
             _ => BadgeStyle.Secondary
         };
@@ -341,6 +1899,43 @@ else
             WorkflowRunStepStatus.Failed => BadgeStyle.Danger,
             WorkflowRunStepStatus.Running => BadgeStyle.Info,
             WorkflowRunStepStatus.Skipped => BadgeStyle.Warning,
+            _ => BadgeStyle.Secondary
+        };
+    }
+
+    private static BadgeStyle ExecutionStatusBadgeStyle(ExecutionStatus status)
+    {
+        return status switch
+        {
+            ExecutionStatus.Completed => BadgeStyle.Success,
+            ExecutionStatus.WaitingForConfirmation => BadgeStyle.Warning,
+            ExecutionStatus.Running => BadgeStyle.Info,
+            ExecutionStatus.TimedOut => BadgeStyle.Warning,
+            ExecutionStatus.Failed => BadgeStyle.Danger,
+            ExecutionStatus.Rejected => BadgeStyle.Danger,
+            _ => BadgeStyle.Secondary
+        };
+    }
+
+    private static BadgeStyle VerificationStatusBadgeStyle(VerificationStatus status)
+    {
+        return status switch
+        {
+            VerificationStatus.Passed => BadgeStyle.Success,
+            VerificationStatus.Warning => BadgeStyle.Warning,
+            VerificationStatus.Failed => BadgeStyle.Danger,
+            _ => BadgeStyle.Secondary
+        };
+    }
+
+    private static BadgeStyle VerificationSeverityBadgeStyle(VerificationSeverity severity)
+    {
+        return severity switch
+        {
+            VerificationSeverity.Info => BadgeStyle.Info,
+            VerificationSeverity.Warning => BadgeStyle.Warning,
+            VerificationSeverity.Error => BadgeStyle.Danger,
+            VerificationSeverity.Critical => BadgeStyle.Danger,
             _ => BadgeStyle.Secondary
         };
     }

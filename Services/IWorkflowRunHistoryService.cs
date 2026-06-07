@@ -17,12 +17,23 @@ public interface IWorkflowRunHistoryService
         string stepId,
         WorkflowRunStepStatus status,
         CancellationToken cancellationToken = default);
+    Task<WorkflowRunRecord?> AppendStepNotesAsync(
+        string runId,
+        string stepId,
+        string notes,
+        CancellationToken cancellationToken = default);
     Task<WorkflowRunRecord?> ExecuteStepWithLocalLlmAsync(
         string runId,
         string stepId,
         CancellationToken cancellationToken = default);
     Task<WorkflowRunRecord?> ExecuteAllWithLocalLlmAsync(
         string runId,
+        CancellationToken cancellationToken = default);
+    Task<WorkflowRunRecord?> PauseAsync(string runId, CancellationToken cancellationToken = default);
+    Task<WorkflowRunRecord?> CancelAsync(string runId, CancellationToken cancellationToken = default);
+    Task<CodexTaskExportResult?> ExportCodexTaskAsync(
+        string runId,
+        CodexTaskExportRequest request,
         CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default);
 }

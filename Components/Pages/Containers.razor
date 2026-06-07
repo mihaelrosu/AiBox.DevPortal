@@ -11,6 +11,10 @@
     <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Light" Click="LoadContainersAsync" Disabled="@isLoading" />
 </div>
 
+<RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+    Docker control uses /var/run/docker.sock. Do not expose this portal publicly without authentication.
+</RadzenAlert>
+
 @if (!string.IsNullOrWhiteSpace(errorMessage))
 {
     <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" Text="@errorMessage" />

@@ -195,6 +195,7 @@ public sealed class AgentRegistryService(IWebHostEnvironment environment) : IAge
             Model = agent.Model.Trim(),
             Temperature = agent.Temperature,
             SystemPrompt = agent.SystemPrompt.Trim(),
+            ExecutionPermissionProfileId = agent.ExecutionPermissionProfileId.Trim(),
             Permissions = (agent.Permissions ?? []).Distinct().Order().ToList()
         };
     }
@@ -211,6 +212,7 @@ public sealed class AgentRegistryService(IWebHostEnvironment environment) : IAge
             Model = agent.Model,
             Temperature = agent.Temperature,
             SystemPrompt = agent.SystemPrompt,
+            ExecutionPermissionProfileId = agent.ExecutionPermissionProfileId,
             Permissions = [.. agent.Permissions ?? []]
         };
     }

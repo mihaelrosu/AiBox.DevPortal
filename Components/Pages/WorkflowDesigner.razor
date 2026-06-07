@@ -1,0 +1,387 @@
+@page "/workflows/designer"
+@rendermode InteractiveServer
+
+<PageTitle>Workflow Designer</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Workflow Designer</h1>
+        <p>Understand and modify ordered AI-Box workflows.</p>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="7">
+                    <RadzenFormField Text="Workflow" Style="width: 100%;">
+                        <RadzenDropDown TValue="string"
+                                        Data="@workflows"
+                                        TextProperty="Name"
+                                        ValueProperty="Id"
+                                        Value="@selectedWorkflowId"
+                                        Change="@SelectWorkflowAsync"
+                                        AllowFiltering="true"
+                                        Placeholder="Select a workflow"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="5">
+                    <RadzenFormField Text="Create from template" Style="width: 100%;">
+                        <RadzenDropDown TValue="string"
+                                        Data="@templates.Where(template => template.Enabled)"
+                                        TextProperty="Name"
+                                        ValueProperty="Id"
+                                        @bind-Value="@selectedTemplateId"
+                                        AllowClear="true"
+                                        Placeholder="Select a template"
+                                        Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenButton Text="Save workflow" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@SaveWorkflowAsync" Disabled="@(isBusy || editingWorkflow is null)" />
+                <RadzenButton Text="Duplicate workflow" Icon="content_copy" ButtonStyle="ButtonStyle.Light" Click="@DuplicateWorkflowAsync" Disabled="@(isBusy || editingWorkflow is null)" />
+                <RadzenButton Text="Create workflow from template" Icon="add" ButtonStyle="ButtonStyle.Light" Click="@CreateFromTemplateAsync" Disabled="@(isBusy || string.IsNullOrWhiteSpace(selectedTemplateId))" />
+                <RadzenButton Text="Preview workflow run" Icon="preview" ButtonStyle="ButtonStyle.Success" Click="@PreviewWorkflow" Disabled="@(editingWorkflow is null)" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@if (editingWorkflow is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="7">
+                    <RadzenFormField Text="Workflow name" Style="width: 100%;">
+                        <RadzenTextBox @bind-Value="@editingWorkflow.Name" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenFormField Text="Status" Style="width: 100%;">
+                        <RadzenDropDown TValue="WorkflowStatus" Data="@workflowStatuses" @bind-Value="@editingWorkflow.Status" Disabled="@(!editingWorkflow.Enabled)" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="2">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Style="padding-top: 1.5rem;">
+                        <RadzenSwitch @bind-Value="@editingWorkflow.Enabled" Change="@WorkflowEnabledChanged" />
+                        <RadzenLabel Text="Enabled" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenFormField Text="Description" Style="width: 100%;">
+                <RadzenTextArea @bind-Value="@editingWorkflow.Description" Rows="3" Style="width: 100%;" />
+            </RadzenFormField>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenText Text="Visual Flow" TextStyle="TextStyle.H5" />
+                <RadzenButton Text="Add step" Icon="add" ButtonStyle="ButtonStyle.Primary" Click="@AddStepAsync" Disabled="@isBusy" />
+            </RadzenStack>
+
+            @if (editingWorkflow.Steps.Count == 0)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Info" ShowIcon="true">Add a step to start designing this workflow.</RadzenAlert>
+            }
+
+            <div style="display: flex; align-items: stretch; gap: 0.75rem; overflow-x: auto; padding: 0.5rem 0;">
+                @for (var index = 0; index < editingWorkflow.Steps.Count; index++)
+                {
+                    var stepIndex = index;
+                    var step = editingWorkflow.Steps[stepIndex];
+                    var agent = Agent(step.AgentId);
+
+                    @if (stepIndex > 0)
+                    {
+                        <div style="display: flex; align-items: center; font-size: 2rem; color: var(--rz-primary);">→</div>
+                    }
+
+                    <RadzenCard Style="min-width: 19rem; max-width: 19rem;">
+                        <RadzenStack Gap="0.75rem">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenBadge Text="@step.Order.ToString()" BadgeStyle="BadgeStyle.Primary" />
+                                    <RadzenText Text="@step.Name" TextStyle="TextStyle.Subtitle1" />
+                                </RadzenStack>
+                                <RadzenBadge Text="@(step.Enabled ? "Enabled" : "Disabled")" BadgeStyle="@(step.Enabled ? BadgeStyle.Success : BadgeStyle.Secondary)" />
+                            </RadzenStack>
+
+                            <div>
+                                <RadzenText Text="Agent" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@(agent?.Name ?? "Not selected")" TextStyle="TextStyle.Body1" />
+                            </div>
+                            <div>
+                                <RadzenText Text="Model" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@(agent?.Model ?? "n/a")" TextStyle="TextStyle.Body2" />
+                            </div>
+                            <div>
+                                <RadzenText Text="Dependency mode" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@DependencyText(step)" TextStyle="TextStyle.Body2" />
+                            </div>
+
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                <RadzenButton Text="Edit" Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(() => EditStepAsync(stepIndex))" />
+                                <RadzenButton Icon="arrow_back" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(() => MoveStep(stepIndex, -1))" Disabled="@(stepIndex == 0)" />
+                                <RadzenButton Icon="arrow_forward" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(() => MoveStep(stepIndex, 1))" Disabled="@(stepIndex == editingWorkflow.Steps.Count - 1)" />
+                                <RadzenButton Icon="arrow_upward" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(() => MoveStep(stepIndex, -1))" Disabled="@(stepIndex == 0)" />
+                                <RadzenButton Icon="arrow_downward" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(() => MoveStep(stepIndex, 1))" Disabled="@(stepIndex == editingWorkflow.Steps.Count - 1)" />
+                                <RadzenButton Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Click="@(() => DeleteStepAsync(stepIndex))" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenCard>
+                }
+            </div>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Inject] private IWorkflowRegistryService WorkflowRegistry { get; set; } = default!;
+    [Inject] private IWorkflowTemplateService WorkflowTemplates { get; set; } = default!;
+    [Inject] private IAgentRegistryService AgentRegistry { get; set; } = default!;
+    [Inject] private DialogService DialogService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private readonly WorkflowStatus[] workflowStatuses = [WorkflowStatus.Draft, WorkflowStatus.Active];
+    private IReadOnlyList<WorkflowDefinition> workflows = [];
+    private IReadOnlyList<WorkflowTemplateDefinition> templates = [];
+    private IReadOnlyList<AgentDefinition> agents = [];
+    private WorkflowDefinition? editingWorkflow;
+    private string selectedWorkflowId = string.Empty;
+    private string selectedTemplateId = string.Empty;
+    private bool isLoading;
+    private bool isBusy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            await LoadDataAsync();
+            selectedWorkflowId = workflows.FirstOrDefault()?.Id ?? string.Empty;
+            await LoadSelectedWorkflowAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        workflows = await WorkflowRegistry.GetAllAsync();
+        templates = await WorkflowTemplates.GetAllAsync();
+        agents = await AgentRegistry.GetAllAsync();
+    }
+
+    private async Task SelectWorkflowAsync(object? value)
+    {
+        selectedWorkflowId = value?.ToString() ?? string.Empty;
+        await LoadSelectedWorkflowAsync();
+    }
+
+    private async Task LoadSelectedWorkflowAsync()
+    {
+        editingWorkflow = string.IsNullOrWhiteSpace(selectedWorkflowId)
+            ? null
+            : await WorkflowRegistry.GetByIdAsync(selectedWorkflowId) is { } workflow ? Clone(workflow) : null;
+    }
+
+    private async Task AddStepAsync()
+    {
+        if (editingWorkflow is null) return;
+        var step = new WorkflowStepDefinition
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Order = editingWorkflow.Steps.Count + 1,
+            Name = $"Step {editingWorkflow.Steps.Count + 1}",
+            Type = WorkflowStepType.Agent,
+            Enabled = true
+        };
+        var edited = await OpenStepDialogAsync(step, editingWorkflow.Steps);
+        if (edited is not null)
+        {
+            editingWorkflow.Steps.Add(edited);
+            UpdateStepOrderAndDependencies();
+        }
+    }
+
+    private async Task EditStepAsync(int index)
+    {
+        if (editingWorkflow is null) return;
+        var edited = await OpenStepDialogAsync(editingWorkflow.Steps[index], editingWorkflow.Steps.Take(index).ToArray());
+        if (edited is not null)
+        {
+            editingWorkflow.Steps[index] = edited;
+            UpdateStepOrderAndDependencies();
+        }
+    }
+
+    private async Task<WorkflowStepDefinition?> OpenStepDialogAsync(WorkflowStepDefinition step, IReadOnlyList<WorkflowStepDefinition> previousSteps)
+    {
+        return await DialogService.OpenAsync<WorkflowStepDesignerDialog>(
+            string.IsNullOrWhiteSpace(step.Name) ? "Add workflow step" : $"Edit {step.Name}",
+            new Dictionary<string, object?> { ["Step"] = step, ["Agents"] = agents, ["PreviousSteps"] = previousSteps },
+            new DialogOptions { Width = "min(760px, 95vw)", Resizable = true, Draggable = true, CloseDialogOnEsc = true });
+    }
+
+    private void MoveStep(int index, int direction)
+    {
+        if (editingWorkflow is null) return;
+        var target = index + direction;
+        if (target < 0 || target >= editingWorkflow.Steps.Count) return;
+        (editingWorkflow.Steps[index], editingWorkflow.Steps[target]) = (editingWorkflow.Steps[target], editingWorkflow.Steps[index]);
+        UpdateStepOrderAndDependencies();
+    }
+
+    private async Task DeleteStepAsync(int index)
+    {
+        if (editingWorkflow is null) return;
+        var step = editingWorkflow.Steps[index];
+        if (await DialogService.Confirm($"Delete step '{step.Name}'?", "Delete step", new ConfirmOptions { OkButtonText = "Delete" }) != true) return;
+        editingWorkflow.Steps.RemoveAt(index);
+        UpdateStepOrderAndDependencies();
+    }
+
+    private async Task SaveWorkflowAsync()
+    {
+        if (editingWorkflow is null) return;
+        isBusy = true;
+        try
+        {
+            UpdateStepOrderAndDependencies();
+            editingWorkflow = await WorkflowRegistry.UpdateAsync(editingWorkflow.Id, editingWorkflow);
+            await LoadDataAsync();
+            NotificationService.Notify(NotificationSeverity.Success, "Workflow saved", editingWorkflow?.Name ?? string.Empty);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Save failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task DuplicateWorkflowAsync()
+    {
+        if (editingWorkflow is null) return;
+        isBusy = true;
+        try
+        {
+            var duplicate = Clone(editingWorkflow);
+            duplicate.Id = string.Empty;
+            duplicate.Name = $"{duplicate.Name} Copy";
+            var newIds = duplicate.Steps.ToDictionary(step => step.Id, _ => Guid.NewGuid().ToString("N"), StringComparer.OrdinalIgnoreCase);
+            foreach (var step in duplicate.Steps)
+            {
+                step.DependsOnStepIds = step.DependsOnStepIds.Where(newIds.ContainsKey).Select(id => newIds[id]).ToList();
+                step.Id = newIds[step.Id];
+            }
+            duplicate = await WorkflowRegistry.AddAsync(duplicate);
+            await LoadDataAsync();
+            selectedWorkflowId = duplicate.Id;
+            editingWorkflow = Clone(duplicate);
+            NotificationService.Notify(NotificationSeverity.Success, "Workflow duplicated", duplicate.Name);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Duplicate failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task CreateFromTemplateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(selectedTemplateId)) return;
+        isBusy = true;
+        try
+        {
+            var workflow = await WorkflowTemplates.CreateWorkflowAsync(selectedTemplateId);
+            if (workflow is null) return;
+            await LoadDataAsync();
+            selectedWorkflowId = workflow.Id;
+            editingWorkflow = Clone(workflow);
+            NotificationService.Notify(NotificationSeverity.Success, "Workflow created", workflow.Name);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Create failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void PreviewWorkflow()
+    {
+        if (editingWorkflow is not null) NavigationManager.NavigateTo($"workflows/preview?workflowId={Uri.EscapeDataString(editingWorkflow.Id)}");
+    }
+
+    private void WorkflowEnabledChanged(bool enabled)
+    {
+        if (editingWorkflow is not null) editingWorkflow.Status = enabled ? WorkflowStatus.Active : WorkflowStatus.Disabled;
+    }
+
+    private void UpdateStepOrderAndDependencies()
+    {
+        if (editingWorkflow is null) return;
+        var previousIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < editingWorkflow.Steps.Count; index++)
+        {
+            var step = editingWorkflow.Steps[index];
+            step.Order = index + 1;
+            step.IncludePreviousResults = step.PreviousResultMode != PreviousResultMode.None;
+            step.DependsOnStepIds = step.PreviousResultMode == PreviousResultMode.SelectedSteps
+                ? step.DependsOnStepIds.Where(previousIds.Contains).ToList()
+                : [];
+            previousIds.Add(step.Id);
+        }
+    }
+
+    private AgentDefinition? Agent(string id) => agents.FirstOrDefault(agent => agent.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    private string DependencyText(WorkflowStepDefinition step) => step.PreviousResultMode == PreviousResultMode.SelectedSteps
+        ? $"Selected steps ({step.DependsOnStepIds.Count})"
+        : step.PreviousResultMode.ToString();
+
+    private static WorkflowDefinition Clone(WorkflowDefinition source) => new()
+    {
+        Id = source.Id,
+        Name = source.Name,
+        Description = source.Description,
+        Enabled = source.Enabled,
+        Status = source.Status,
+        Steps = source.Steps.OrderBy(step => step.Order).Select(step => new WorkflowStepDefinition
+        {
+            Id = step.Id,
+            Order = step.Order,
+            Name = step.Name,
+            Type = step.Type,
+            AgentId = step.AgentId,
+            Instruction = step.Instruction,
+            Enabled = step.Enabled,
+            IncludePreviousResults = step.IncludePreviousResults,
+            PreviousResultMode = step.PreviousResultMode,
+            DependsOnStepIds = [.. step.DependsOnStepIds]
+        }).ToList()
+    };
+}

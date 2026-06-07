@@ -12,24 +12,35 @@
 </div>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@agents" TValue="AgentDefinition" AllowPaging="true" PageSize="10" EmptyText="No agents registered.">
+    <RadzenDataGrid Data="@agents" TItem="AgentDefinition" AllowPaging="true" PageSize="10" EmptyText="No agents registered.">
         <Columns>
-            <RadzenDataGridColumn TValue="AgentDefinition" Property="Name" Title="Name" />
-            <RadzenDataGridColumn TValue="AgentDefinition" Property="Role" Title="Role" />
-            <RadzenDataGridColumn TValue="AgentDefinition" Property="Model" Title="Model" />
-            <RadzenDataGridColumn TValue="AgentDefinition" Property="Temperature" Title="Temperature" />
-            <RadzenDataGridColumn TValue="AgentDefinition" Title="Status">
+            <RadzenDataGridColumn TItem="AgentDefinition" Property="Name" Title="Name" />
+            <RadzenDataGridColumn TItem="AgentDefinition" Property="Role" Title="Role" />
+            <RadzenDataGridColumn TItem="AgentDefinition" Property="Model" Title="Model" />
+            <RadzenDataGridColumn TItem="AgentDefinition" Property="Temperature" Title="Temperature" />
+            <RadzenDataGridColumn TItem="AgentDefinition" Title="Execution Profile">
+                <Template Context="agent">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                        <RadzenText Text="@ProfileSummary(agent.ExecutionPermissionProfileId)" />
+                        @if (IsDangerousProfile(agent.ExecutionPermissionProfileId))
+                        {
+                            <RadzenBadge Text="Dangerous" BadgeStyle="@BadgeStyle.Warning" />
+                        }
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="AgentDefinition" Title="Status">
                 <Template Context="agent">
                     <RadzenBadge Text="@(agent.Enabled ? "Enabled" : "Disabled")"
                                  BadgeStyle="@(agent.Enabled ? BadgeStyle.Success : BadgeStyle.Secondary)" />
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TValue="AgentDefinition" Title="Permissions">
+            <RadzenDataGridColumn TItem="AgentDefinition" Title="Permissions">
                 <Template Context="agent">
                     @string.Join(", ", agent.Permissions)
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TValue="AgentDefinition" Title="Actions" Sortable="false" Filterable="false">
+            <RadzenDataGridColumn TItem="AgentDefinition" Title="Actions" Sortable="false" Filterable="false">
                 <Template Context="agent">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                         <RadzenButton Text="Edit" Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
@@ -98,6 +109,25 @@
                 <RadzenTextArea @bind-Value="@editingAgent.SystemPrompt" Rows="8" Style="width: 100%;" />
             </RadzenFormField>
 
+            <RadzenFormField Text="Execution permission profile" Style="width: 100%;">
+                <RadzenDropDown TValue="string"
+                                Data="@profiles"
+                                TextProperty="Name"
+                                ValueProperty="Id"
+                                @bind-Value="@editingAgent.ExecutionPermissionProfileId"
+                                AllowFiltering="true"
+                                AllowClear="false"
+                                Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="@ProfileSummary(editingAgent.ExecutionPermissionProfileId)" TextStyle="TextStyle.Caption" />
+                @if (IsDangerousProfile(editingAgent.ExecutionPermissionProfileId))
+                {
+                    <RadzenBadge Text="Dangerous profile" BadgeStyle="@BadgeStyle.Warning" />
+                }
+            </RadzenStack>
+
             <RadzenFormField Text="Permissions" Style="width: 100%;">
                 <RadzenDropDown TValue="IEnumerable<AgentPermission>"
                                 Data="@agentPermissions"
@@ -117,10 +147,12 @@
 
 @code {
     [Inject] private IAgentRegistryService AgentRegistry { get; set; } = default!;
+    [Inject] private IExecutionPermissionProfileService ExecutionPermissionProfiles { get; set; } = default!;
     [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
 
     private IReadOnlyList<AgentDefinition> agents = [];
+    private IReadOnlyList<ExecutionPermissionProfile> profiles = [];
     private readonly AgentRole[] agentRoles = Enum.GetValues<AgentRole>();
     private readonly AgentPermission[] agentPermissions = Enum.GetValues<AgentPermission>();
     private AgentDefinition? editingAgent;
@@ -136,6 +168,7 @@
     private async Task LoadAsync()
     {
         agents = await AgentRegistry.GetAllAsync();
+        profiles = await ExecutionPermissionProfiles.GetAllAsync();
     }
 
     private void AddAgent()
@@ -144,7 +177,8 @@
         {
             Enabled = true,
             Role = AgentRole.Custom,
-            Temperature = 0.7
+            Temperature = 0.7,
+            ExecutionPermissionProfileId = "no-execution"
         };
         selectedPermissions = [];
         isAdding = true;
@@ -162,6 +196,7 @@
             Model = agent.Model,
             Temperature = agent.Temperature,
             SystemPrompt = agent.SystemPrompt,
+            ExecutionPermissionProfileId = agent.ExecutionPermissionProfileId,
             Permissions = [.. agent.Permissions]
         };
         selectedPermissions = [.. agent.Permissions];
@@ -256,6 +291,20 @@
         {
             isBusy = false;
         }
+    }
+
+    private string ProfileSummary(string profileId)
+    {
+        var profile = profiles.FirstOrDefault(profile => profile.Id.Equals(profileId, StringComparison.OrdinalIgnoreCase));
+        return profile is null
+            ? "No execution profile selected."
+            : $"{profile.Name} - {profile.Level}";
+    }
+
+    private bool IsDangerousProfile(string profileId)
+    {
+        var profile = profiles.FirstOrDefault(profile => profile.Id.Equals(profileId, StringComparison.OrdinalIgnoreCase));
+        return profile is not null && (profile.Level == ExecutionPermissionLevel.FullLocalAdmin || profile.RequiresConfirmation);
     }
 
     private void CancelEdit()
