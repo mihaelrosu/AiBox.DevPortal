@@ -11,7 +11,8 @@ public static class ConfigurationExtensions
 
     public static string GetOllamaBaseUrl(this IConfiguration configuration)
     {
-        return configuration["AiBox:Ollama:BaseUrl"]
+        return configuration["AiBox:Services:Ollama:BaseUrl"]
+            ?? configuration["AiBox:Ollama:BaseUrl"]
             ?? configuration["Ollama:BaseUrl"]
             ?? configuration["AiBox:OllamaUrl"]
             ?? "http://localhost:11434";

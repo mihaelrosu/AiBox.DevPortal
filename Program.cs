@@ -2,6 +2,8 @@ using AiBox.DevPortal.Api;
 using AiBox.DevPortal.Components;
 using AiBox.DevPortal.Services;
 using AiBox.DevPortal.Services.Agents;
+using AiBox.DevPortal.Services.Browser;
+using AiBox.DevPortal.Services.Repositories;
 using Microsoft.AspNetCore.Http.Features;
 using Radzen;
 
@@ -21,7 +23,13 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 builder.Services.AddRadzenComponents();
+builder.Services.AddScoped<IClipboardService, ClipboardService>();
 builder.Services.AddScoped<IAgentRegistryService, AgentRegistryService>();
+builder.Services.AddScoped<ILocalCoderService, LocalCoderService>();
+builder.Services.AddScoped<ILocalCoderHistoryService, LocalCoderHistoryService>();
+builder.Services.AddScoped<ILocalCoderMarkdownService, LocalCoderMarkdownService>();
+builder.Services.AddScoped<IRepositoryScannerService, RepositoryScannerService>();
+builder.Services.AddScoped<IRepositoryFileContextService, RepositoryFileContextService>();
 builder.Services.AddScoped<IExecutionPermissionProfileService, ExecutionPermissionProfileService>();
 builder.Services.AddScoped<IExecutionEngineService, ExecutionEngineService>();
 builder.Services.AddScoped<IFileOperationService, FileOperationService>();

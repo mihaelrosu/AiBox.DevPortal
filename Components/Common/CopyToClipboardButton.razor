@@ -1,0 +1,48 @@
+@using AiBox.DevPortal.Services.Browser
+
+<RadzenButton Text="@Text"
+              Icon="@Icon"
+              ButtonStyle="@ButtonStyle"
+              Size="@Size"
+              Disabled="@(Disabled || string.IsNullOrWhiteSpace(Value) || isBusy)"
+              Click="@CopyAsync" />
+
+@code {
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public string Text { get; set; } = "Copy";
+    [Parameter] public string Icon { get; set; } = "content_copy";
+    [Parameter] public string SuccessTitle { get; set; } = "Copied";
+    [Parameter] public string SuccessMessage { get; set; } = "Text copied to the clipboard.";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public ButtonStyle ButtonStyle { get; set; } = ButtonStyle.Light;
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.Medium;
+
+    [Inject] private IClipboardService ClipboardService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
+    private bool isBusy;
+
+    private async Task CopyAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Value))
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            await ClipboardService.CopyTextAsync(Value);
+            NotificationService.Notify(NotificationSeverity.Success, SuccessTitle, SuccessMessage);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Copy failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}

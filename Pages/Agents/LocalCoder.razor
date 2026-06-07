@@ -1,0 +1,658 @@
+@page "/agents/local-coder"
+@rendermode InteractiveServer
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using AiBox.DevPortal.Models.Agents
+@using AiBox.DevPortal.Models.Repositories
+@using AiBox.DevPortal.Services.Agents
+@using AiBox.DevPortal.Services.Repositories
+@using Microsoft.AspNetCore.Components.Web
+@using AiBox.DevPortal.Components.Common
+@using Radzen
+@using Radzen.Blazor
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+
+<PageTitle>Local Coder</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Local Coder</h1>
+        <p>Prepare, review, and approve coding tasks for a future local coding model integration.</p>
+    </div>
+    <RadzenBadge Text="@task.Status.ToString()" BadgeStyle="@StatusBadgeStyle(task.Status)" />
+</div>
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+            <RadzenStack Gap="0.15rem">
+                <RadzenText Text="Task History" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Reopen, reuse, or continue saved Local Coder sessions." TextStyle="TextStyle.Caption" />
+            </RadzenStack>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenButton Text="New Task" Icon="add" ButtonStyle="ButtonStyle.Light" Click="@NewTask" Disabled="@isBusy" />
+                <RadzenButton Text="Save Current" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@SaveCurrentAsync" Disabled="@isBusy" />
+                <RadzenButton Text="Refresh History" Icon="refresh" ButtonStyle="ButtonStyle.Light" Click="@LoadHistoryAsync" Disabled="@isBusy" />
+            </RadzenStack>
+        </RadzenStack>
+
+        <RadzenDataGrid Data="@historyRecords" TItem="LocalCoderTaskHistoryRecord" AllowPaging="true" PageSize="5" EmptyText="No Local Coder history yet.">
+            <Columns>
+                <RadzenDataGridColumn TItem="LocalCoderTaskHistoryRecord" Property="Task.Title" Title="Title">
+                    <Template Context="record">@(string.IsNullOrWhiteSpace(record.Task.Title) ? "Untitled task" : record.Task.Title)</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="LocalCoderTaskHistoryRecord" Property="Task.RepositoryPath" Title="Repository" />
+                <RadzenDataGridColumn TItem="LocalCoderTaskHistoryRecord" Title="Status">
+                    <Template Context="record"><RadzenBadge Text="@record.Task.Status.ToString()" BadgeStyle="@StatusBadgeStyle(record.Task.Status)" /></Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="LocalCoderTaskHistoryRecord" Title="Updated">
+                    <Template Context="record">@record.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="LocalCoderTaskHistoryRecord" Title="Actions" Sortable="false" Filterable="false">
+                    <Template Context="record">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                            <RadzenButton Text="Continue" Icon="play_arrow" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary"
+                                          Click="@(() => ContinueTask(record))" Disabled="@isBusy" />
+                            <RadzenButton Text="Reuse" Icon="content_copy" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                          Click="@(() => ReuseTask(record))" Disabled="@isBusy" />
+                            <RadzenButton Text="Delete" Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger"
+                                          Click="@(() => DeleteHistoryAsync(record.Id))" Disabled="@isBusy" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Markdown Export / Import" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Export the current task as text or import a previously exported Local Coder Markdown record." TextStyle="TextStyle.Caption" />
+            </div>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenButton Text="Export Current" Icon="markdown" ButtonStyle="ButtonStyle.Light" Click="@ExportCurrentMarkdown" Disabled="@isBusy" />
+                <CopyToClipboardButton Text="Copy Markdown"
+                                       Value="@markdownText"
+                                       SuccessTitle="Markdown copied"
+                                       SuccessMessage="The Local Coder Markdown was copied to the clipboard." />
+                <RadzenButton Text="Import Markdown" Icon="upload_file" ButtonStyle="ButtonStyle.Primary" Click="@ImportMarkdown" Disabled="@isBusy" />
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenTextArea @bind-Value="@markdownText" Rows="14" Placeholder="Exported Markdown appears here. Paste Local Coder Markdown here to import it."
+                        Style="width: 100%; font-family: monospace;" />
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenText Text="Task Configuration" TextStyle="TextStyle.H5" />
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenFormField Text="Title" Style="width: 100%;">
+                    <RadzenTextBox @bind-Value="@task.Title" Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenFormField Text="Model" Style="width: 100%;">
+                    <RadzenDropDown TValue="string" Data="@models" @bind-Value="@task.Model" AllowClear="false" Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+        </RadzenRow>
+        <RadzenFormField Text="Repository path" Style="width: 100%;">
+            <RadzenTextBox @bind-Value="@task.RepositoryPath" Style="width: 100%;" />
+        </RadzenFormField>
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                    <RadzenStack Gap="0.15rem">
+                        <RadzenText Text="Repository File Picker" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="Select safe repository-relative files to read only during Create Plan." TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <RadzenBadge Text="@($"{task.SelectedFilePaths.Count} selected")" BadgeStyle="BadgeStyle.Info" />
+                        <RadzenButton Text="Scan Repository" Icon="folder_open" ButtonStyle="ButtonStyle.Light"
+                                      Click="@LoadContextFilesAsync" Disabled="@isBusy" />
+                    </RadzenStack>
+                </RadzenStack>
+
+                @if (repositoryScanLoaded)
+                {
+                    <RadzenRow Gap="0.75rem" AlignItems="AlignItems.End">
+                        <RadzenColumn Size="12" SizeMD="8">
+                            <RadzenFormField Text="Filter safe files" Style="width: 100%;">
+                                <RadzenTextBox @bind-Value="@fileFilter" Placeholder="Filter by repository-relative path" Style="width: 100%;" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                <RadzenButton Text="Select Visible" Icon="select_all" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                              Click="@SelectVisibleFiles" Disabled="@(!FilteredContextFiles.Any())" />
+                                <RadzenButton Text="Clear Selection" Icon="deselect" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                              Click="@ClearSelectedFiles" Disabled="@(task.SelectedFilePaths.Count == 0)" />
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenDataGrid Data="@FilteredContextFiles" TItem="RepositoryFileSummary" AllowPaging="true" PageSize="10"
+                                    EmptyText="No safe files match the current filter.">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="RepositoryFileSummary" Title="Use" Width="5rem" Sortable="false" Filterable="false">
+                                <Template Context="file">
+                                    <RadzenCheckBox TValue="bool"
+                                                    Value="@IsFileSelected(file.RelativePath)"
+                                                    Change="@(selected => SetFileSelected(file.RelativePath, selected))" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="RepositoryFileSummary" Property="RelativePath" Title="Repository-relative path" />
+                        </Columns>
+                    </RadzenDataGrid>
+
+                    <RadzenText Text="@ScanSummary" TextStyle="TextStyle.Caption" />
+                }
+                else
+                {
+                    <RadzenText Text="Scan the repository to list safe source and text files. The picker does not read file contents."
+                                TextStyle="TextStyle.Body1" />
+                }
+
+                <RadzenText Text="Secret, production-setting, binary, unsupported, and oversized files are blocked by the planning context reader."
+                            TextStyle="TextStyle.Caption" />
+            </RadzenStack>
+        </RadzenCard>
+        <RadzenFormField Text="Instructions" Style="width: 100%;">
+            <RadzenTextArea @bind-Value="@task.Instructions" Rows="6" Style="width: 100%;" />
+        </RadzenFormField>
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenFormField Text="Allowed paths" Style="width: 100%;">
+                    <RadzenTextArea @bind-Value="@task.AllowedPathsText" Rows="4" Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenFormField Text="Forbidden paths" Style="width: 100%;">
+                    <RadzenTextArea @bind-Value="@task.ForbiddenPathsText" Rows="4" Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+        </RadzenRow>
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenFormField Text="Build command" Style="width: 100%;">
+                    <RadzenTextBox @bind-Value="@task.BuildCommand" Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem" Style="height: 100%;">
+                    <RadzenCheckBox TValue="bool" @bind-Value="@task.RequireApprovalBeforeApply" />
+                    <RadzenLabel Text="Require approval before apply" />
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Text="Create Plan" Icon="description" ButtonStyle="ButtonStyle.Primary" Click="@CreatePlanAsync" Disabled="@isBusy" />
+            <RadzenButton Text="Generate Patch" Icon="difference" ButtonStyle="ButtonStyle.Secondary" Click="@GeneratePatchAsync" Disabled="@isBusy" />
+            <RadzenButton Text="Run Build" Icon="build" ButtonStyle="ButtonStyle.Info" Click="@RunBuildAsync" Disabled="@isBusy" />
+            <RadzenButton Text="Review Result" Icon="fact_check" ButtonStyle="ButtonStyle.Warning" Click="@ReviewAsync" Disabled="@isBusy" />
+            <RadzenButton Text="Apply Patch" Icon="published_with_changes" ButtonStyle="ButtonStyle.Danger" Click="@ApplyPatchAsync"
+                          Disabled="@(isBusy || string.IsNullOrWhiteSpace(patchOutput))" />
+        </RadzenStack>
+        <RadzenText Text="Warning: real patch application is not implemented. The Apply Patch action only calls a placeholder service and never modifies files."
+                    TextStyle="TextStyle.Body1" Style="color: var(--rz-warning);" />
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenCard>
+    <RadzenTabs>
+        <Tabs>
+            <RadzenTabsItem Text="Plan">
+                <RadzenTextArea Value="@planOutput" ReadOnly="true" Rows="16" Style="width: 100%;" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Diff">
+                <RadzenTextArea Value="@patchOutput" ReadOnly="true" Rows="16" Style="width: 100%; font-family: monospace;" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Build Output">
+                <RadzenTextArea Value="@buildOutput" ReadOnly="true" Rows="16" Style="width: 100%; font-family: monospace;" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Review">
+                <RadzenTextArea Value="@reviewOutput" ReadOnly="true" Rows="16" Style="width: 100%;" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Task JSON">
+                <RadzenTextArea Value="@TaskJson" ReadOnly="true" Rows="16" Style="width: 100%; font-family: monospace;" />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</RadzenCard>
+
+@code {
+    [Inject] private ILocalCoderService LocalCoderService { get; set; } = default!;
+    [Inject] private ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
+    [Inject] private ILocalCoderMarkdownService LocalCoderMarkdownService { get; set; } = default!;
+    [Inject] private IRepositoryScannerService RepositoryScannerService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "historyId")]
+    public string? HistoryId { get; set; }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    private readonly IReadOnlyList<string> models = ["qwen2.5-coder:7b"];
+    private static readonly HashSet<string> ContextFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".cs", ".razor", ".cshtml", ".csproj", ".sln", ".props", ".targets", ".json", ".xml",
+        ".md", ".txt", ".css", ".scss", ".html", ".js", ".jsx", ".ts", ".tsx", ".yml", ".yaml"
+    };
+
+    private LocalCoderTask task = CreateDefaultTask();
+
+    private string planOutput = string.Empty;
+    private string patchOutput = string.Empty;
+    private string buildOutput = string.Empty;
+    private string reviewOutput = string.Empty;
+    private string markdownText = string.Empty;
+    private IReadOnlyList<RepositoryFileSummary> availableContextFiles = [];
+    private string fileFilter = string.Empty;
+    private int skippedDirectoryCount;
+    private int skippedFileCount;
+    private bool repositoryScanTruncated;
+    private bool repositoryScanLoaded;
+    private bool isBusy;
+    private IReadOnlyList<LocalCoderTaskHistoryRecord> historyRecords = [];
+    private string loadedHistoryId = string.Empty;
+
+    private string TaskJson => JsonSerializer.Serialize(task, JsonOptions);
+    private IEnumerable<RepositoryFileSummary> FilteredContextFiles => string.IsNullOrWhiteSpace(fileFilter)
+        ? availableContextFiles
+        : availableContextFiles.Where(file => file.RelativePath.Contains(fileFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+    private string ScanSummary =>
+        $"{availableContextFiles.Count} safe files listed. {skippedDirectoryCount} directories and {skippedFileCount} secret-looking files skipped."
+        + (repositoryScanTruncated ? " Scan results were truncated." : string.Empty);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistoryAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.IsNullOrWhiteSpace(HistoryId)
+            || HistoryId.Equals(loadedHistoryId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            var record = await LocalCoderHistoryService.GetByIdAsync(HistoryId);
+
+            if (record is null)
+            {
+                loadedHistoryId = HistoryId;
+                NotificationService.Notify(NotificationSeverity.Warning, "History record not found", "The requested Local Coder history record no longer exists.");
+                return;
+            }
+
+            ContinueTask(record);
+            loadedHistoryId = record.Id;
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "History reopen failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        isBusy = true;
+
+        try
+        {
+            historyRecords = await LocalCoderHistoryService.GetAllAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "History load failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task SaveCurrentAsync()
+    {
+        isBusy = true;
+
+        try
+        {
+            var saved = await LocalCoderHistoryService.SaveAsync(new LocalCoderTaskHistoryRecord
+            {
+                Id = task.HistoryId,
+                Task = task,
+                PlanText = planOutput,
+                DiffText = patchOutput,
+                BuildOutput = buildOutput,
+                ReviewText = reviewOutput,
+                CreatedAt = task.CreatedAt
+            });
+            task.HistoryId = saved.Id;
+            await LoadHistoryAsync();
+            NotificationService.Notify(NotificationSeverity.Success, "Task saved", string.IsNullOrWhiteSpace(task.Title) ? "Untitled task" : task.Title);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Task save failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void ContinueTask(LocalCoderTaskHistoryRecord record)
+    {
+        task = record.Task;
+        planOutput = record.PlanText;
+        patchOutput = record.DiffText;
+        buildOutput = record.BuildOutput;
+        reviewOutput = record.ReviewText;
+        ResetRepositoryScan();
+        NotificationService.Notify(NotificationSeverity.Info, "Task reopened", string.IsNullOrWhiteSpace(task.Title) ? "Untitled task" : task.Title);
+    }
+
+    private void ReuseTask(LocalCoderTaskHistoryRecord record)
+    {
+        task = CloneForReuse(record.Task);
+        planOutput = string.Empty;
+        patchOutput = string.Empty;
+        buildOutput = string.Empty;
+        reviewOutput = string.Empty;
+        ResetRepositoryScan();
+        NotificationService.Notify(NotificationSeverity.Info, "Task reused", "A new draft was created from the selected history record.");
+    }
+
+    private async Task DeleteHistoryAsync(string id)
+    {
+        isBusy = true;
+
+        try
+        {
+            if (await LocalCoderHistoryService.DeleteAsync(id))
+            {
+                if (task.HistoryId.Equals(id, StringComparison.OrdinalIgnoreCase))
+                {
+                    task.HistoryId = string.Empty;
+                }
+
+                await LoadHistoryAsync();
+                NotificationService.Notify(NotificationSeverity.Success, "History deleted", "The Local Coder history record was removed.");
+            }
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "History delete failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void NewTask()
+    {
+        task = CreateDefaultTask();
+        planOutput = string.Empty;
+        patchOutput = string.Empty;
+        buildOutput = string.Empty;
+        reviewOutput = string.Empty;
+        ResetRepositoryScan();
+    }
+
+    private void ExportCurrentMarkdown()
+    {
+        markdownText = LocalCoderMarkdownService.Export(new LocalCoderTaskHistoryRecord
+        {
+            Id = task.HistoryId,
+            Task = task,
+            PlanText = planOutput,
+            DiffText = patchOutput,
+            BuildOutput = buildOutput,
+            ReviewText = reviewOutput,
+            CreatedAt = task.CreatedAt,
+            UpdatedAt = DateTime.UtcNow
+        });
+        NotificationService.Notify(NotificationSeverity.Success, "Markdown exported", "The current Local Coder task is ready to copy.");
+    }
+
+    private void ImportMarkdown()
+    {
+        try
+        {
+            var record = LocalCoderMarkdownService.Import(markdownText);
+            task = record.Task;
+            planOutput = record.PlanText;
+            patchOutput = record.DiffText;
+            buildOutput = record.BuildOutput;
+            reviewOutput = record.ReviewText;
+            ResetRepositoryScan();
+            NotificationService.Notify(NotificationSeverity.Success, "Markdown imported", "The imported task was loaded as a new Local Coder session.");
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Markdown import failed", exception.Message);
+        }
+    }
+
+    private async Task LoadContextFilesAsync()
+    {
+        isBusy = true;
+
+        try
+        {
+            var result = await RepositoryScannerService.ScanAsync(task.RepositoryPath);
+            availableContextFiles = result.Files
+                .Where(file => IsSafeContextCandidate(file.RelativePath))
+                .ToArray();
+            skippedDirectoryCount = result.SkippedDirectoryCount;
+            skippedFileCount = result.SkippedFileCount;
+            repositoryScanTruncated = result.Truncated;
+            repositoryScanLoaded = true;
+            task.SelectedFilePaths = task.SelectedFilePaths
+                .Where(selected => availableContextFiles.Any(file => file.RelativePath.Equals(selected, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                "Safe files loaded",
+                $"{availableContextFiles.Count} source and text files are available for read-only planning context.");
+        }
+        catch (Exception exception)
+        {
+            availableContextFiles = [];
+            task.SelectedFilePaths = [];
+            repositoryScanLoaded = false;
+            NotificationService.Notify(NotificationSeverity.Error, "Repository scan failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private bool IsFileSelected(string relativePath)
+    {
+        return task.SelectedFilePaths.Contains(relativePath, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void SetFileSelected(string relativePath, bool selected)
+    {
+        if (selected && !IsFileSelected(relativePath))
+        {
+            task.SelectedFilePaths.Add(relativePath);
+        }
+        else if (!selected)
+        {
+            task.SelectedFilePaths.RemoveAll(path => path.Equals(relativePath, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void SelectVisibleFiles()
+    {
+        foreach (var file in FilteredContextFiles)
+        {
+            if (!IsFileSelected(file.RelativePath))
+            {
+                task.SelectedFilePaths.Add(file.RelativePath);
+            }
+        }
+    }
+
+    private void ClearSelectedFiles()
+    {
+        task.SelectedFilePaths.Clear();
+    }
+
+    private Task CreatePlanAsync() => ExecuteAsync(
+        () => LocalCoderService.CreatePlanAsync(task),
+        output => planOutput = output,
+        LocalCoderTaskStatus.Planned,
+        LocalCoderTaskStatus.Failed,
+        "Plan created");
+
+    private Task GeneratePatchAsync() => ExecuteAsync(
+        () => LocalCoderService.GeneratePatchAsync(task),
+        output => patchOutput = output,
+        LocalCoderTaskStatus.PatchGenerated,
+        LocalCoderTaskStatus.Failed,
+        "Patch generated");
+
+    private Task RunBuildAsync() => ExecuteAsync(
+        () => LocalCoderService.RunBuildAsync(task),
+        output => buildOutput = output,
+        LocalCoderTaskStatus.BuildSucceeded,
+        LocalCoderTaskStatus.BuildFailed,
+        "Build placeholder completed");
+
+    private Task ReviewAsync() => ExecuteAsync(
+        () => LocalCoderService.ReviewAsync(task),
+        output => reviewOutput = output,
+        LocalCoderTaskStatus.Reviewed,
+        LocalCoderTaskStatus.Failed,
+        "Review completed");
+
+    private async Task ApplyPatchAsync()
+    {
+        NotificationService.Notify(
+            NotificationSeverity.Warning,
+            "Placeholder apply",
+            "Patch application is currently placeholder only. No files will be changed.");
+        await ExecuteAsync(
+            () => LocalCoderService.ApplyPatchAsync(task),
+            output => reviewOutput = output,
+            LocalCoderTaskStatus.Applied,
+            LocalCoderTaskStatus.Failed,
+            "Apply placeholder completed");
+    }
+
+    private async Task ExecuteAsync(
+        Func<Task<LocalCoderResult>> action,
+        Action<string> setOutput,
+        LocalCoderTaskStatus successStatus,
+        LocalCoderTaskStatus failureStatus,
+        string successTitle)
+    {
+        isBusy = true;
+
+        try
+        {
+            var result = await action();
+            setOutput(result.Success ? result.Output : result.ErrorMessage);
+            task.Status = result.Success ? successStatus : failureStatus;
+            NotificationService.Notify(
+                result.Success ? NotificationSeverity.Success : NotificationSeverity.Error,
+                result.Success ? successTitle : "Local Coder action failed",
+                result.Success ? "Placeholder service completed without executing commands or modifying files." : result.ErrorMessage);
+            await LoadHistoryAsync();
+        }
+        catch (Exception exception)
+        {
+            task.Status = failureStatus;
+            NotificationService.Notify(NotificationSeverity.Error, "Local Coder action failed", exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private static BadgeStyle StatusBadgeStyle(LocalCoderTaskStatus status) => status switch
+    {
+        LocalCoderTaskStatus.BuildSucceeded or LocalCoderTaskStatus.Reviewed or LocalCoderTaskStatus.Applied => BadgeStyle.Success,
+        LocalCoderTaskStatus.BuildFailed or LocalCoderTaskStatus.Failed => BadgeStyle.Danger,
+        LocalCoderTaskStatus.PatchGenerated or LocalCoderTaskStatus.Planned => BadgeStyle.Info,
+        _ => BadgeStyle.Secondary
+    };
+
+    private static bool IsSafeContextCandidate(string relativePath)
+    {
+        var fileName = Path.GetFileName(relativePath);
+
+        return ContextFileExtensions.Contains(Path.GetExtension(fileName))
+            && !fileName.StartsWith(".env", StringComparison.OrdinalIgnoreCase)
+            && !fileName.Contains("secret", StringComparison.OrdinalIgnoreCase)
+            && !fileName.Contains("credential", StringComparison.OrdinalIgnoreCase)
+            && !fileName.StartsWith("appsettings.production", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ResetRepositoryScan()
+    {
+        availableContextFiles = [];
+        fileFilter = string.Empty;
+        skippedDirectoryCount = 0;
+        skippedFileCount = 0;
+        repositoryScanTruncated = false;
+        repositoryScanLoaded = false;
+    }
+
+    private static LocalCoderTask CreateDefaultTask()
+    {
+        return new LocalCoderTask
+        {
+            RepositoryPath = "/home/mihael/projects/AiBox.DevPortal",
+            Model = "qwen2.5-coder:7b",
+            BuildCommand = "dotnet build",
+            RequireApprovalBeforeApply = true,
+            CreatedAt = DateTime.UtcNow,
+            Status = LocalCoderTaskStatus.Draft
+        };
+    }
+
+    private static LocalCoderTask CloneForReuse(LocalCoderTask source)
+    {
+        return new LocalCoderTask
+        {
+            Title = source.Title,
+            RepositoryPath = source.RepositoryPath,
+            Model = source.Model,
+            Instructions = source.Instructions,
+            AllowedPathsText = source.AllowedPathsText,
+            ForbiddenPathsText = source.ForbiddenPathsText,
+            SelectedFilePaths = [.. source.SelectedFilePaths ?? []],
+            RequireApprovalBeforeApply = source.RequireApprovalBeforeApply,
+            BuildCommand = source.BuildCommand,
+            CreatedAt = DateTime.UtcNow,
+            Status = LocalCoderTaskStatus.Draft
+        };
+    }
+}
