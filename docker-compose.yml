@@ -14,7 +14,7 @@ services:
 
       # Local Coder workspace
       # Read-only is safer. Use without :ro when you want patch/write support.
-      - .:/home/mihael/projects/AiBox.DevPortal:ro
+      - .:/home/mihael/projects/AiBox.DevPortal
 
       # ComfyUI mounts
       - /home/mihael/comfyui/workflows:/app/comfyui/user/default/workflows
@@ -28,6 +28,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:14000
+      GIT_CONFIG_GLOBAL: /app/Data/.gitconfig
 
       AiBox__Environment: Development
 

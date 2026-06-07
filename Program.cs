@@ -30,7 +30,7 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<IClipboardService, ClipboardService>();
 builder.Services.AddScoped<IAgentRegistryService, AgentRegistryService>();
-builder.Services.AddScoped<ILocalCoderService, LocalCoderService>();
+builder.Services.AddScoped<ICoderConsoleService, CoderConsoleService>();
 builder.Services.AddScoped<ILocalCoderHistoryService, LocalCoderHistoryService>();
 builder.Services.AddScoped<ILocalCoderMarkdownService, LocalCoderMarkdownService>();
 builder.Services.AddScoped<ILocalCoderPatchService, LocalCoderPatchService>();
@@ -83,7 +83,9 @@ builder.Services.AddHttpClient<IPromptEnhancerService, PromptEnhancerService>((s
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
     client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());
 });
-builder.Services.AddHttpClient<AiBox.DevPortal.Services.ILocalCoderService, AiBox.DevPortal.Services.LocalCoderService>((serviceProvider, client) =>
+builder.Services.AddHttpClient<
+    ICoderConsoleService,
+    CoderConsoleService>((serviceProvider, client) =>
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
     client.BaseAddress = new Uri(configuration["AiBox:OllamaUrl"] ?? "http://localhost:11434");

@@ -1,6 +1,7 @@
 @page "/coder"
 @rendermode InteractiveServer
-
+@using AiBox.DevPortal.Services.Agents
+@using AiBox.DevPortal.Models.Agents
 <PageTitle>Local Coder</PageTitle>
 
 <RadzenStack Gap="1rem">
@@ -69,6 +70,11 @@
                 <RadzenButton Text="dotnet test" ButtonStyle="ButtonStyle.Light" Click="@(() => RunCommandAsync("dotnet test"))" Disabled="@isRunningCommand" />
                 <RadzenButton Text="ls" Click="@(() => RunCommandAsync("ls"))" Disabled="@isRunningCommand" />
                 <RadzenButton Text="pwd" Click="@(() => RunCommandAsync("pwd"))" Disabled="@isRunningCommand" />
+                <RadzenButton Text="Verify Project"
+              Icon="verified"
+              ButtonStyle="ButtonStyle.Success"
+              Click="@VerifyProjectAsync"
+              Disabled="@(isRunningCommand || isVerifying || string.IsNullOrWhiteSpace(request.ProjectPath))" />
             </RadzenStack>
         </RadzenCard>
     }
@@ -89,22 +95,51 @@
             }
         </RadzenCard>
     }
+    @if (verifyResults.Count > 0)
+{
+    <RadzenCard>
+        <RadzenText Text="Verification Result" TextStyle="TextStyle.H5" />
+
+        @foreach (var item in verifyResults)
+        {
+            <RadzenCard Style="margin-top: 1rem;">
+                <RadzenText Text="@($"{item.Command} — exit {item.ExitCode}")" TextStyle="TextStyle.H6" />
+
+                @if (!string.IsNullOrWhiteSpace(item.Output))
+                {
+                    <h4>Output</h4>
+                    <pre class="coder-output">@item.Output</pre>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(item.Error))
+                {
+                    <h4>Error</h4>
+                    <pre class="coder-error">@item.Error</pre>
+                }
+            </RadzenCard>
+        }
+    </RadzenCard>
+}
 </RadzenStack>
 
 @code {
-    [Inject] private ILocalCoderService LocalCoderService { get; set; } = default!;
-    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject]
+    private ICoderConsoleService CoderConsoleService { get; set; } = default!;
 
-    private LocalCoderRequest request = new();
+    [Inject]
+    private NotificationService NotificationService { get; set; } = default!;
+
+    private AiBox.DevPortal.Models.LocalCoderRequest request = new();
     private IReadOnlyList<string> workspaceRoots = [];
     private IReadOnlyList<string> models = [];
-    private LocalCoderTask? currentTask;
-    private CommandRunResult? lastCommand;
+    private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
+    private AiBox.DevPortal.Models.CommandRunResult? lastCommand;
     private bool isLoading;
     private bool isPlanning;
     private bool isRunningCommand;
     private string? error;
-
+    private IReadOnlyList<CommandRunResult> verifyResults = [];
+    private bool isVerifying;
     protected override Task OnInitializedAsync()
     {
         return LoadAsync();
@@ -117,8 +152,8 @@
 
         try
         {
-            workspaceRoots = await LocalCoderService.GetWorkspaceRootsAsync();
-            models = await LocalCoderService.GetOllamaModelsAsync();
+            workspaceRoots = await CoderConsoleService.GetWorkspaceRootsAsync();
+            models = await CoderConsoleService.GetOllamaModelsAsync();
 
             request.ProjectPath = workspaceRoots.FirstOrDefault() ?? string.Empty;
             request.Model = models.Contains("qwen2.5-coder:7b")
@@ -144,7 +179,7 @@
 
         try
         {
-            currentTask = await LocalCoderService.CreatePlanAsync(request);
+            currentTask = await CoderConsoleService.CreatePlanAsync(request);
             NotificationService.Notify(NotificationSeverity.Success, "Plan created", "Local coder generated a plan.");
         }
         catch (Exception exception)
@@ -165,7 +200,7 @@
 
         try
         {
-            lastCommand = await LocalCoderService.RunCommandAsync(request.ProjectPath, command);
+            lastCommand = await CoderConsoleService.RunCommandAsync(request.ProjectPath, command);
 
             var severity = lastCommand.ExitCode == 0
                 ? NotificationSeverity.Success
@@ -183,4 +218,35 @@
             isRunningCommand = false;
         }
     }
+    private async Task VerifyProjectAsync()
+{
+    isVerifying = true;
+    error = null;
+    verifyResults = [];
+
+    try
+    {
+        verifyResults = await CoderConsoleService.VerifyProjectAsync(request.ProjectPath);
+
+        var failed = verifyResults.FirstOrDefault(x => x.ExitCode != 0);
+
+        if (failed is null)
+        {
+            NotificationService.Notify(NotificationSeverity.Success, "Verification passed", "git status, dotnet build, and dotnet test completed.");
+        }
+        else
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Verification failed", $"{failed.Command}: exit {failed.ExitCode}");
+        }
+    }
+    catch (Exception exception)
+    {
+        error = exception.Message;
+        NotificationService.Notify(NotificationSeverity.Error, "Verification failed", exception.Message);
+    }
+    finally
+    {
+        isVerifying = false;
+    }
+}
 }
