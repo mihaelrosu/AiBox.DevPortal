@@ -11,8 +11,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./Data:/app/Data
-      - ./Data:/data
+
+      # Local Coder workspace
+      # Read-only is safer. Use without :ro when you want patch/write support.
       - .:/home/mihael/projects/AiBox.DevPortal:ro
+
+      # ComfyUI mounts
       - /home/mihael/comfyui/workflows:/app/comfyui/user/default/workflows
       - /home/mihael/comfyui/output:/app/comfyui/output
       - /home/mihael/comfyui/input:/app/comfyui/input
@@ -24,14 +28,27 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:14000
+
       AiBox__Environment: Development
-      AiBox__ComfyUrl: http://ai-box.local:8188
-      AiBox__ComfyUI__BaseUrl: http://ai-box.local:8188
+
+      # ComfyUI
+      AiBox__ComfyUrl: http://host.docker.internal:8188
+      AiBox__ComfyUI__BaseUrl: http://host.docker.internal:8188
       AiBox__ComfyUI__WorkflowFolder: /app/comfyui/user/default/workflows
       AiBox__ComfyUI__OutputFolder: /app/comfyui/output
       AiBox__ComfyUI__InputFolder: /app/comfyui/input
-      AiBox__OllamaUrl: http://ai-box.local:11434
-      AiBox__Services__Ollama__BaseUrl: http://host.docker.internal:11434
-      Ollama__BaseUrl: http://ai-box.local:11434
-      AiBox__PromptEnhancerModel: gemma4:e2b
+
+      # Ollama
+      AiBox__OllamaUrl: http://host.docker.internal:11434
+      AiBox__PromptEnhancerModel: qwen2.5-coder:7b
+
+      # Local Coder
+      AiBox__LocalCoder__WorkspaceRoots__0: /home/mihael/projects/AiBox.DevPortal
+      AiBox__LocalCoder__DefaultModel: qwen2.5-coder:7b
+      AiBox__LocalCoder__AllowedCommands__0: git status
+      AiBox__LocalCoder__AllowedCommands__1: git diff
+      AiBox__LocalCoder__AllowedCommands__2: dotnet build
+      AiBox__LocalCoder__AllowedCommands__3: dotnet test
+      AiBox__LocalCoder__AllowedCommands__4: ls
+      AiBox__LocalCoder__AllowedCommands__5: pwd
     restart: unless-stopped

@@ -83,7 +83,12 @@ builder.Services.AddHttpClient<IPromptEnhancerService, PromptEnhancerService>((s
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
     client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());
 });
-
+builder.Services.AddHttpClient<AiBox.DevPortal.Services.ILocalCoderService, AiBox.DevPortal.Services.LocalCoderService>((serviceProvider, client) =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    client.BaseAddress = new Uri(configuration["AiBox:OllamaUrl"] ?? "http://localhost:11434");
+    client.Timeout = TimeSpan.FromMinutes(10);
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

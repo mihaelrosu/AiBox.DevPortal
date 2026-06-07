@@ -1,0 +1,19 @@
+.coder-output {
+    white-space: pre-wrap;
+    overflow: auto;
+    max-height: 32rem;
+    padding: 1rem;
+    background: #111827;
+    color: #f9fafb;
+    border-radius: 0.5rem;
+}
+
+.coder-error {
+    white-space: pre-wrap;
+    overflow: auto;
+    max-height: 24rem;
+    padding: 1rem;
+    background: #7f1d1d;
+    color: #fee2e2;
+    border-radius: 0.5rem;
+}

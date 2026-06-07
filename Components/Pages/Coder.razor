@@ -1,0 +1,186 @@
+@page "/coder"
+@rendermode InteractiveServer
+
+<PageTitle>Local Coder</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center">
+        <RadzenColumn>
+            <RadzenText Text="Local Coder" TextStyle="TextStyle.H4" />
+            <RadzenText Text="Use local Ollama model to plan code changes and run safe verification commands." TextStyle="TextStyle.Body2" />
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenButton Text="Refresh" Icon="refresh" Click="@LoadAsync" Disabled="@isLoading" Style="width: 100%;" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenFormField Text="Project path">
+                <RadzenDropDown @bind-Value="request.ProjectPath"
+                                Data="@workspaceRoots"
+                                Style="width: 100%;"
+                                Placeholder="Select project folder" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Model">
+                <RadzenDropDown @bind-Value="request.Model"
+                                Data="@models"
+                                Style="width: 100%;"
+                                Placeholder="Select Ollama model" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Task">
+                <RadzenTextArea @bind-Value="request.Task"
+                                Rows="6"
+                                Style="width: 100%;"
+                                Placeholder="Example: review AiBox.DevPortal and fix Local Coder build issues" />
+            </RadzenFormField>
+
+            <RadzenButton Text="Create Plan"
+                          Icon="psychology"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="@CreatePlanAsync"
+                          Disabled="@(isLoading || isPlanning)" />
+        </RadzenStack>
+    </RadzenCard>
+
+    @if (!string.IsNullOrWhiteSpace(error))
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">
+            @error
+        </RadzenAlert>
+    }
+
+    @if (currentTask is not null)
+    {
+        <RadzenCard>
+            <RadzenText Text="Plan" TextStyle="TextStyle.H5" />
+            <pre class="coder-output">@currentTask.Plan</pre>
+        </RadzenCard>
+
+        <RadzenCard>
+            <RadzenText Text="Safe Commands" TextStyle="TextStyle.H5" />
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenButton Text="git status" Click="@(() => RunCommandAsync("git status"))" Disabled="@isRunningCommand" />
+                <RadzenButton Text="git diff" Click="@(() => RunCommandAsync("git diff"))" Disabled="@isRunningCommand" />
+                <RadzenButton Text="dotnet build" ButtonStyle="ButtonStyle.Primary" Click="@(() => RunCommandAsync("dotnet build"))" Disabled="@isRunningCommand" />
+                <RadzenButton Text="dotnet test" ButtonStyle="ButtonStyle.Light" Click="@(() => RunCommandAsync("dotnet test"))" Disabled="@isRunningCommand" />
+                <RadzenButton Text="ls" Click="@(() => RunCommandAsync("ls"))" Disabled="@isRunningCommand" />
+                <RadzenButton Text="pwd" Click="@(() => RunCommandAsync("pwd"))" Disabled="@isRunningCommand" />
+            </RadzenStack>
+        </RadzenCard>
+    }
+
+    @if (lastCommand is not null)
+    {
+        <RadzenCard>
+            <RadzenText Text="@($"Command: {lastCommand.Command}")" TextStyle="TextStyle.H5" />
+            <RadzenText Text="@($"Exit code: {lastCommand.ExitCode}")" TextStyle="TextStyle.Body2" />
+
+            <h4>Output</h4>
+            <pre class="coder-output">@lastCommand.Output</pre>
+
+            @if (!string.IsNullOrWhiteSpace(lastCommand.Error))
+            {
+                <h4>Error</h4>
+                <pre class="coder-error">@lastCommand.Error</pre>
+            }
+        </RadzenCard>
+    }
+</RadzenStack>
+
+@code {
+    [Inject] private ILocalCoderService LocalCoderService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
+    private LocalCoderRequest request = new();
+    private IReadOnlyList<string> workspaceRoots = [];
+    private IReadOnlyList<string> models = [];
+    private LocalCoderTask? currentTask;
+    private CommandRunResult? lastCommand;
+    private bool isLoading;
+    private bool isPlanning;
+    private bool isRunningCommand;
+    private string? error;
+
+    protected override Task OnInitializedAsync()
+    {
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        error = null;
+
+        try
+        {
+            workspaceRoots = await LocalCoderService.GetWorkspaceRootsAsync();
+            models = await LocalCoderService.GetOllamaModelsAsync();
+
+            request.ProjectPath = workspaceRoots.FirstOrDefault() ?? string.Empty;
+            request.Model = models.Contains("qwen2.5-coder:7b")
+                ? "qwen2.5-coder:7b"
+                : models.FirstOrDefault() ?? "qwen2.5-coder:7b";
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CreatePlanAsync()
+    {
+        isPlanning = true;
+        error = null;
+        currentTask = null;
+        lastCommand = null;
+
+        try
+        {
+            currentTask = await LocalCoderService.CreatePlanAsync(request);
+            NotificationService.Notify(NotificationSeverity.Success, "Plan created", "Local coder generated a plan.");
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Local coder failed", exception.Message);
+        }
+        finally
+        {
+            isPlanning = false;
+        }
+    }
+
+    private async Task RunCommandAsync(string command)
+    {
+        isRunningCommand = true;
+        error = null;
+
+        try
+        {
+            lastCommand = await LocalCoderService.RunCommandAsync(request.ProjectPath, command);
+
+            var severity = lastCommand.ExitCode == 0
+                ? NotificationSeverity.Success
+                : NotificationSeverity.Warning;
+
+            NotificationService.Notify(severity, "Command finished", $"{command}: exit {lastCommand.ExitCode}");
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Command failed", exception.Message);
+        }
+        finally
+        {
+            isRunningCommand = false;
+        }
+    }
+}
