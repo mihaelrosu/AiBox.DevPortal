@@ -1,14 +1,16 @@
 @page "/coder"
 @rendermode InteractiveServer
+@using AiBox.DevPortal.Models
+@using AiBox.DevPortal.Services
 @using AiBox.DevPortal.Services.Agents
-@using AiBox.DevPortal.Models.Agents
+@using Radzen.Blazor
 <PageTitle>Local Coder</PageTitle>
 
 <RadzenStack Gap="1rem">
     <RadzenRow AlignItems="AlignItems.Center">
         <RadzenColumn>
             <RadzenText Text="Local Coder" TextStyle="TextStyle.H4" />
-            <RadzenText Text="Use local Ollama model to plan code changes and run safe verification commands." TextStyle="TextStyle.Body2" />
+            <RadzenText Text="Use a local Ollama model to plan code changes and run safe verification commands." TextStyle="TextStyle.Body2" />
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="3">
             <RadzenButton Text="Refresh" Icon="refresh" Click="@LoadAsync" Disabled="@isLoading" Style="width: 100%;" />
@@ -18,14 +20,48 @@
     <RadzenCard>
         <RadzenStack Gap="1rem">
             <RadzenFormField Text="Project path">
-                <RadzenDropDown @bind-Value="request.ProjectPath"
+                <RadzenDropDown TValue="string"
+                                @bind-Value="request.ProjectPath"
                                 Data="@workspaceRoots"
                                 Style="width: 100%;"
                                 Placeholder="Select project folder" />
             </RadzenFormField>
 
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenButton Text="Load Files"
+                              Icon="folder_open"
+                              ButtonStyle="ButtonStyle.Secondary"
+                              Click="@LoadFilesAsync"
+                              Disabled="@(isLoading || string.IsNullOrWhiteSpace(request.ProjectPath))" />
+                <RadzenButton Text="Read Selected Files"
+                              Icon="description"
+                              ButtonStyle="ButtonStyle.Primary"
+                              Click="@ReadSelectedFilesAsync"
+                              Disabled="@(isLoading || string.IsNullOrWhiteSpace(request.ProjectPath) || !projectFiles.Any())" />
+                <RadzenButton Text="Clear Context"
+                              Icon="clear"
+                              ButtonStyle="ButtonStyle.Light"
+                              Click="@ClearContextAsync"
+                              Disabled="@isLoading" />
+            </RadzenStack>
+
+            <RadzenText Text="@($"Loaded file contexts: {fileContexts.Count}")" TextStyle="TextStyle.Body2" />
+
+            <RadzenFormField Text="Selected files">
+                <RadzenDropDown TValue="IEnumerable<string>"
+                                Data="@projectFiles"
+                                TextProperty="RelativePath"
+                                ValueProperty="RelativePath"
+                                Multiple="true"
+                                AllowClear="true"
+                                @bind-Value="selectedFilePaths"
+                                Style="width: 100%;"
+                                Placeholder="Select files to read as context" />
+            </RadzenFormField>
+
             <RadzenFormField Text="Model">
-                <RadzenDropDown @bind-Value="request.Model"
+                <RadzenDropDown TValue="string"
+                                @bind-Value="request.Model"
                                 Data="@models"
                                 Style="width: 100%;"
                                 Placeholder="Select Ollama model" />
@@ -46,6 +82,21 @@
         </RadzenStack>
     </RadzenCard>
 
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenText Text="Project Files" TextStyle="TextStyle.H5" />
+
+            @if (projectFiles.Count == 0)
+            {
+                <RadzenText Text="Click Load Files to scan the selected project." TextStyle="TextStyle.Body2" />
+            }
+            else
+            {
+                <RadzenText Text="@($"{projectFiles.Count} file(s) available for selection.")" TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+
     @if (!string.IsNullOrWhiteSpace(error))
     {
         <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">
@@ -60,6 +111,21 @@
             <pre class="coder-output">@currentTask.Plan</pre>
         </RadzenCard>
 
+        @if (fileContexts.Count > 0)
+        {
+            <RadzenCard>
+                <RadzenText Text="Loaded File Context" TextStyle="TextStyle.H5" />
+
+                @foreach (var fileContext in fileContexts)
+                {
+                    <details style="margin-bottom: 0.75rem;">
+                        <summary>@fileContext.RelativePath (@fileContext.CharacterCount chars)</summary>
+                        <pre class="coder-output">@fileContext.Content</pre>
+                    </details>
+                }
+            </RadzenCard>
+        }
+
         <RadzenCard>
             <RadzenText Text="Safe Commands" TextStyle="TextStyle.H5" />
 
@@ -71,10 +137,10 @@
                 <RadzenButton Text="ls" Click="@(() => RunCommandAsync("ls"))" Disabled="@isRunningCommand" />
                 <RadzenButton Text="pwd" Click="@(() => RunCommandAsync("pwd"))" Disabled="@isRunningCommand" />
                 <RadzenButton Text="Verify Project"
-              Icon="verified"
-              ButtonStyle="ButtonStyle.Success"
-              Click="@VerifyProjectAsync"
-              Disabled="@(isRunningCommand || isVerifying || string.IsNullOrWhiteSpace(request.ProjectPath))" />
+                              Icon="verified"
+                              ButtonStyle="ButtonStyle.Success"
+                              Click="@VerifyProjectAsync"
+                              Disabled="@(isRunningCommand || isVerifying || string.IsNullOrWhiteSpace(request.ProjectPath))" />
             </RadzenStack>
         </RadzenCard>
     }
@@ -95,55 +161,54 @@
             }
         </RadzenCard>
     }
+
     @if (verifyResults.Count > 0)
-{
-    <RadzenCard>
-        <RadzenText Text="Verification Result" TextStyle="TextStyle.H5" />
+    {
+        <RadzenCard>
+            <RadzenText Text="Verification Result" TextStyle="TextStyle.H5" />
 
-        @foreach (var item in verifyResults)
-        {
-            <RadzenCard Style="margin-top: 1rem;">
-                <RadzenText Text="@($"{item.Command} — exit {item.ExitCode}")" TextStyle="TextStyle.H6" />
+            @foreach (var item in verifyResults)
+            {
+                <RadzenCard Style="margin-top: 1rem;">
+                    <RadzenText Text="@($"{item.Command} — exit {item.ExitCode}")" TextStyle="TextStyle.H6" />
 
-                @if (!string.IsNullOrWhiteSpace(item.Output))
-                {
-                    <h4>Output</h4>
-                    <pre class="coder-output">@item.Output</pre>
-                }
+                    @if (!string.IsNullOrWhiteSpace(item.Output))
+                    {
+                        <h4>Output</h4>
+                        <pre class="coder-output">@item.Output</pre>
+                    }
 
-                @if (!string.IsNullOrWhiteSpace(item.Error))
-                {
-                    <h4>Error</h4>
-                    <pre class="coder-error">@item.Error</pre>
-                }
-            </RadzenCard>
-        }
-    </RadzenCard>
-}
+                    @if (!string.IsNullOrWhiteSpace(item.Error))
+                    {
+                        <h4>Error</h4>
+                        <pre class="coder-error">@item.Error</pre>
+                    }
+                </RadzenCard>
+            }
+        </RadzenCard>
+    }
 </RadzenStack>
 
 @code {
-    [Inject]
-    private ICoderConsoleService CoderConsoleService { get; set; } = default!;
+    [Inject] private ICoderConsoleService CoderConsoleService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
 
-    [Inject]
-    private NotificationService NotificationService { get; set; } = default!;
-
-    private AiBox.DevPortal.Models.LocalCoderRequest request = new();
+    private readonly LocalCoderRequest request = new();
     private IReadOnlyList<string> workspaceRoots = [];
     private IReadOnlyList<string> models = [];
+    private IReadOnlyList<ProjectFileItem> projectFiles = [];
+    private List<LocalCoderFileContext> fileContexts = [];
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
-    private AiBox.DevPortal.Models.CommandRunResult? lastCommand;
+    private CommandRunResult? lastCommand;
     private bool isLoading;
     private bool isPlanning;
     private bool isRunningCommand;
+    private bool isVerifying;
     private string? error;
     private IReadOnlyList<CommandRunResult> verifyResults = [];
-    private bool isVerifying;
-    protected override Task OnInitializedAsync()
-    {
-        return LoadAsync();
-    }
+    private IEnumerable<string> selectedFilePaths = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -170,6 +235,50 @@
         }
     }
 
+    private async Task LoadFilesAsync()
+    {
+        error = null;
+
+        try
+        {
+            projectFiles = await CoderConsoleService.GetProjectFilesAsync(request.ProjectPath);
+            selectedFilePaths = [];
+            fileContexts = [];
+            request.FileContexts = [];
+            NotificationService.Notify(NotificationSeverity.Success, "Files loaded", $"{projectFiles.Count} files are available for context.");
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Load files failed", exception.Message);
+        }
+    }
+
+    private async Task ReadSelectedFilesAsync()
+    {
+        error = null;
+
+        try
+        {
+            fileContexts = (await CoderConsoleService.ReadFileContextsAsync(request.ProjectPath, selectedFilePaths.ToArray())).ToList();
+            request.FileContexts = fileContexts.ToList();
+            NotificationService.Notify(NotificationSeverity.Success, "Context loaded", $"{fileContexts.Count} file(s) loaded into context.");
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Read context failed", exception.Message);
+        }
+    }
+
+    private Task ClearContextAsync()
+    {
+        fileContexts = [];
+        request.FileContexts = [];
+        NotificationService.Notify(NotificationSeverity.Info, "Context cleared", "Loaded file context was cleared.");
+        return Task.CompletedTask;
+    }
+
     private async Task CreatePlanAsync()
     {
         isPlanning = true;
@@ -179,8 +288,14 @@
 
         try
         {
+            if (fileContexts.Count == 0)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "No file context loaded", "Select files and click Read Selected Files first.");
+            }
+
+            request.FileContexts = fileContexts.ToList();
             currentTask = await CoderConsoleService.CreatePlanAsync(request);
-            NotificationService.Notify(NotificationSeverity.Success, "Plan created", "Local coder generated a plan.");
+            NotificationService.Notify(NotificationSeverity.Success, "Plan created", $"Local coder generated a plan with {request.FileContexts.Count} file context(s).");
         }
         catch (Exception exception)
         {
@@ -218,35 +333,36 @@
             isRunningCommand = false;
         }
     }
+
     private async Task VerifyProjectAsync()
-{
-    isVerifying = true;
-    error = null;
-    verifyResults = [];
-
-    try
     {
-        verifyResults = await CoderConsoleService.VerifyProjectAsync(request.ProjectPath);
+        isVerifying = true;
+        error = null;
+        verifyResults = [];
 
-        var failed = verifyResults.FirstOrDefault(x => x.ExitCode != 0);
-
-        if (failed is null)
+        try
         {
-            NotificationService.Notify(NotificationSeverity.Success, "Verification passed", "git status, dotnet build, and dotnet test completed.");
+            verifyResults = await CoderConsoleService.VerifyProjectAsync(request.ProjectPath);
+
+            var failed = verifyResults.FirstOrDefault(x => x.ExitCode != 0);
+
+            if (failed is null)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Verification passed", "git status, dotnet build, and dotnet test completed.");
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Verification failed", $"{failed.Command}: exit {failed.ExitCode}");
+            }
         }
-        else
+        catch (Exception exception)
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Verification failed", $"{failed.Command}: exit {failed.ExitCode}");
+            error = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Verification failed", exception.Message);
+        }
+        finally
+        {
+            isVerifying = false;
         }
     }
-    catch (Exception exception)
-    {
-        error = exception.Message;
-        NotificationService.Notify(NotificationSeverity.Error, "Verification failed", exception.Message);
-    }
-    finally
-    {
-        isVerifying = false;
-    }
-}
 }

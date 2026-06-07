@@ -11,6 +11,24 @@ public sealed class CoderConsoleService(
     IConfiguration configuration,
     IWebHostEnvironment environment) : ICoderConsoleService
 {
+    private const long MaxProjectFileSizeBytes = 200 * 1024;
+    private const int MaxSelectedFileCount = 12;
+    private const int MaxPromptFileCharacters = 12_000;
+
+    private static readonly HashSet<string> AllowedProjectFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".cs", ".razor", ".json", ".yml", ".yaml", ".css", ".html", ".js", ".md", ".csproj", ".sln", ".props", ".targets"
+    };
+
+    private static readonly HashSet<string> IgnoredDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bin",
+        "obj",
+        ".git",
+        "Data",
+        "node_modules"
+    };
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -33,6 +51,60 @@ public sealed class CoderConsoleService(
         return response?.Models.Select(x => x.Name).OrderBy(x => x).ToArray() ?? [];
     }
 
+    public Task<IReadOnlyList<ProjectFileItem>> GetProjectFilesAsync(string projectPath)
+    {
+        var rootPath = GetValidatedProjectRoot(projectPath);
+        var files = new List<ProjectFileItem>();
+
+        foreach (var filePath in EnumerateProjectFiles(rootPath))
+        {
+            var fileInfo = new FileInfo(filePath);
+
+            if (fileInfo.Length > MaxProjectFileSizeBytes)
+            {
+                continue;
+            }
+
+            files.Add(new ProjectFileItem
+            {
+                RelativePath = Path.GetRelativePath(rootPath, filePath).Replace(Path.DirectorySeparatorChar, '/'),
+                SizeBytes = fileInfo.Length
+            });
+        }
+
+        return Task.FromResult<IReadOnlyList<ProjectFileItem>>(
+            files.OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase).ToArray());
+    }
+
+    public async Task<IReadOnlyList<LocalCoderFileContext>> ReadFileContextsAsync(string projectPath, IReadOnlyList<string> relativePaths)
+    {
+        var rootPath = GetValidatedProjectRoot(projectPath);
+        ArgumentNullException.ThrowIfNull(relativePaths);
+
+        var contexts = new List<LocalCoderFileContext>();
+
+        foreach (var relativePath in relativePaths
+                     .Where(path => !string.IsNullOrWhiteSpace(path))
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .Take(MaxSelectedFileCount))
+        {
+            var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, relativePath);
+            var fullPath = Path.Combine(rootPath, normalizedRelativePath);
+            var content = await ReadTextFileAsync(fullPath);
+
+            contexts.Add(new LocalCoderFileContext
+            {
+                RelativePath = normalizedRelativePath.Replace(Path.DirectorySeparatorChar, '/'),
+                CharacterCount = content.Length,
+                Content = content.Length <= MaxPromptFileCharacters
+                    ? content
+                    : content[..MaxPromptFileCharacters]
+            });
+        }
+
+        return contexts;
+    }
+
     public async Task<LocalCoderTask> CreatePlanAsync(LocalCoderRequest request)
     {
         ValidateProjectPath(request.ProjectPath);
@@ -42,6 +114,12 @@ public sealed class CoderConsoleService(
             throw new InvalidOperationException("Task is required.");
         }
 
+        request.FileContexts = (request.FileContexts ?? [])
+            .Take(MaxSelectedFileCount)
+            .ToList();
+
+        var fileContextText = BuildFileContextText(request.FileContexts);
+
         var prompt = $$"""
         You are a local coding assistant for a C# Blazor/Radzen project.
 
@@ -50,6 +128,11 @@ public sealed class CoderConsoleService(
 
         User task:
         {{request.Task}}
+
+        Selected file count: {{request.FileContexts.Count}}
+
+        Selected file context:
+        {{fileContextText}}
 
         Produce:
         1. Short diagnosis.
@@ -200,30 +283,7 @@ public sealed class CoderConsoleService(
 
     private void ValidateProjectPath(string projectPath)
     {
-        if (string.IsNullOrWhiteSpace(projectPath))
-        {
-            throw new InvalidOperationException("Project path is required.");
-        }
-
-        var fullPath = Path.GetFullPath(projectPath);
-
-        if (!Directory.Exists(fullPath))
-        {
-            throw new InvalidOperationException($"Project path does not exist: {fullPath}");
-        }
-
-        var roots = configuration
-            .GetSection("AiBox:LocalCoder:WorkspaceRoots")
-            .Get<string[]>() ?? [];
-
-        var allowed = roots
-            .Select(Path.GetFullPath)
-            .Any(root => fullPath.StartsWith(root, StringComparison.Ordinal));
-
-        if (!allowed)
-        {
-            throw new InvalidOperationException("Project path is outside allowed workspace roots.");
-        }
+        _ = GetValidatedProjectRoot(projectPath);
     }
 
     private void ValidateCommand(string command)
@@ -274,6 +334,168 @@ public sealed class CoderConsoleService(
     private string GetHistoryPath()
     {
         return Path.Combine(environment.ContentRootPath, "Data", "coder-tasks.json");
+    }
+
+    private string GetValidatedProjectRoot(string projectPath)
+    {
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            throw new InvalidOperationException("Project path is required.");
+        }
+
+        var fullPath = Path.GetFullPath(projectPath);
+
+        if (!Directory.Exists(fullPath))
+        {
+            throw new InvalidOperationException($"Project path does not exist: {fullPath}");
+        }
+
+        var roots = configuration
+            .GetSection("AiBox:LocalCoder:WorkspaceRoots")
+            .Get<string[]>() ?? [];
+
+        var allowed = roots
+            .Select(Path.GetFullPath)
+            .Any(root => fullPath.StartsWith(root, StringComparison.Ordinal));
+
+        if (!allowed)
+        {
+            throw new InvalidOperationException("Project path is outside allowed workspace roots.");
+        }
+
+        return fullPath.TrimEnd(Path.DirectorySeparatorChar);
+    }
+
+    private static IEnumerable<string> EnumerateProjectFiles(string rootPath)
+    {
+        var stack = new Stack<string>();
+        stack.Push(rootPath);
+
+        while (stack.Count > 0)
+        {
+            var currentDirectory = stack.Pop();
+
+            foreach (var filePath in Directory.EnumerateFiles(currentDirectory, "*", SearchOption.TopDirectoryOnly))
+            {
+                var fileInfo = new FileInfo(filePath);
+
+                if (fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    continue;
+                }
+
+                if (IsAllowedProjectFile(filePath))
+                {
+                    yield return filePath;
+                }
+            }
+
+            foreach (var directoryPath in Directory.EnumerateDirectories(currentDirectory, "*", SearchOption.TopDirectoryOnly))
+            {
+                var directoryInfo = new DirectoryInfo(directoryPath);
+
+                if (directoryInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    continue;
+                }
+
+                if (!IgnoredDirectoryNames.Contains(directoryInfo.Name))
+                {
+                    stack.Push(directoryPath);
+                }
+            }
+        }
+    }
+
+    private static bool IsAllowedProjectFile(string filePath)
+    {
+        return AllowedProjectFileExtensions.Contains(Path.GetExtension(filePath));
+    }
+
+    private static string ValidateAndNormalizeSelectedPath(string rootPath, string relativePath)
+    {
+        var trimmed = relativePath.Trim();
+
+        if (Path.IsPathRooted(trimmed))
+        {
+            throw new InvalidOperationException("Selected file paths must be repository-relative.");
+        }
+
+        if (trimmed.Contains(':', StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Selected file path '{trimmed}' must not contain a drive separator.");
+        }
+
+        if (trimmed.Contains("..", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Selected file path '{trimmed}' cannot contain '..'.");
+        }
+
+        var fullPath = Path.GetFullPath(Path.Combine(rootPath, trimmed));
+        var rootPrefix = rootPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        if (!fullPath.StartsWith(rootPrefix, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Selected file path '{trimmed}' is outside the project root.");
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            throw new InvalidOperationException($"Selected file path '{trimmed}' does not exist.");
+        }
+
+        if (!IsAllowedProjectFile(fullPath))
+        {
+            throw new InvalidOperationException($"Selected file path '{trimmed}' is not an allowed source file.");
+        }
+
+        var fileInfo = new FileInfo(fullPath);
+
+        if (fileInfo.Length > MaxProjectFileSizeBytes)
+        {
+            throw new InvalidOperationException($"Selected file path '{trimmed}' exceeds the {MaxProjectFileSizeBytes / 1024} KB limit.");
+        }
+
+        return Path.GetRelativePath(rootPath, fullPath);
+    }
+
+    private static async Task<string> ReadTextFileAsync(string fullPath)
+    {
+        await using var stream = File.OpenRead(fullPath);
+        using var reader = new StreamReader(stream, detectEncodingFromByteOrderMarks: true);
+        var content = await reader.ReadToEndAsync();
+        return content;
+    }
+
+    private static string BuildFileContextText(IReadOnlyList<LocalCoderFileContext> fileContexts)
+    {
+        if (fileContexts.Count == 0)
+        {
+            return "No selected file context was provided.";
+        }
+
+        var builder = new System.Text.StringBuilder();
+
+        foreach (var fileContext in fileContexts.Take(MaxSelectedFileCount))
+        {
+            builder.AppendLine($"FILE: {fileContext.RelativePath}");
+            builder.AppendLine("```text");
+            builder.AppendLine(TrimForPrompt(fileContext.Content, MaxPromptFileCharacters));
+            builder.AppendLine("```");
+            builder.AppendLine();
+        }
+
+        return builder.ToString();
+    }
+
+    private static string TrimForPrompt(string content, int maxChars)
+    {
+        if (string.IsNullOrEmpty(content) || content.Length <= maxChars)
+        {
+            return content ?? string.Empty;
+        }
+
+        return content[..maxChars];
     }
 
     private static string EscapeBash(string command)

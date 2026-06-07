@@ -6,6 +6,8 @@ public interface ICoderConsoleService
 {
     Task<IReadOnlyList<string>> GetWorkspaceRootsAsync();
     Task<IReadOnlyList<string>> GetOllamaModelsAsync();
+    Task<IReadOnlyList<ProjectFileItem>> GetProjectFilesAsync(string projectPath);
+    Task<IReadOnlyList<LocalCoderFileContext>> ReadFileContextsAsync(string projectPath, IReadOnlyList<string> relativePaths);
     Task<LocalCoderTask> CreatePlanAsync(LocalCoderRequest request);
     Task<CommandRunResult> RunCommandAsync(string projectPath, string command);
     Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath);

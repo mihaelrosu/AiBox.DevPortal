@@ -16,3 +16,11 @@ Data/local-coder-history.json
 !.vscode/extensions.json
 !.vscode/launch.json
 !.vscode/tasks.json
+
+# AiBox DevPortal runtime data
+Data/.gitconfig
+Data/coder-tasks.json
+Data/generated-images.json
+Data/DataProtection-Keys/
+Data/workflow-backups/
+Data/workflow-overwrite-backups/
