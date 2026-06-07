@@ -9,6 +9,9 @@ obj/
 *.user
 *.suo
 
+Data/DataProtection-Keys/
+Data/local-coder-history.json
+
 .vscode/*
 !.vscode/extensions.json
 !.vscode/launch.json

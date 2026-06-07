@@ -8,6 +8,7 @@ public enum LocalCoderTaskStatus
     BuildSucceeded,
     BuildFailed,
     Reviewed,
+    ApplyDisabled,
     Applied,
     Failed
 }

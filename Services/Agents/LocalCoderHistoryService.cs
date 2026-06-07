@@ -165,7 +165,9 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             RequireApprovalBeforeApply = task.RequireApprovalBeforeApply,
             BuildCommand = task.BuildCommand,
             CreatedAt = task.CreatedAt,
-            Status = task.Status
+            Status = task.Status == LocalCoderTaskStatus.Applied
+                ? LocalCoderTaskStatus.ApplyDisabled
+                : task.Status
         };
     }
 }

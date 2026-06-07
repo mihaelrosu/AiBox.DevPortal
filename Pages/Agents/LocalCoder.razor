@@ -195,10 +195,10 @@
             <RadzenButton Text="Generate Patch" Icon="difference" ButtonStyle="ButtonStyle.Secondary" Click="@GeneratePatchAsync" Disabled="@isBusy" />
             <RadzenButton Text="Run Build" Icon="build" ButtonStyle="ButtonStyle.Info" Click="@RunBuildAsync" Disabled="@isBusy" />
             <RadzenButton Text="Review Result" Icon="fact_check" ButtonStyle="ButtonStyle.Warning" Click="@ReviewAsync" Disabled="@isBusy" />
-            <RadzenButton Text="Apply Patch" Icon="published_with_changes" ButtonStyle="ButtonStyle.Danger" Click="@ApplyPatchAsync"
+            <RadzenButton Text="Apply Disabled (Placeholder)" Icon="block" ButtonStyle="ButtonStyle.Warning" Click="@ApplyPatchAsync"
                           Disabled="@(isBusy || string.IsNullOrWhiteSpace(patchOutput))" />
         </RadzenStack>
-        <RadzenText Text="Warning: real patch application is not implemented. The Apply Patch action only calls a placeholder service and never modifies files."
+        <RadzenText Text="Patch application is disabled. The placeholder action records no changes and never marks the task as Applied."
                     TextStyle="TextStyle.Body1" Style="color: var(--rz-warning);" />
     </RadzenStack>
 </RadzenCard>
@@ -560,9 +560,9 @@
         await ExecuteAsync(
             () => LocalCoderService.ApplyPatchAsync(task),
             output => reviewOutput = output,
-            LocalCoderTaskStatus.Applied,
+            LocalCoderTaskStatus.ApplyDisabled,
             LocalCoderTaskStatus.Failed,
-            "Apply placeholder completed");
+            "Apply remains disabled");
     }
 
     private async Task ExecuteAsync(
@@ -600,6 +600,7 @@
     {
         LocalCoderTaskStatus.BuildSucceeded or LocalCoderTaskStatus.Reviewed or LocalCoderTaskStatus.Applied => BadgeStyle.Success,
         LocalCoderTaskStatus.BuildFailed or LocalCoderTaskStatus.Failed => BadgeStyle.Danger,
+        LocalCoderTaskStatus.ApplyDisabled => BadgeStyle.Warning,
         LocalCoderTaskStatus.PatchGenerated or LocalCoderTaskStatus.Planned => BadgeStyle.Info,
         _ => BadgeStyle.Secondary
     };

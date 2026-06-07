@@ -82,7 +82,7 @@ public sealed class LocalCoderService(
         ArgumentNullException.ThrowIfNull(task);
 
         var result = Placeholder("Placeholder apply only. Patch application is disabled. No files were changed.");
-        task.Status = LocalCoderTaskStatus.Applied;
+        task.Status = LocalCoderTaskStatus.ApplyDisabled;
         await SaveResultAsync(task, result, LocalCoderHistoryOutput.Review);
         return result;
     }

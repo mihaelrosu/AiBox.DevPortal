@@ -287,6 +287,7 @@
     {
         LocalCoderTaskStatus.BuildSucceeded or LocalCoderTaskStatus.Reviewed or LocalCoderTaskStatus.Applied => BadgeStyle.Success,
         LocalCoderTaskStatus.BuildFailed or LocalCoderTaskStatus.Failed => BadgeStyle.Danger,
+        LocalCoderTaskStatus.ApplyDisabled => BadgeStyle.Warning,
         LocalCoderTaskStatus.PatchGenerated or LocalCoderTaskStatus.Planned => BadgeStyle.Info,
         _ => BadgeStyle.Secondary
     };

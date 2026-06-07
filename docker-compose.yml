@@ -6,10 +6,13 @@ services:
     container_name: aibox-devportal
     ports:
       - "14000:14000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./Data:/app/Data
       - ./Data:/data
+      - .:/home/mihael/projects/AiBox.DevPortal:ro
       - /home/mihael/comfyui/workflows:/app/comfyui/user/default/workflows
       - /home/mihael/comfyui/output:/app/comfyui/output
       - /home/mihael/comfyui/input:/app/comfyui/input
@@ -28,6 +31,7 @@ services:
       AiBox__ComfyUI__OutputFolder: /app/comfyui/output
       AiBox__ComfyUI__InputFolder: /app/comfyui/input
       AiBox__OllamaUrl: http://ai-box.local:11434
+      AiBox__Services__Ollama__BaseUrl: http://host.docker.internal:11434
       Ollama__BaseUrl: http://ai-box.local:11434
       AiBox__PromptEnhancerModel: gemma4:e2b
     restart: unless-stopped
