@@ -9,6 +9,7 @@ public interface ICoderConsoleService
     Task<IReadOnlyList<ProjectFileItem>> GetProjectFilesAsync(string projectPath);
     Task<IReadOnlyList<LocalCoderFileContext>> ReadFileContextsAsync(string projectPath, IReadOnlyList<string> relativePaths);
     Task<LocalCoderTask> CreatePlanAsync(LocalCoderRequest request);
+    Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request);
     Task<CommandRunResult> RunCommandAsync(string projectPath, string command);
     Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath);
     Task<IReadOnlyList<LocalCoderTask>> GetHistoryAsync();
