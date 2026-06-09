@@ -287,6 +287,11 @@ public sealed class CoderConsoleService(
             throw new InvalidOperationException("PATCH_NOT_POSSIBLE cannot be applied.");
         }
 
+        if (!patchText.StartsWith("diff --git", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Patch apply requires PatchText that starts with diff --git.");
+        }
+
         var validation = ValidatePatchPreview(patchText, patchPreview.FileContexts, patchPreview.Task);
         if (!validation.IsValid)
         {
@@ -370,6 +375,7 @@ public sealed class CoderConsoleService(
                     VerificationPassed = false,
                     Message = $"Patch apply failed: could not verify repository changes. {GetCommandFailureMessage(diffStatResult)}",
                     GitApplyResult = applyResult,
+                    GitDiffStatResult = diffStatResult,
                     ChangedFiles = changedFiles,
                     BackupFiles = backupFiles,
                     VerificationResults = [diffStatResult]
@@ -384,6 +390,7 @@ public sealed class CoderConsoleService(
                     VerificationPassed = false,
                     Message = "Patch apply failed: no repository changes detected after git apply.",
                     GitApplyResult = applyResult,
+                    GitDiffStatResult = diffStatResult,
                     ChangedFiles = changedFiles,
                     BackupFiles = backupFiles,
                     VerificationResults = [diffStatResult]
@@ -411,9 +418,36 @@ public sealed class CoderConsoleService(
                     VerificationPassed = false,
                     Message = "Patch apply failed: no selected file changes detected after git apply.",
                     GitApplyResult = applyResult,
+                    GitDiffStatResult = diffStatResult,
                     ChangedFiles = changedFiles,
                     BackupFiles = backupFiles,
                     VerificationResults = [diffStatResult]
+                };
+            }
+
+            var changedFilesDiffArguments = new List<string> { "diff", "--" };
+            changedFilesDiffArguments.AddRange(changedFiles);
+            var changedFilesDiffResult = await RunFixedCommandAsync(
+                rootPath,
+                "git",
+                changedFilesDiffArguments,
+                $"git diff -- {string.Join(' ', changedFiles)}");
+
+            if (changedFilesDiffResult.ExitCode != 0 || string.IsNullOrWhiteSpace(changedFilesDiffResult.Output))
+            {
+                return new LocalCoderPatchApplyResult
+                {
+                    Applied = false,
+                    VerificationPassed = false,
+                    Message = changedFilesDiffResult.ExitCode != 0
+                        ? $"Patch apply failed: could not verify changed file diff. {GetCommandFailureMessage(changedFilesDiffResult)}"
+                        : "Patch apply failed: no changed file diff detected after git apply.",
+                    GitApplyResult = applyResult,
+                    GitDiffStatResult = diffStatResult,
+                    ChangedFilesDiffResult = changedFilesDiffResult,
+                    ChangedFiles = changedFiles,
+                    BackupFiles = backupFiles,
+                    VerificationResults = [diffStatResult, changedFilesDiffResult]
                 };
             }
 
@@ -429,9 +463,11 @@ public sealed class CoderConsoleService(
                     ? $"Patch applied to {rootPath} and verification passed."
                     : $"Patch applied to {rootPath}, but build or test verification failed. Review the verification results and backups.",
                 GitApplyResult = applyResult,
+                GitDiffStatResult = diffStatResult,
+                ChangedFilesDiffResult = changedFilesDiffResult,
                 ChangedFiles = changedFiles,
                 BackupFiles = backupFiles,
-                VerificationResults = [diffStatResult, buildResult, testResult]
+                VerificationResults = [diffStatResult, changedFilesDiffResult, buildResult, testResult]
             };
         }
         finally

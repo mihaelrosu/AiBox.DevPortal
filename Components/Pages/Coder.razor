@@ -176,6 +176,20 @@
                     <pre class="coder-error">@patchApplyResult.GitApplyResult.Error</pre>
                 </RadzenCard>
 
+                <RadzenText Text="Git Diff Stat" TextStyle="TextStyle.H6" />
+                <RadzenCard>
+                    <RadzenText Text="@($"Exit code: {patchApplyResult.GitDiffStatResult.ExitCode}")" TextStyle="TextStyle.Body1" />
+                    <pre class="coder-output">@patchApplyResult.GitDiffStatResult.Output</pre>
+                    <pre class="coder-error">@patchApplyResult.GitDiffStatResult.Error</pre>
+                </RadzenCard>
+
+                <RadzenText Text="Changed Files Diff" TextStyle="TextStyle.H6" />
+                <RadzenCard>
+                    <RadzenText Text="@($"Exit code: {patchApplyResult.ChangedFilesDiffResult.ExitCode}")" TextStyle="TextStyle.Body1" />
+                    <pre class="coder-output">@patchApplyResult.ChangedFilesDiffResult.Output</pre>
+                    <pre class="coder-error">@patchApplyResult.ChangedFilesDiffResult.Error</pre>
+                </RadzenCard>
+
                 @if (patchApplyResult.ChangedFiles.Count > 0)
                 {
                     <RadzenText Text="Changed Files" TextStyle="TextStyle.H6" />
@@ -603,6 +617,21 @@
         catch (Exception exception)
         {
             error = exception.Message;
+            var failedAt = DateTimeOffset.UtcNow;
+            patchApplyResult = new LocalCoderPatchApplyResult
+            {
+                Applied = false,
+                VerificationPassed = false,
+                Message = exception.Message,
+                GitApplyResult = new CommandRunResult
+                {
+                    Command = "git apply --whitespace=fix <patchfile> (not completed)",
+                    ExitCode = -1,
+                    Error = exception.Message,
+                    Started = failedAt,
+                    Finished = failedAt
+                }
+            };
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
