@@ -138,7 +138,7 @@
                         <RadzenButton Text="Apply Patch"
                                       Icon="publish"
                                       ButtonStyle="ButtonStyle.Danger"
-                                      Click="@ApplyPatchPreviewAsync"
+                                      Click="@ApplyPatchAsync"
                                       Disabled="@(!CanApplyPatchPreview())" />
                     </RadzenStack>
                 </RadzenStack>
@@ -159,6 +159,10 @@
                              ShowIcon="true">
                     @patchApplyResult.Message
                 </RadzenAlert>
+
+                <RadzenText Text="@($"Project path: {patchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Applied: {patchApplyResult.Applied}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Verification passed: {patchApplyResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
 
                 @if (patchApplyResult.ChangedFiles.Count > 0)
                 {
@@ -524,7 +528,7 @@
         }
     }
 
-    private async Task ApplyPatchPreviewAsync()
+    private async Task ApplyPatchAsync()
     {
         if (!CanApplyPatchPreview() || patchPreview is null)
         {

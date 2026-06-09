@@ -299,77 +299,87 @@ public sealed class CoderConsoleService(
             }
         }
 
-        var checkResult = await RunFixedCommandAsync(
-            rootPath,
-            "git",
-            ["apply", "--check", "--whitespace=fix"],
-            "git apply --check --whitespace=fix",
-            patchText);
+        var tempPatchPath = Path.Combine(Path.GetTempPath(), $"aibox-local-coder-{Guid.NewGuid():N}.patch");
+        await File.WriteAllTextAsync(tempPatchPath, patchText + Environment.NewLine);
 
-        if (checkResult.ExitCode != 0)
+        try
         {
-            return new LocalCoderPatchApplyResult
+            var checkResult = await RunFixedCommandAsync(
+                rootPath,
+                "git",
+                ["apply", "--check", "--whitespace=fix", tempPatchPath],
+                $"git apply --check --whitespace=fix {tempPatchPath}");
+
+            if (checkResult.ExitCode != 0)
             {
-                Applied = false,
-                VerificationPassed = false,
-                Message = $"Patch could not be applied safely: {GetCommandFailureMessage(checkResult)}",
-                ChangedFiles = changedFiles
+                return new LocalCoderPatchApplyResult
+                {
+                    Applied = false,
+                    VerificationPassed = false,
+                    Message = $"Patch could not be applied safely: {GetCommandFailureMessage(checkResult)}",
+                    ChangedFiles = changedFiles,
+                    VerificationResults = [checkResult]
+                };
+            }
+
+            var backupRoot = CreatePatchBackupDirectory();
+            var backupFiles = new List<string>();
+
+            foreach (var changedFile in changedFiles)
+            {
+                var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, changedFile);
+                var sourcePath = Path.Combine(rootPath, normalizedRelativePath);
+                var backupPath = Path.Combine(backupRoot, normalizedRelativePath);
+
+                Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
+                File.Copy(sourcePath, backupPath, overwrite: false);
+                backupFiles.Add(backupPath);
+            }
+
+            var applyResult = await RunFixedCommandAsync(
+                rootPath,
+                "git",
+                ["apply", "--whitespace=fix", tempPatchPath],
+                $"git apply --whitespace=fix {tempPatchPath}");
+
+            if (applyResult.ExitCode != 0)
+            {
+                return new LocalCoderPatchApplyResult
+                {
+                    Applied = false,
+                    VerificationPassed = false,
+                    Message = $"Patch apply failed after backups were created: {GetCommandFailureMessage(applyResult)}",
+                    ChangedFiles = changedFiles,
+                    BackupFiles = backupFiles,
+                    VerificationResults = [applyResult]
+                };
+            }
+
+            var verificationResults = new List<CommandRunResult>
+            {
+                await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat"),
+                await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build"),
+                await RunFixedCommandAsync(rootPath, "dotnet", ["test"], "dotnet test")
             };
-        }
 
-        var backupRoot = CreatePatchBackupDirectory();
-        var backupFiles = new List<string>();
+            var verificationPassed = verificationResults.All(result => result.ExitCode == 0);
 
-        foreach (var changedFile in changedFiles)
-        {
-            var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, changedFile);
-            var sourcePath = Path.Combine(rootPath, normalizedRelativePath);
-            var backupPath = Path.Combine(backupRoot, normalizedRelativePath);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
-            File.Copy(sourcePath, backupPath, overwrite: false);
-            backupFiles.Add(backupPath);
-        }
-
-        var applyResult = await RunFixedCommandAsync(
-            rootPath,
-            "git",
-            ["apply", "--whitespace=fix"],
-            "git apply --whitespace=fix",
-            patchText);
-
-        if (applyResult.ExitCode != 0)
-        {
             return new LocalCoderPatchApplyResult
             {
-                Applied = false,
-                VerificationPassed = false,
-                Message = $"Patch apply failed after backups were created: {GetCommandFailureMessage(applyResult)}",
+                Applied = true,
+                VerificationPassed = verificationPassed,
+                Message = verificationPassed
+                    ? $"Patch applied to {rootPath} and verification passed."
+                    : $"Patch applied to {rootPath}, but verification failed. Review the verification results and backups.",
                 ChangedFiles = changedFiles,
-                BackupFiles = backupFiles
+                BackupFiles = backupFiles,
+                VerificationResults = verificationResults
             };
         }
-
-        var verificationResults = new List<CommandRunResult>
+        finally
         {
-            await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat"),
-            await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build"),
-            await RunFixedCommandAsync(rootPath, "dotnet", ["test"], "dotnet test")
-        };
-
-        var verificationPassed = verificationResults.All(result => result.ExitCode == 0);
-
-        return new LocalCoderPatchApplyResult
-        {
-            Applied = true,
-            VerificationPassed = verificationPassed,
-            Message = verificationPassed
-                ? "Patch applied and verification passed."
-                : "Patch applied, but verification failed. Review the verification results and backups.",
-            ChangedFiles = changedFiles,
-            BackupFiles = backupFiles,
-            VerificationResults = verificationResults
-        };
+            File.Delete(tempPatchPath);
+        }
     }
 
     public async Task<CommandRunResult> RunCommandAsync(string projectPath, string command)
@@ -435,8 +445,7 @@ public sealed class CoderConsoleService(
         string projectPath,
         string executable,
         IReadOnlyList<string> arguments,
-        string displayCommand,
-        string? standardInput = null)
+        string displayCommand)
     {
         var result = new CommandRunResult
         {
@@ -448,7 +457,6 @@ public sealed class CoderConsoleService(
         {
             FileName = executable,
             WorkingDirectory = projectPath,
-            RedirectStandardInput = standardInput is not null,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -465,13 +473,6 @@ public sealed class CoderConsoleService(
 
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
-
-        if (standardInput is not null)
-        {
-            await process.StandardInput.WriteAsync(standardInput);
-            await process.StandardInput.FlushAsync();
-            process.StandardInput.Close();
-        }
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
