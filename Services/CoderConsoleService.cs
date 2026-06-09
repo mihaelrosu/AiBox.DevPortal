@@ -192,6 +192,26 @@ public sealed class CoderConsoleService(
             .Take(MaxSelectedFileCount)
             .ToList();
 
+        if (TryParseExactReplacementTask(request.Task, out var oldText, out var newText))
+        {
+            var deterministicPatchText = BuildExactReplacementPatch(request.FileContexts, oldText, newText);
+            var deterministicValidation = ValidatePatchPreview(deterministicPatchText, request.FileContexts, request.Task);
+
+            if (!deterministicValidation.IsValid)
+            {
+                throw new InvalidOperationException($"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", deterministicValidation.Errors)}");
+            }
+
+            return new LocalCoderPatchPreview
+            {
+                ProjectPath = request.ProjectPath,
+                Model = "deterministic-exact-replacement",
+                Task = request.Task,
+                FileContexts = request.FileContexts.ToArray(),
+                PatchText = deterministicPatchText
+            };
+        }
+
         var fileContextText = BuildPatchPreviewFileContextText(request.FileContexts);
         var selectedFilePathsText = BuildSelectedFilePathsText(request.FileContexts);
 
@@ -859,6 +879,133 @@ public sealed class CoderConsoleService(
         }
 
         return string.Join(Environment.NewLine, fileContexts.Select(fileContext => $"- {fileContext.RelativePath}"));
+    }
+
+    private static bool TryParseExactReplacementTask(string task, out string oldText, out string newText)
+    {
+        var match = Regex.Match(
+            task,
+            "replace\\s+this\\s+exact\\s+text:\\s*\"(?<old>.*?)\"\\s*with:\\s*\"(?<new>.*?)\"",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+
+        if (!match.Success)
+        {
+            oldText = string.Empty;
+            newText = string.Empty;
+            return false;
+        }
+
+        oldText = match.Groups["old"].Value;
+        newText = match.Groups["new"].Value;
+        return true;
+    }
+
+    private static string BuildExactReplacementPatch(
+        IReadOnlyList<LocalCoderFileContext> fileContexts,
+        string oldText,
+        string newText)
+    {
+        if (string.IsNullOrEmpty(oldText))
+        {
+            throw new InvalidOperationException("Old text must not be empty.");
+        }
+
+        var matches = fileContexts
+            .Select(fileContext => new
+            {
+                FileContext = fileContext,
+                MatchCount = CountExactOccurrences(fileContext.Content, oldText)
+            })
+            .Where(match => match.MatchCount > 0)
+            .ToArray();
+
+        var totalMatchCount = matches.Sum(match => match.MatchCount);
+        if (totalMatchCount == 0)
+        {
+            throw new InvalidOperationException("Old text was not found in selected files.");
+        }
+
+        if (totalMatchCount > 1)
+        {
+            throw new InvalidOperationException("Old text appears multiple times; make the task more specific.");
+        }
+
+        var fileContext = matches.Single().FileContext;
+        var relativePath = NormalizePreviewPath(fileContext.RelativePath);
+        var updatedContent = fileContext.Content.Replace(oldText, newText, StringComparison.Ordinal);
+        var oldLines = fileContext.Content.ReplaceLineEndings("\n").Split('\n');
+        var newLines = updatedContent.ReplaceLineEndings("\n").Split('\n');
+
+        var commonPrefixCount = 0;
+        while (commonPrefixCount < oldLines.Length &&
+               commonPrefixCount < newLines.Length &&
+               string.Equals(oldLines[commonPrefixCount], newLines[commonPrefixCount], StringComparison.Ordinal))
+        {
+            commonPrefixCount++;
+        }
+
+        var commonSuffixCount = 0;
+        while (commonSuffixCount < oldLines.Length - commonPrefixCount &&
+               commonSuffixCount < newLines.Length - commonPrefixCount &&
+               string.Equals(
+                   oldLines[oldLines.Length - commonSuffixCount - 1],
+                   newLines[newLines.Length - commonSuffixCount - 1],
+                   StringComparison.Ordinal))
+        {
+            commonSuffixCount++;
+        }
+
+        const int contextLineCount = 3;
+        var hunkStartIndex = Math.Max(0, commonPrefixCount - contextLineCount);
+        var oldChangedEndIndex = oldLines.Length - commonSuffixCount;
+        var newChangedEndIndex = newLines.Length - commonSuffixCount;
+        var oldHunkEndIndex = Math.Min(oldLines.Length, oldChangedEndIndex + contextLineCount);
+        var newHunkEndIndex = Math.Min(newLines.Length, newChangedEndIndex + contextLineCount);
+        var oldHunkLineCount = oldHunkEndIndex - hunkStartIndex;
+        var newHunkLineCount = newHunkEndIndex - hunkStartIndex;
+        var hunkStartLine = hunkStartIndex + 1;
+
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine($"diff --git a/{relativePath} b/{relativePath}");
+        builder.AppendLine($"--- a/{relativePath}");
+        builder.AppendLine($"+++ b/{relativePath}");
+        builder.AppendLine($"@@ -{hunkStartLine},{oldHunkLineCount} +{hunkStartLine},{newHunkLineCount} @@");
+
+        for (var index = hunkStartIndex; index < commonPrefixCount; index++)
+        {
+            builder.Append(' ').AppendLine(oldLines[index]);
+        }
+
+        for (var index = commonPrefixCount; index < oldChangedEndIndex; index++)
+        {
+            builder.Append('-').AppendLine(oldLines[index]);
+        }
+
+        for (var index = commonPrefixCount; index < newChangedEndIndex; index++)
+        {
+            builder.Append('+').AppendLine(newLines[index]);
+        }
+
+        for (var index = oldChangedEndIndex; index < oldHunkEndIndex; index++)
+        {
+            builder.Append(' ').AppendLine(oldLines[index]);
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static int CountExactOccurrences(string content, string value)
+    {
+        var count = 0;
+        var startIndex = 0;
+
+        while ((startIndex = content.IndexOf(value, startIndex, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            startIndex += value.Length;
+        }
+
+        return count;
     }
 
     private static LocalCoderPatchValidationResult ValidatePatchPreview(
