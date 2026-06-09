@@ -145,74 +145,80 @@
 
                 <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
                 <pre class="coder-output">@patchPreview.PatchText</pre>
+
+                @if (applyResult is not null)
+                {
+                    <RadzenText Text="Apply Patch Message" TextStyle="TextStyle.H6" />
+                    <pre class="coder-output">@applyResult.Message</pre>
+                }
             </RadzenStack>
         </RadzenCard>
     }
 
-    @if (patchApplyResult is not null)
+    @if (applyResult is not null)
     {
         <RadzenCard>
             <RadzenStack Gap="0.75rem">
                 <RadzenText Text="Patch Apply Result" TextStyle="TextStyle.H5" />
 
-                <RadzenAlert AlertStyle="@(patchApplyResult.Applied && patchApplyResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
+                <RadzenAlert AlertStyle="@(applyResult.Applied && applyResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
                              ShowIcon="true">
-                    @patchApplyResult.Message
+                    @applyResult.Message
                 </RadzenAlert>
 
                 <RadzenText Text="@($"Project path: {patchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
-                <RadzenText Text="@($"Applied: {patchApplyResult.Applied}")" TextStyle="TextStyle.Body1" />
-                <RadzenText Text="@($"Verification passed: {patchApplyResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
-                <RadzenText Text="@($"Message: {patchApplyResult.Message}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Applied: {applyResult.Applied}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Verification passed: {applyResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Message: {applyResult.Message}")" TextStyle="TextStyle.Body1" />
 
                 <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
                 <RadzenCard>
-                    <RadzenText Text="@($"Exit code: {patchApplyResult.GitApplyResult.ExitCode}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Exit code: {applyResult.GitApplyResult.ExitCode}")" TextStyle="TextStyle.Body1" />
 
                     <h4>Stdout</h4>
-                    <pre class="coder-output">@patchApplyResult.GitApplyResult.Output</pre>
+                    <pre class="coder-output">@applyResult.GitApplyResult.Output</pre>
 
                     <h4>Stderr</h4>
-                    <pre class="coder-error">@patchApplyResult.GitApplyResult.Error</pre>
+                    <pre class="coder-error">@applyResult.GitApplyResult.Error</pre>
                 </RadzenCard>
 
                 <RadzenText Text="Git Diff Stat" TextStyle="TextStyle.H6" />
                 <RadzenCard>
-                    <RadzenText Text="@($"Exit code: {patchApplyResult.GitDiffStatResult.ExitCode}")" TextStyle="TextStyle.Body1" />
-                    <pre class="coder-output">@patchApplyResult.GitDiffStatResult.Output</pre>
-                    <pre class="coder-error">@patchApplyResult.GitDiffStatResult.Error</pre>
+                    <RadzenText Text="@($"Exit code: {applyResult.GitDiffStatResult.ExitCode}")" TextStyle="TextStyle.Body1" />
+                    <pre class="coder-output">@applyResult.GitDiffStatResult.Output</pre>
+                    <pre class="coder-error">@applyResult.GitDiffStatResult.Error</pre>
                 </RadzenCard>
 
                 <RadzenText Text="Changed Files Diff" TextStyle="TextStyle.H6" />
                 <RadzenCard>
-                    <RadzenText Text="@($"Exit code: {patchApplyResult.ChangedFilesDiffResult.ExitCode}")" TextStyle="TextStyle.Body1" />
-                    <pre class="coder-output">@patchApplyResult.ChangedFilesDiffResult.Output</pre>
-                    <pre class="coder-error">@patchApplyResult.ChangedFilesDiffResult.Error</pre>
+                    <RadzenText Text="@($"Exit code: {applyResult.ChangedFilesDiffResult.ExitCode}")" TextStyle="TextStyle.Body1" />
+                    <pre class="coder-output">@applyResult.ChangedFilesDiffResult.Output</pre>
+                    <pre class="coder-error">@applyResult.ChangedFilesDiffResult.Error</pre>
                 </RadzenCard>
 
-                @if (patchApplyResult.ChangedFiles.Count > 0)
+                @if (applyResult.ChangedFiles.Count > 0)
                 {
                     <RadzenText Text="Changed Files" TextStyle="TextStyle.H6" />
-                    @foreach (var changedFile in patchApplyResult.ChangedFiles)
+                    @foreach (var changedFile in applyResult.ChangedFiles)
                     {
                         <RadzenText Text="@changedFile" TextStyle="TextStyle.Body2" />
                     }
                 }
 
-                @if (patchApplyResult.BackupFiles.Count > 0)
+                @if (applyResult.BackupFiles.Count > 0)
                 {
                     <RadzenText Text="Backup Files" TextStyle="TextStyle.H6" />
-                    @foreach (var backupFile in patchApplyResult.BackupFiles)
+                    @foreach (var backupFile in applyResult.BackupFiles)
                     {
                         <RadzenText Text="@backupFile" TextStyle="TextStyle.Body2" />
                     }
                 }
 
-                @if (patchApplyResult.VerificationResults.Count > 0)
+                @if (applyResult.VerificationResults.Count > 0)
                 {
                     <RadzenText Text="Verification Results" TextStyle="TextStyle.H6" />
 
-                    @foreach (var result in patchApplyResult.VerificationResults)
+                    @foreach (var result in applyResult.VerificationResults)
                     {
                         <RadzenCard>
                             <RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" />
@@ -348,7 +354,7 @@
 
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
     private LocalCoderPatchPreview? patchPreview;
-    private LocalCoderPatchApplyResult? patchApplyResult;
+    private LocalCoderPatchApplyResult? applyResult;
     private CommandRunResult? lastCommand;
 
     private bool isLoading;
@@ -425,21 +431,6 @@
         catch (Exception exception)
         {
             error = exception.Message;
-            var failedAt = DateTimeOffset.UtcNow;
-            patchApplyResult = new LocalCoderPatchApplyResult
-            {
-                Applied = false,
-                VerificationPassed = false,
-                Message = exception.Message,
-                GitApplyResult = new CommandRunResult
-                {
-                    Command = "git apply --whitespace=fix <temp-patch-file> (not run or did not return)",
-                    ExitCode = -1,
-                    Error = exception.Message,
-                    Started = failedAt,
-                    Finished = failedAt
-                }
-            };
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
@@ -485,7 +476,7 @@
         fileContexts = [];
         request.FileContexts = [];
         patchPreview = null;
-        patchApplyResult = null;
+        applyResult = null;
     }
 
     private async Task CreatePlanAsync()
@@ -530,7 +521,7 @@
         error = null;
         currentTask = null;
         patchPreview = null;
-        patchApplyResult = null;
+        applyResult = null;
 
         try
         {
@@ -572,62 +563,63 @@
 
     private async Task ApplyPatchAsync()
     {
-        if (!CanApplyPatchPreview() || patchPreview is null)
-        {
-            NotificationService.Notify(
-                NotificationSeverity.Warning,
-                "No patch preview",
-                "Generate and review an applicable patch preview before applying it.");
-            return;
-        }
-
-        var confirmed = await DialogService.Confirm(
-            "Apply this patch to selected files? Backups will be created first.",
-            "Apply Patch",
-            new ConfirmOptions { OkButtonText = "Apply Patch", CancelButtonText = "Cancel" });
-
-        if (confirmed != true)
-        {
-            return;
-        }
-
-        isApplyingPatch = true;
-        error = null;
-        patchApplyResult = null;
-
         try
         {
-            patchApplyResult = await CoderConsoleService.ApplyPatchPreviewAsync(patchPreview);
+            NotificationService.Notify(
+                NotificationSeverity.Info,
+                "Apply Patch clicked",
+                "Starting patch apply...");
 
-            if (patchApplyResult.Applied && patchApplyResult.VerificationPassed)
+            if (!CanApplyPatchPreview() || patchPreview is null)
+            {
+                throw new InvalidOperationException("Generate and review an applicable patch preview before applying it.");
+            }
+
+            var confirmed = await DialogService.Confirm(
+                "Apply this patch to selected files? Backups will be created first.",
+                "Apply Patch",
+                new ConfirmOptions { OkButtonText = "Apply Patch", CancelButtonText = "Cancel" });
+
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            isApplyingPatch = true;
+            error = null;
+            applyResult = null;
+
+            applyResult = await CoderConsoleService.ApplyPatchPreviewAsync(patchPreview);
+
+            if (applyResult.Applied && applyResult.VerificationPassed)
             {
                 NotificationService.Notify(
                     NotificationSeverity.Success,
                     "Patch applied",
-                    patchApplyResult.Message);
+                    applyResult.Message);
             }
             else
             {
                 NotificationService.Notify(
                     NotificationSeverity.Warning,
-                    patchApplyResult.Applied ? "Verification failed" : "Patch apply failed",
-                    patchApplyResult.Message);
+                    applyResult.Applied ? "Verification failed" : "Patch apply failed",
+                    applyResult.Message);
             }
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            error = exception.Message;
+            error = ex.Message;
             var failedAt = DateTimeOffset.UtcNow;
-            patchApplyResult = new LocalCoderPatchApplyResult
+            applyResult = new LocalCoderPatchApplyResult
             {
                 Applied = false,
                 VerificationPassed = false,
-                Message = exception.Message,
+                Message = ex.ToString(),
                 GitApplyResult = new CommandRunResult
                 {
                     Command = "git apply --whitespace=fix <patchfile> (not completed)",
                     ExitCode = -1,
-                    Error = exception.Message,
+                    Error = ex.ToString(),
                     Started = failedAt,
                     Finished = failedAt
                 }
@@ -636,7 +628,7 @@
             NotificationService.Notify(
                 NotificationSeverity.Error,
                 "Patch apply failed",
-                exception.Message);
+                ex.Message);
         }
         finally
         {
