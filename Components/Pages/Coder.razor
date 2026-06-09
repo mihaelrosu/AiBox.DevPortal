@@ -22,9 +22,7 @@
                           Style="width: 100%;" />
         </RadzenColumn>
     </RadzenRow>
-<RadzenButton Text="TEST CLICK"
-              ButtonStyle="ButtonStyle.Secondary"
-              Click="@TestClickAsync" />
+
     <RadzenCard>
         <RadzenStack Gap="1rem">
             <RadzenFormField Text="Project path">
@@ -142,10 +140,7 @@
                                       ButtonStyle="ButtonStyle.Danger"
                                       Click="@ApplyPatchAsync"
                                       Disabled="@(!CanApplyPatchPreview())" />
-                                      <RadzenText Text="@($"Can apply patch: {CanApplyPatchPreview()}")" TextStyle="TextStyle.Caption" />
-<RadzenText Text="@($"PatchPreview null: {patchPreview is null}")" TextStyle="TextStyle.Caption" />
-<RadzenText Text="@($"Patch text length: {patchPreview?.PatchText?.Length ?? 0}")" TextStyle="TextStyle.Caption" />
-                    </RadzenStack>
+                                     
                 </RadzenStack>
 
                 <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
@@ -344,8 +339,8 @@
 
 @code {
     [Inject] private ICoderConsoleService CoderConsoleService { get; set; } = default!;
-    [Inject] private DialogService DialogService { get; set; } = default!;
-    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
+    [Inject] private Radzen.NotificationService NotificationService { get; set; } = default!;
 
     private readonly LocalCoderRequest request = new();
 
@@ -565,16 +560,7 @@
             isGeneratingPatch = false;
         }
     }
-private Task TestClickAsync()
-{
-    NotificationService.Notify(
-        NotificationSeverity.Info,
-        "TEST CLICK",
-        "Blazor click handler works.");
 
-    Console.WriteLine("TEST CLICK handler reached.");
-    return Task.CompletedTask;
-}
     private async Task ApplyPatchAsync()
     {
         try
@@ -590,17 +576,16 @@ private Task TestClickAsync()
                 throw new InvalidOperationException("Generate and review an applicable patch preview before applying it.");
             }
 Console.WriteLine("APPLY STEP 1: handler reached.");
-            @* var confirmed = await DialogService.Confirm(
+            var confirmed = await DialogService.Confirm(
                 "Apply this patch to selected files? Backups will be created first.",
                 "Apply Patch",
-                new ConfirmOptions { OkButtonText = "Apply Patch", CancelButtonText = "Cancel" }); *@
+                new ConfirmOptions { OkButtonText = "Apply Patch", CancelButtonText = "Cancel" }); 
 
-            @* if (confirmed != true)
+            if (confirmed != true)
             {
                 return;
-            } *@
-var confirmed = true;
-Console.WriteLine("Apply Patch confirmation bypassed for debug.");
+            }
+
             isApplyingPatch = true;
             error = null;
             applyResult = null;
