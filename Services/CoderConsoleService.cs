@@ -182,6 +182,11 @@ public sealed class CoderConsoleService(
             throw new InvalidOperationException("Task is required.");
         }
 
+        if (IsPlanningOnlyTask(request.Task))
+        {
+            throw new InvalidOperationException("This looks like a planning task. Use Create Plan instead of Patch Preview.");
+        }
+
         request.FileContexts = (request.FileContexts ?? [])
             .Take(MaxSelectedFileCount)
             .ToList();
@@ -662,14 +667,33 @@ public sealed class CoderConsoleService(
             errors.Add("Patch preview contains text outside a valid unified diff.");
         }
 
+        if (!HasMeaningfulChange(lines))
+        {
+            errors.Add("Patch preview must include at least one added line and one removed line.");
+        }
+
+        if (HasOnlyClosingTagChanges(lines))
+        {
+            errors.Add("Patch preview only changes closing tags.");
+        }
+
         var referencedPaths = ExtractReferencedPaths(lines)
             .Select(NormalizePreviewPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+        if (HasUnsafeRazorClosingTagChange(lines))
+        {
+            errors.Add("Patch preview may break Razor markup by changing closing tag type.");
+        }
+
         foreach (var referencedPath in referencedPaths)
         {
-            if (!selectedPaths.Contains(referencedPath))
+            if (string.IsNullOrWhiteSpace(referencedPath) ||
+                Path.IsPathRooted(referencedPath) ||
+                referencedPath.StartsWith("/", StringComparison.Ordinal) ||
+                referencedPath.Contains("..", StringComparison.Ordinal) ||
+                !selectedPaths.Contains(referencedPath))
             {
                 errors.Add($"Patch preview references a file path not present in the selected file context: {referencedPath}");
             }
@@ -718,13 +742,27 @@ public sealed class CoderConsoleService(
 
             if (line.StartsWith("diff --git ", StringComparison.Ordinal))
             {
+                if (!IsValidDiffMetadataLine(line))
+                {
+                    return false;
+                }
+
                 inHunk = false;
+                continue;
+            }
+
+            if (line.StartsWith("index ", StringComparison.Ordinal))
+            {
+                if (!IsValidIndexMetadataLine(line))
+                {
+                    return false;
+                }
+
                 continue;
             }
 
             if (line.StartsWith("--- ", StringComparison.Ordinal)
                 || line.StartsWith("+++ ", StringComparison.Ordinal)
-                || line.StartsWith("index ", StringComparison.Ordinal)
                 || line.StartsWith("new file mode ", StringComparison.Ordinal)
                 || line.StartsWith("deleted file mode ", StringComparison.Ordinal)
                 || line.StartsWith("similarity index ", StringComparison.Ordinal)
@@ -752,6 +790,213 @@ public sealed class CoderConsoleService(
         }
 
         return lines.Any(line => line.StartsWith("@@ ", StringComparison.Ordinal));
+    }
+
+    private static bool IsValidDiffMetadataLine(string line)
+    {
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 4)
+        {
+            return false;
+        }
+
+        var leftPath = StripDiffPathPrefix(parts[2]);
+        var rightPath = StripDiffPathPrefix(parts[3]);
+
+        return IsValidPreviewPathToken(leftPath) &&
+               IsValidPreviewPathToken(rightPath);
+    }
+
+    private static bool IsValidIndexMetadataLine(string line)
+    {
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2)
+        {
+            return false;
+        }
+
+        var hashes = parts[1].Split("..", StringSplitOptions.RemoveEmptyEntries);
+        if (hashes.Length != 2)
+        {
+            return false;
+        }
+
+        return IsAllowedDiffHash(hashes[0]) && IsAllowedDiffHash(hashes[1]);
+    }
+
+    private static bool IsValidPreviewPathToken(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        if (Path.IsPathRooted(path) || path.StartsWith("/", StringComparison.Ordinal) || path.Contains("..", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsAllowedDiffHash(string token)
+    {
+        var cleaned = token.Trim();
+        if (cleaned.Length < 7 || cleaned.Length > 40)
+        {
+            return false;
+        }
+
+        if (!cleaned.All(c => Uri.IsHexDigit(c)))
+        {
+            return false;
+        }
+
+        if (IsSequentialPlaceholderHash(cleaned))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsSequentialPlaceholderHash(string token)
+    {
+        var lower = token.Trim().ToLowerInvariant();
+        string[] placeholders =
+        [
+            "abcdef",
+            "abcdef0",
+            "1234567",
+            "12345678",
+            "89abcde",
+            "0123456",
+            "01234567",
+            "deadbeef",
+            "cafebabe",
+            "feedface"
+        ];
+
+        return placeholders.Contains(lower, StringComparer.Ordinal);
+    }
+
+    private static bool HasMeaningfulChange(IReadOnlyList<string> lines)
+    {
+        return lines.Any(line => line.StartsWith("+", StringComparison.Ordinal) && !line.StartsWith("+++", StringComparison.Ordinal)) &&
+               lines.Any(line => line.StartsWith("-", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal));
+    }
+
+    private static bool HasUnsafeRazorClosingTagChange(IReadOnlyList<string> lines)
+    {
+        var removedTags = new List<string>();
+        var addedTags = new List<string>();
+
+        foreach (var line in lines)
+        {
+            if (line.StartsWith("-", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal))
+            {
+                removedTags.Add(line[1..].Trim());
+            }
+            else if (line.StartsWith("+", StringComparison.Ordinal) && !line.StartsWith("+++", StringComparison.Ordinal))
+            {
+                addedTags.Add(line[1..].Trim());
+            }
+        }
+
+        if (removedTags.Count == 0 || addedTags.Count == 0)
+        {
+            return false;
+        }
+
+        if (removedTags.Any(line => line.Contains("</RadzenCard>", StringComparison.OrdinalIgnoreCase)) &&
+            addedTags.Any(line => line.Contains("</div>", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        var removedClosingTags = removedTags
+            .SelectMany(ExtractClosingTags)
+            .ToList();
+
+        var addedClosingTags = addedTags
+            .SelectMany(ExtractClosingTags)
+            .ToList();
+
+        if (removedClosingTags.Count == 0 || addedClosingTags.Count == 0)
+        {
+            return false;
+        }
+
+        if (removedClosingTags.Count != addedClosingTags.Count)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < removedClosingTags.Count; i++)
+        {
+            if (!removedClosingTags[i].Equals(addedClosingTags[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasOnlyClosingTagChanges(IReadOnlyList<string> lines)
+    {
+        var changedLines = lines
+            .Where(line => (line.StartsWith("+", StringComparison.Ordinal) && !line.StartsWith("+++", StringComparison.Ordinal))
+                || (line.StartsWith("-", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal)))
+            .Select(line => line[1..].Trim())
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        if (changedLines.Length == 0)
+        {
+            return false;
+        }
+
+        return changedLines.All(line => IsClosingTagOnlyLine(line));
+    }
+
+    private static bool IsClosingTagOnlyLine(string line)
+    {
+        if (!line.Contains("</", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var normalized = line.Replace("<", string.Empty, StringComparison.Ordinal)
+            .Replace(">", string.Empty, StringComparison.Ordinal)
+            .Replace("/", string.Empty, StringComparison.Ordinal)
+            .Trim();
+
+        return !string.IsNullOrWhiteSpace(normalized) && !normalized.Contains(' ');
+    }
+
+    private static IEnumerable<string> ExtractClosingTags(string line)
+    {
+        var current = line;
+        var index = 0;
+
+        while (index >= 0 && index < current.Length)
+        {
+            index = current.IndexOf("</", index, StringComparison.Ordinal);
+            if (index < 0)
+            {
+                yield break;
+            }
+
+            var end = current.IndexOf('>', index);
+            if (end < 0)
+            {
+                yield break;
+            }
+
+            yield return current[(index + 2)..end].Trim();
+            index = end + 1;
+        }
     }
 
     private static IEnumerable<string> ExtractReferencedPaths(IReadOnlyList<string> lines)
@@ -798,6 +1043,68 @@ public sealed class CoderConsoleService(
                 }
             }
         }
+    }
+
+    private static bool IsPlanningOnlyTask(string task)
+    {
+        var normalized = task.ToLowerInvariant();
+
+        string[] strongEditVerbs =
+        [
+            "add",
+            "change",
+            "update",
+            "replace",
+            "remove",
+            "rename",
+            "fix",
+            "refactor",
+            "move",
+            "create",
+            "delete",
+            "modify"
+        ];
+
+        if (strongEditVerbs.Any(verb => ContainsEditVerb(normalized, verb)))
+        {
+            return false;
+        }
+
+        string[] planningWords =
+        [
+            "review",
+            "suggest",
+            "analyze",
+            "explain",
+            "plan",
+            "recommend",
+            "what should",
+            "how should",
+            "next safe improvement"
+        ];
+
+        return planningWords.Any(normalized.Contains);
+    }
+
+    private static bool ContainsEditVerb(string task, string verb)
+    {
+        var index = task.IndexOf(verb, StringComparison.Ordinal);
+
+        while (index >= 0)
+        {
+            var beforeOk = index == 0 || !char.IsLetterOrDigit(task[index - 1]);
+            var afterIndex = index + verb.Length;
+            var afterOk = afterIndex >= task.Length || !char.IsLetterOrDigit(task[afterIndex]);
+
+            if (beforeOk && afterOk)
+            {
+                return true;
+            }
+
+            index = task.IndexOf(verb, index + verb.Length, StringComparison.Ordinal);
+        }
+
+        return false;
     }
 
     private static string StripDiffPathPrefix(string path)

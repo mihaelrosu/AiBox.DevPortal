@@ -163,6 +163,8 @@
                               Click="@GeneratePatchPreviewAsync"
                               Disabled="@(isLoading || isGeneratingPatch || string.IsNullOrWhiteSpace(request.Task) || selectedFilePaths.Count == 0)" />
             </RadzenStack>
+
+            <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
         </RadzenStack>
     </RadzenCard>
 
@@ -190,7 +192,7 @@
                                            SuccessMessage="The patch preview was copied to the clipboard." />
                 </RadzenStack>
 
-                <RadzenText Text="Preview only. No files were modified." TextStyle="TextStyle.Caption" />
+                <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
                 <pre class="coder-output">@patchPreview.PatchText</pre>
             </RadzenStack>
         </RadzenCard>
