@@ -2,11 +2,9 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using AiBox.DevPortal.Models;
 using AiBox.DevPortal.Models.Agents;
 using ConsoleLocalCoderTask = AiBox.DevPortal.Models.LocalCoderTask;
-using AgentLocalCoderTask = AiBox.DevPortal.Models.Agents.LocalCoderTask;
 
 namespace AiBox.DevPortal.Services;
 
@@ -194,36 +192,14 @@ public sealed class CoderConsoleService(
         var prompt = $$"""
         You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
 
-        Return only one of these formats.
-
-        Preferred format:
-        ```diff
-        diff --git a/path/to/file b/path/to/file
-        --- a/path/to/file
-        +++ b/path/to/file
-        @@ ...
-        ```
-
-        Fallback format:
-        ```text
-        FILE: path/to/file
-        REPLACE:
-        ...
-        WITH:
-        ...
-        ```
-
-        Do not explain unless the patch cannot be produced.
-        Do not include markdown fences.
-        Do not include destructive commands.
+        Return only the diff.
+        The diff must be a unified diff that starts with diff --git.
+        Do not return a plan.
+        Do not return markdown explanation.
+        Do not return headings.
         Only modify files from the selected file context.
-        Never use placeholder paths, fake component names, or generic instructions.
-        Never use template text like path/to/file, replace with actual values, or actual values from your project if available.
-        If a file is missing from context, say which file is needed instead of inventing its full contents.
-        If you cannot create a concrete patch, return exactly:
-        PATCH_NOT_POSSIBLE
-        Reason: <why a concrete patch cannot be produced>
-        Needed files: <comma-separated exact file paths>
+        Use repository-relative paths.
+        If no concrete patch can be created, return PATCH_NOT_POSSIBLE.
 
         Project path:
         {{request.ProjectPath}}
@@ -255,7 +231,7 @@ public sealed class CoderConsoleService(
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
-        var patchText = result?.Response?.Trim() ?? string.Empty;
+        var patchText = CleanPatchPreviewText(result?.Response ?? string.Empty);
         var validation = ValidatePatchPreview(patchText, request.FileContexts);
 
         if (!validation.IsValid)
@@ -636,48 +612,54 @@ public sealed class CoderConsoleService(
             fileContexts.Select(fileContext => NormalizePreviewPath(fileContext.RelativePath)),
             StringComparer.OrdinalIgnoreCase);
 
-        if (patchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.OrdinalIgnoreCase))
+        if (patchText.Contains("Short Diagnosis", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("Files Likely Involved", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("Step-by-Step Implementation Plan", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("Safe Commands to Verify", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("Example Implementation", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("Here's how", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("Here’s how", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("path/to/file", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("replace with actual values", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("actual values from your project", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("GeneratePatchPreviewButton", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("MyComponent", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("ExampleComponent", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("SampleComponent", StringComparison.OrdinalIgnoreCase) ||
+            patchText.Contains("PlaceholderComponent", StringComparison.OrdinalIgnoreCase))
         {
-            if (!Regex.IsMatch(patchText, @"Reason:\s*\S+", RegexOptions.IgnoreCase)
-                || !Regex.IsMatch(patchText, @"Needed files:\s*\S+", RegexOptions.IgnoreCase))
+            return new LocalCoderPatchValidationResult
             {
-                return new LocalCoderPatchValidationResult
-                {
-                    IsValid = false,
-                    Errors = ["PATCH_NOT_POSSIBLE responses must include both a reason and needed files."]
-                };
-            }
+                IsValid = false,
+                Errors = ["Patch preview contains forbidden plan or placeholder text."]
+            };
+        }
 
+        if (string.Equals(patchText, "PATCH_NOT_POSSIBLE", StringComparison.Ordinal))
+        {
             return new LocalCoderPatchValidationResult
             {
                 IsValid = true
             };
         }
 
-        var errors = new List<string>();
-        var forbiddenMarkers = new[]
+        if (!patchText.StartsWith("diff --git", StringComparison.Ordinal))
         {
-            "path/to/file",
-            "<GeneratePatchPreviewButton",
-            "replace with actual values",
-            "actual values from your project"
-        };
-
-        foreach (var marker in forbiddenMarkers)
-        {
-            if (patchText.Contains(marker, StringComparison.OrdinalIgnoreCase))
+            return new LocalCoderPatchValidationResult
             {
-                errors.Add($"Patch preview contains placeholder text: {marker}");
-            }
+                IsValid = false,
+                Errors = ["Patch preview must start with diff --git or PATCH_NOT_POSSIBLE."]
+            };
         }
 
+        var errors = new List<string>();
         var lines = patchText
             .ReplaceLineEndings("\n")
             .Split('\n');
 
-        if (!IsConcretePatchFormat(lines))
+        if (!IsValidUnifiedDiff(lines))
         {
-            errors.Add("Patch preview contains explanations or unsupported text outside the patch format.");
+            errors.Add("Patch preview contains text outside a valid unified diff.");
         }
 
         var referencedPaths = ExtractReferencedPaths(lines)
@@ -693,16 +675,6 @@ public sealed class CoderConsoleService(
             }
         }
 
-        if (ContainsNoOpContent(lines, fileContexts))
-        {
-            errors.Add("Patch preview duplicates existing selected file content and does not describe a concrete change.");
-        }
-
-        if (Regex.IsMatch(patchText, @"\breplace with actual values\b", RegexOptions.IgnoreCase))
-        {
-            errors.Add("Patch preview contains generic replacement instructions.");
-        }
-
         return new LocalCoderPatchValidationResult
         {
             IsValid = errors.Count == 0,
@@ -710,36 +682,25 @@ public sealed class CoderConsoleService(
         };
     }
 
-    private static bool IsConcretePatchFormat(IReadOnlyList<string> lines)
+    private static string CleanPatchPreviewText(string patchText)
     {
-        if (lines.Count == 0)
+        var cleaned = patchText.ReplaceLineEndings("\n").Trim();
+
+        if (!cleaned.StartsWith("```", StringComparison.Ordinal))
         {
-            return false;
+            return cleaned;
         }
 
-        var firstMeaningfulLine = lines.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
-        if (firstMeaningfulLine is null)
+        var lines = cleaned
+            .Split('\n')
+            .ToList();
+
+        if (lines.Count >= 2 && lines[0].TrimStart().StartsWith("```", StringComparison.Ordinal) && lines[^1].TrimStart().StartsWith("```", StringComparison.Ordinal))
         {
-            return false;
+            lines = lines.Skip(1).Take(lines.Count - 2).ToList();
         }
 
-        if (firstMeaningfulLine.StartsWith("PATCH_NOT_POSSIBLE", StringComparison.OrdinalIgnoreCase))
-        {
-            return Regex.IsMatch(string.Join("\n", lines), @"Reason:\s*\S+", RegexOptions.IgnoreCase)
-                && Regex.IsMatch(string.Join("\n", lines), @"Needed files:\s*\S+", RegexOptions.IgnoreCase);
-        }
-
-        if (firstMeaningfulLine.StartsWith("diff --git", StringComparison.Ordinal))
-        {
-            return IsValidUnifiedDiff(lines);
-        }
-
-        if (firstMeaningfulLine.StartsWith("FILE:", StringComparison.OrdinalIgnoreCase))
-        {
-            return IsValidFallbackPatch(lines);
-        }
-
-        return false;
+        return string.Join(Environment.NewLine, lines).Trim();
     }
 
     private static bool IsValidUnifiedDiff(IReadOnlyList<string> lines)
@@ -782,7 +743,7 @@ public sealed class CoderConsoleService(
                 continue;
             }
 
-            if (inHunk && (line.StartsWith("+", StringComparison.Ordinal) || line.StartsWith("-", StringComparison.Ordinal) || line.StartsWith(" ", StringComparison.Ordinal)))
+            if (inHunk && (line.StartsWith("+", StringComparison.Ordinal) || line.StartsWith("-", StringComparison.Ordinal) || line.StartsWith(" ", StringComparison.Ordinal) || line.StartsWith("\\ No newline at end of file", StringComparison.Ordinal)))
             {
                 continue;
             }
@@ -790,51 +751,7 @@ public sealed class CoderConsoleService(
             return false;
         }
 
-        return lines.Any(line => line.StartsWith("@@ ", StringComparison.Ordinal)) || lines.Any(line => line.StartsWith("FILE:", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool IsValidFallbackPatch(IReadOnlyList<string> lines)
-    {
-        var hasFile = false;
-        var hasReplace = false;
-        var hasWith = false;
-
-        foreach (var rawLine in lines)
-        {
-            var line = rawLine.TrimEnd();
-
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                continue;
-            }
-
-            if (line.StartsWith("FILE:", StringComparison.OrdinalIgnoreCase))
-            {
-                hasFile = true;
-                hasReplace = false;
-                hasWith = false;
-                continue;
-            }
-
-            if (line.StartsWith("REPLACE:", StringComparison.OrdinalIgnoreCase))
-            {
-                hasReplace = true;
-                continue;
-            }
-
-            if (line.StartsWith("WITH:", StringComparison.OrdinalIgnoreCase))
-            {
-                hasWith = true;
-                continue;
-            }
-
-            if (!hasFile || (!hasReplace && !hasWith))
-            {
-                return false;
-            }
-        }
-
-        return hasFile && hasReplace && hasWith;
+        return lines.Any(line => line.StartsWith("@@ ", StringComparison.Ordinal));
     }
 
     private static IEnumerable<string> ExtractReferencedPaths(IReadOnlyList<string> lines)
@@ -846,8 +763,18 @@ public sealed class CoderConsoleService(
                 var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length >= 4)
                 {
-                    yield return StripDiffPathPrefix(parts[2]);
-                    yield return StripDiffPathPrefix(parts[3]);
+                    var leftPath = StripDiffPathPrefix(parts[2]);
+                    var rightPath = StripDiffPathPrefix(parts[3]);
+
+                    if (!IsDevNullPath(leftPath))
+                    {
+                        yield return leftPath;
+                    }
+
+                    if (!IsDevNullPath(rightPath))
+                    {
+                        yield return rightPath;
+                    }
                 }
             }
             else if (line.StartsWith("--- ", StringComparison.Ordinal) || line.StartsWith("+++ ", StringComparison.Ordinal))
@@ -855,7 +782,11 @@ public sealed class CoderConsoleService(
                 var path = line[4..].Trim();
                 if (!string.IsNullOrWhiteSpace(path))
                 {
-                    yield return StripDiffPathPrefix(path);
+                    var normalized = StripDiffPathPrefix(path);
+                    if (!IsDevNullPath(normalized))
+                    {
+                        yield return normalized;
+                    }
                 }
             }
             else if (line.StartsWith("FILE:", StringComparison.OrdinalIgnoreCase))
@@ -881,80 +812,14 @@ public sealed class CoderConsoleService(
         return trimmed;
     }
 
+    private static bool IsDevNullPath(string path)
+    {
+        return string.Equals(path.Replace('\\', '/').Trim(), "/dev/null", StringComparison.Ordinal);
+    }
+
     private static string NormalizePreviewPath(string path)
     {
         return path.Replace('\\', '/').Trim();
-    }
-
-    private static bool ContainsNoOpContent(IReadOnlyList<string> lines, IReadOnlyList<LocalCoderFileContext> fileContexts)
-    {
-        var contextText = string.Join(Environment.NewLine, fileContexts.Select(fileContext => fileContext.Content));
-
-        if (string.IsNullOrWhiteSpace(contextText))
-        {
-            return false;
-        }
-
-        var normalizedContextText = contextText.ReplaceLineEndings("\n");
-        var addedLines = new List<string>();
-        var deletedLines = new List<string>();
-
-        foreach (var line in lines)
-        {
-            if (line.StartsWith("+", StringComparison.Ordinal) && !line.StartsWith("+++", StringComparison.Ordinal))
-            {
-                var content = line[1..].Trim();
-                if (!string.IsNullOrWhiteSpace(content))
-                {
-                    addedLines.Add(content);
-                }
-            }
-            else if (line.StartsWith("-", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal))
-            {
-                var content = line[1..].Trim();
-                if (!string.IsNullOrWhiteSpace(content))
-                {
-                    deletedLines.Add(content);
-                }
-            }
-            else if (line.StartsWith("REPLACE:", StringComparison.OrdinalIgnoreCase) || line.StartsWith("WITH:", StringComparison.OrdinalIgnoreCase))
-            {
-                // handled by fallback parser below
-            }
-        }
-
-        if (addedLines.Count > 0 && addedLines.All(line => normalizedContextText.Contains(line, StringComparison.Ordinal)))
-        {
-            return true;
-        }
-
-        if (deletedLines.Count > 0 && deletedLines.All(line => normalizedContextText.Contains(line, StringComparison.Ordinal)))
-        {
-            return true;
-        }
-
-        var fallbackText = string.Join("\n", lines);
-        if (fallbackText.Contains("FILE:", StringComparison.OrdinalIgnoreCase)
-            && fallbackText.Contains("REPLACE:", StringComparison.OrdinalIgnoreCase)
-            && fallbackText.Contains("WITH:", StringComparison.OrdinalIgnoreCase))
-        {
-            var replaceIndex = fallbackText.IndexOf("REPLACE:", StringComparison.OrdinalIgnoreCase);
-            var withIndex = fallbackText.IndexOf("WITH:", StringComparison.OrdinalIgnoreCase);
-            if (replaceIndex >= 0 && withIndex > replaceIndex)
-            {
-                var replaceText = fallbackText[(replaceIndex + "REPLACE:".Length)..withIndex].Trim();
-                var afterWith = fallbackText[(withIndex + "WITH:".Length)..].Trim();
-
-                if (!string.IsNullOrWhiteSpace(replaceText)
-                    && !string.IsNullOrWhiteSpace(afterWith)
-                    && replaceText.Equals(afterWith, StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private static string TrimForPrompt(string content, int maxChars)
@@ -1001,28 +866,24 @@ public sealed class CoderConsoleService(
         [JsonPropertyName("response")]
         public string Response { get; set; } = string.Empty;
     }
+
     public async Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath)
-{
-    var results = new List<CommandRunResult>();
-
-    string[] commands =
-    [
-        "git status",
-        "dotnet build",
-        "dotnet test"
-    ];
-
-    foreach (var command in commands)
     {
-        var result = await RunCommandAsync(projectPath, command);
-        results.Add(result);
+        var results = new List<CommandRunResult>();
 
-        if (result.ExitCode != 0)
+        string[] commands =
+        [
+            "git status",
+            "dotnet build",
+            "dotnet test"
+        ];
+
+        foreach (var command in commands)
         {
-            break;
+            var result = await RunCommandAsync(projectPath, command);
+            results.Add(result);
         }
-    }
 
-    return results;
-}
+        return results;
+    }
 }

@@ -66,13 +66,12 @@
                         </RadzenStack>
                     </RadzenStack>
 
-                    <RadzenText Text="@($"Loaded file contexts: {fileContexts.Count}")" TextStyle="TextStyle.Body2" />
+                    <RadzenText Text="@($"Loaded context files: {fileContexts.Count}")" TextStyle="TextStyle.Body2" />
 
                     <RadzenFormField Text="Find file">
                         <RadzenTextBox @bind-Value="fileSearchText"
-                                       @bind-Value:after="@OnFileSearchChanged"
                                        Style="width: 100%;"
-                                       Placeholder="Type file name, e.g. Coder.razor, service, Program.cs" />
+                                       Placeholder="Search by relative path or file name, e.g. Coder.razor, service, Program.cs" />
                     </RadzenFormField>
 
                     @if (FilteredProjectFileItems.Count > 0)
@@ -243,14 +242,6 @@
                           Click="@(() => RunCommandAsync("dotnet test"))"
                           Disabled="@isRunningCommand" />
 
-            <RadzenButton Text="ls"
-                          Click="@(() => RunCommandAsync("ls"))"
-                          Disabled="@isRunningCommand" />
-
-            <RadzenButton Text="pwd"
-                          Click="@(() => RunCommandAsync("pwd"))"
-                          Disabled="@isRunningCommand" />
-
             <RadzenButton Text="Verify Project"
                           Icon="verified"
                           ButtonStyle="ButtonStyle.Success"
@@ -343,25 +334,24 @@
             {
                 return projectFiles
                     .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
-                    .Take(8)
+                    .Take(12)
                     .ToArray();
             }
 
             var search = fileSearchText.Trim();
 
             return projectFiles
-                .Where(file =>
-                    file.RelativePath.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    Path.GetFileName(file.RelativePath).Contains(search, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
+                .Where(file => MatchesSearch(file, search))
+                .OrderBy(file => GetSearchRank(file, search))
+                .ThenBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
                 .Take(12)
                 .ToArray();
         }
     }
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
-        return LoadAsync();
+        await LoadAsync();
     }
 
     private async Task LoadAsync()
@@ -374,14 +364,21 @@
             workspaceRoots = await CoderConsoleService.GetWorkspaceRootsAsync();
             models = await CoderConsoleService.GetOllamaModelsAsync();
 
-            request.ProjectPath = workspaceRoots.FirstOrDefault() ?? string.Empty;
-            request.Model = models.Contains("qwen2.5-coder:7b")
-                ? "qwen2.5-coder:7b"
-                : models.FirstOrDefault() ?? "qwen2.5-coder:7b";
+            if (string.IsNullOrWhiteSpace(request.ProjectPath))
+            {
+                request.ProjectPath = workspaceRoots.FirstOrDefault() ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Model) || !models.Contains(request.Model, StringComparer.OrdinalIgnoreCase))
+            {
+                request.Model = models.Contains("qwen2.5-coder:7b", StringComparer.OrdinalIgnoreCase)
+                    ? "qwen2.5-coder:7b"
+                    : models.FirstOrDefault() ?? request.Model;
+            }
 
             if (!string.IsNullOrWhiteSpace(request.ProjectPath))
             {
-                await LoadFilesForCurrentProjectAsync(showNotification: false);
+                await ReloadProjectFilesAsync(showNotification: false, clearSelectedState: false);
             }
         }
         catch (Exception exception)
@@ -397,24 +394,35 @@
     private async Task OnProjectPathChanged(object? value)
     {
         request.ProjectPath = value?.ToString() ?? string.Empty;
-        await LoadFilesForCurrentProjectAsync(showNotification: true);
+        ClearSelectedFiles();
+        ClearLoadedContext();
+        currentTask = null;
+        patchPreview = null;
+        lastCommand = null;
+        verifyResults = [];
+
+        await ReloadProjectFilesAsync(showNotification: true, clearSelectedState: false);
     }
 
-    private async Task LoadFilesForCurrentProjectAsync(bool showNotification)
+    private async Task ReloadProjectFilesAsync(bool showNotification, bool clearSelectedState)
     {
         error = null;
+
+        if (clearSelectedState)
+        {
+            ClearSelectedFiles();
+            ClearLoadedContext();
+        }
 
         if (string.IsNullOrWhiteSpace(request.ProjectPath))
         {
             projectFiles = [];
-            ClearSelectionAndContext();
             return;
         }
 
         try
         {
             projectFiles = await CoderConsoleService.GetProjectFilesAsync(request.ProjectPath);
-            ClearSelectionAndContext();
 
             if (showNotification)
             {
@@ -427,7 +435,12 @@
         catch (Exception exception)
         {
             projectFiles = [];
-            ClearSelectionAndContext();
+            if (clearSelectedState)
+            {
+                ClearSelectedFiles();
+                ClearLoadedContext();
+            }
+
             error = exception.Message;
 
             NotificationService.Notify(
@@ -443,12 +456,23 @@
 
         try
         {
+            if (!selectedFilePaths.Any())
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Warning,
+                    "No files selected",
+                    "Select files before reading file context.");
+
+                return;
+            }
+
             fileContexts = (await CoderConsoleService.ReadFileContextsAsync(
                     request.ProjectPath,
                     selectedFilePaths.ToArray()))
                 .ToList();
 
             request.FileContexts = fileContexts.ToList();
+            patchPreview = null;
 
             NotificationService.Notify(
                 NotificationSeverity.Success,
@@ -471,22 +495,19 @@
         selectedFilePaths.RemoveAll(path =>
             path.Equals(relativePath, StringComparison.OrdinalIgnoreCase));
 
-        if (fileContexts.Any(fileContext =>
-                fileContext.RelativePath.Equals(relativePath, StringComparison.OrdinalIgnoreCase)))
-        {
-            fileContexts = fileContexts
-                .Where(fileContext =>
-                    !fileContext.RelativePath.Equals(relativePath, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+        fileContexts = fileContexts
+            .Where(fileContext =>
+                !fileContext.RelativePath.Equals(relativePath, StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
-            request.FileContexts = fileContexts.ToList();
-        }
+        request.FileContexts = fileContexts.ToList();
+        patchPreview = null;
     }
 
     private Task ClearSelectedFilesAsync()
     {
-        selectedFilePaths.Clear();
-        fileSearchText = string.Empty;
+        ClearSelectedFiles();
+        ClearLoadedContext();
 
         NotificationService.Notify(
             NotificationSeverity.Info,
@@ -498,8 +519,7 @@
 
     private Task ClearContextAsync()
     {
-        fileContexts = [];
-        request.FileContexts = [];
+        ClearLoadedContext();
 
         NotificationService.Notify(
             NotificationSeverity.Info,
@@ -509,16 +529,18 @@
         return Task.CompletedTask;
     }
 
-    private void ClearSelectionAndContext()
+    private void ClearSelectedFiles()
     {
         selectedFilePaths = [];
+        fileSearchText = string.Empty;
+        patchPreview = null;
+    }
+
+    private void ClearLoadedContext()
+    {
         fileContexts = [];
         request.FileContexts = [];
-        fileSearchText = string.Empty;
-        currentTask = null;
         patchPreview = null;
-        lastCommand = null;
-        verifyResults = [];
     }
 
     private async Task CreatePlanAsync()
@@ -569,7 +591,17 @@
 
         try
         {
-            if (fileContexts.Count == 0 && selectedFilePaths.Count > 0)
+            if (selectedFilePaths.Count == 0)
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Warning,
+                    "No files selected",
+                    "Select files before generating a patch preview.");
+
+                return;
+            }
+
+            if (fileContexts.Count == 0)
             {
                 fileContexts = (await CoderConsoleService.ReadFileContextsAsync(
                         request.ProjectPath,
@@ -582,16 +614,6 @@
                     NotificationSeverity.Info,
                     "Context auto-loaded",
                     $"{fileContexts.Count} file(s) loaded before patch preview.");
-            }
-
-            if (fileContexts.Count == 0)
-            {
-                NotificationService.Notify(
-                    NotificationSeverity.Warning,
-                    "No file context loaded",
-                    "Select files before generating a patch preview.");
-
-                return;
             }
 
             request.FileContexts = fileContexts.ToList();
@@ -703,11 +725,6 @@
         }
     }
 
-    private void OnFileSearchChanged()
-    {
-        // The filtered file list is recalculated from fileSearchText.
-    }
-
     private Task AddFileByPath(string relativePath)
     {
         error = null;
@@ -728,6 +745,7 @@
         if (!IsFileSelected(match.RelativePath))
         {
             selectedFilePaths.Add(match.RelativePath);
+            patchPreview = null;
 
             NotificationService.Notify(
                 NotificationSeverity.Success,
@@ -741,14 +759,35 @@
                 "File already selected",
                 match.RelativePath);
         }
-
-        fileSearchText = string.Empty;
         return Task.CompletedTask;
     }
 
     private bool IsFileSelected(string relativePath)
     {
         return selectedFilePaths.Contains(relativePath, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool MatchesSearch(ProjectFileItem file, string search)
+    {
+        return file.RelativePath.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               Path.GetFileName(file.RelativePath).Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static (int rank, int depth, string path) GetSearchRank(ProjectFileItem file, string search)
+    {
+        var relativePath = file.RelativePath;
+        var fileName = Path.GetFileName(relativePath);
+        var fileNameMatch = fileName.Contains(search, StringComparison.OrdinalIgnoreCase);
+        var pathMatch = relativePath.Contains(search, StringComparison.OrdinalIgnoreCase);
+        var rank = fileName.StartsWith(search, StringComparison.OrdinalIgnoreCase)
+            ? 0
+            : fileNameMatch
+                ? 1
+                : pathMatch
+                    ? 2
+                    : 3;
+
+        return (rank, relativePath.Count(c => c == '/'), relativePath);
     }
 
     private string GetProjectFilesStatusText()
