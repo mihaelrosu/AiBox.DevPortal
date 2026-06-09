@@ -4,11 +4,17 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <PackageReference Include="Radzen.Blazor" Version="10.4.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <RazorComponent Remove="Data/patch-backups/**" />
+    <Content Remove="Data/patch-backups/**" />
   </ItemGroup>
 
   <ItemGroup>
