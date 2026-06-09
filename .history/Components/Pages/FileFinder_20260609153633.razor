@@ -44,10 +44,10 @@
 
             @foreach (var file in selectedFiles)
             {
-                @* <div style="margin-top: 0.5rem;"> *@
+                <div style="margin-top: 0.5rem;">
                     <RadzenText Text="@file.RelativePath" TextStyle="TextStyle.Body2" />
-                    @* <pre class="coder-output">@file.FullPath</pre>
-                </div> *@
+                    <pre class="coder-output">@file.FullPath</pre>
+                </div>
             }
         </RadzenCard>
     }

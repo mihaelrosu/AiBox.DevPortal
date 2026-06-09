@@ -48,8 +48,10 @@
                                      JustifyContent="JustifyContent.SpaceBetween"
                                      Gap="0.75rem"
                                      Style="padding: 0.35rem 0.5rem; border: 1px solid var(--rz-base-300); border-radius: 0.35rem;">
-                           
-                                <RadzenText Text="@($"{file.RelativePath}")" TextStyle="TextStyle.Body2" />
+                            <div>
+                                <RadzenText Text="@file.RelativePath" TextStyle="TextStyle.Body2" />
+                                <RadzenText Text="@file.FullPath" TextStyle="TextStyle.Caption" />
+                            </div>
 
                             <RadzenButton Text="Remove"
                                           Icon="close"
