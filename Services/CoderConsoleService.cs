@@ -277,7 +277,7 @@ public sealed class CoderConsoleService(
             patchPreview.FileContexts.Select(fileContext => NormalizePreviewPath(fileContext.RelativePath)),
             StringComparer.OrdinalIgnoreCase);
 
-        var changedFiles = ExtractReferencedPaths(patchText.ReplaceLineEndings("\n").Split('\n'))
+        var changedFiles = ExtractChangedPathsFromDiffHeaders(patchText.ReplaceLineEndings("\n").Split('\n'))
             .Select(NormalizePreviewPath)
             .Where(path => !string.IsNullOrWhiteSpace(path) && !IsDevNullPath(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -304,25 +304,7 @@ public sealed class CoderConsoleService(
 
         try
         {
-            var checkResult = await RunFixedCommandAsync(
-                rootPath,
-                "git",
-                ["apply", "--check", "--whitespace=fix", tempPatchPath],
-                $"git apply --check --whitespace=fix {tempPatchPath}");
-
-            if (checkResult.ExitCode != 0)
-            {
-                return new LocalCoderPatchApplyResult
-                {
-                    Applied = false,
-                    VerificationPassed = false,
-                    Message = $"Patch could not be applied safely: {GetCommandFailureMessage(checkResult)}",
-                    ChangedFiles = changedFiles,
-                    VerificationResults = [checkResult]
-                };
-            }
-
-            var backupRoot = CreatePatchBackupDirectory();
+            var backupRoot = CreatePatchBackupDirectory(rootPath);
             var backupFiles = new List<string>();
             var originalFileContents = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
@@ -335,7 +317,7 @@ public sealed class CoderConsoleService(
                 originalFileContents[normalizedRelativePath] = await File.ReadAllBytesAsync(sourcePath);
                 Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
                 File.Copy(sourcePath, backupPath, overwrite: false);
-                backupFiles.Add(backupPath);
+                backupFiles.Add(Path.GetRelativePath(rootPath, backupPath).Replace('\\', '/'));
             }
 
             var applyResult = await RunFixedCommandAsync(
@@ -358,7 +340,37 @@ public sealed class CoderConsoleService(
                 };
             }
 
-            var actuallyChangedFiles = new List<string>();
+            var diffStatResult = await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat");
+
+            if (diffStatResult.ExitCode != 0)
+            {
+                return new LocalCoderPatchApplyResult
+                {
+                    Applied = false,
+                    VerificationPassed = false,
+                    Message = $"Patch apply failed: could not verify repository changes. {GetCommandFailureMessage(diffStatResult)}",
+                    GitApplyResult = applyResult,
+                    ChangedFiles = changedFiles,
+                    BackupFiles = backupFiles,
+                    VerificationResults = [diffStatResult]
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(diffStatResult.Output))
+            {
+                return new LocalCoderPatchApplyResult
+                {
+                    Applied = false,
+                    VerificationPassed = false,
+                    Message = "Patch apply failed: no repository changes detected after git apply.",
+                    GitApplyResult = applyResult,
+                    ChangedFiles = changedFiles,
+                    BackupFiles = backupFiles,
+                    VerificationResults = [diffStatResult]
+                };
+            }
+
+            var changedTargetProven = false;
             foreach (var changedFile in changedFiles)
             {
                 var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, changedFile);
@@ -366,42 +378,40 @@ public sealed class CoderConsoleService(
 
                 if (!currentContent.AsSpan().SequenceEqual(originalFileContents[normalizedRelativePath]))
                 {
-                    actuallyChangedFiles.Add(normalizedRelativePath.Replace('\\', '/'));
+                    changedTargetProven = true;
+                    break;
                 }
             }
 
-            var diffStatResult = await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat");
+            if (!changedTargetProven)
+            {
+                return new LocalCoderPatchApplyResult
+                {
+                    Applied = false,
+                    VerificationPassed = false,
+                    Message = "Patch apply failed: no selected file changes detected after git apply.",
+                    GitApplyResult = applyResult,
+                    ChangedFiles = changedFiles,
+                    BackupFiles = backupFiles,
+                    VerificationResults = [diffStatResult]
+                };
+            }
+
             var buildResult = await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build");
             var testResult = await RunFixedCommandAsync(rootPath, "dotnet", ["test"], "dotnet test");
-            var verificationResults = new List<CommandRunResult>
-            {
-                diffStatResult,
-                buildResult,
-                testResult
-            };
-
-            var repositoryChanged = actuallyChangedFiles.Count > 0 &&
-                                    diffStatResult.ExitCode == 0 &&
-                                    !string.IsNullOrWhiteSpace(diffStatResult.Output) &&
-                                    actuallyChangedFiles.All(changedFile =>
-                                        diffStatResult.Output.Contains(changedFile, StringComparison.OrdinalIgnoreCase));
-            var verificationPassed = repositoryChanged &&
-                                     buildResult.ExitCode == 0 &&
-                                     testResult.ExitCode == 0;
+            var verificationPassed = buildResult.ExitCode == 0 && testResult.ExitCode == 0;
 
             return new LocalCoderPatchApplyResult
             {
-                Applied = repositoryChanged,
+                Applied = true,
                 VerificationPassed = verificationPassed,
-                Message = !repositoryChanged
-                    ? $"git apply exited 0, but no changed selected files were proven by git diff --stat in {rootPath}."
-                    : verificationPassed
-                        ? $"Patch applied to {rootPath} and verification passed."
-                        : $"Patch applied to {rootPath}, but build or test verification failed. Review the verification results and backups.",
+                Message = verificationPassed
+                    ? $"Patch applied to {rootPath} and verification passed."
+                    : $"Patch applied to {rootPath}, but build or test verification failed. Review the verification results and backups.",
                 GitApplyResult = applyResult,
                 ChangedFiles = changedFiles,
                 BackupFiles = backupFiles,
-                VerificationResults = verificationResults
+                VerificationResults = [diffStatResult, buildResult, testResult]
             };
         }
         finally
@@ -638,10 +648,10 @@ public sealed class CoderConsoleService(
         return Path.Combine(environment.ContentRootPath, "Data", "coder-tasks.json");
     }
 
-    private string CreatePatchBackupDirectory()
+    private static string CreatePatchBackupDirectory(string projectPath)
     {
         var backupRoot = Path.Combine(
-            environment.ContentRootPath,
+            projectPath,
             "Data",
             "patch-backups",
             DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss"));
@@ -943,7 +953,7 @@ public sealed class CoderConsoleService(
             errors.Add("Patch preview only changes closing tags.");
         }
 
-        var referencedPaths = ExtractReferencedPaths(lines)
+        var referencedPaths = ExtractChangedPathsFromDiffHeaders(lines)
             .Select(NormalizePreviewPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -1368,7 +1378,7 @@ public sealed class CoderConsoleService(
         }
     }
 
-    private static IEnumerable<string> ExtractReferencedPaths(IReadOnlyList<string> lines)
+    private static IEnumerable<string> ExtractChangedPathsFromDiffHeaders(IReadOnlyList<string> lines)
     {
         foreach (var line in lines)
         {
@@ -1389,34 +1399,6 @@ public sealed class CoderConsoleService(
                     {
                         yield return rightPath;
                     }
-                }
-            }
-            else if (line.StartsWith("--- ", StringComparison.Ordinal) || line.StartsWith("+++ ", StringComparison.Ordinal))
-            {
-                var path = line[4..].Trim();
-                if (!string.IsNullOrWhiteSpace(path))
-                {
-                    var normalized = StripDiffPathPrefix(path);
-                    if (!IsDevNullPath(normalized))
-                    {
-                        yield return normalized;
-                    }
-                }
-            }
-            else if (line.StartsWith("rename from ", StringComparison.Ordinal))
-            {
-                yield return line["rename from ".Length..].Trim();
-            }
-            else if (line.StartsWith("rename to ", StringComparison.Ordinal))
-            {
-                yield return line["rename to ".Length..].Trim();
-            }
-            else if (line.StartsWith("FILE:", StringComparison.OrdinalIgnoreCase))
-            {
-                var path = line[5..].Trim();
-                if (!string.IsNullOrWhiteSpace(path))
-                {
-                    yield return path;
                 }
             }
         }

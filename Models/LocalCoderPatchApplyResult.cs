@@ -8,7 +8,7 @@ public sealed class LocalCoderPatchApplyResult
 
     public string Message { get; set; } = string.Empty;
 
-    public CommandRunResult? GitApplyResult { get; set; }
+    public CommandRunResult GitApplyResult { get; set; } = new();
 
     public IReadOnlyList<string> ChangedFiles { get; set; } = [];
 

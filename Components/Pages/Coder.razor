@@ -163,26 +163,18 @@
                 <RadzenText Text="@($"Project path: {patchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
                 <RadzenText Text="@($"Applied: {patchApplyResult.Applied}")" TextStyle="TextStyle.Body1" />
                 <RadzenText Text="@($"Verification passed: {patchApplyResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Message: {patchApplyResult.Message}")" TextStyle="TextStyle.Body1" />
 
-                @if (patchApplyResult.GitApplyResult is not null)
-                {
-                    <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
-                    <RadzenCard>
-                        <RadzenText Text="@($"Exit code: {patchApplyResult.GitApplyResult.ExitCode}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
+                <RadzenCard>
+                    <RadzenText Text="@($"Exit code: {patchApplyResult.GitApplyResult.ExitCode}")" TextStyle="TextStyle.Body1" />
 
-                        @if (!string.IsNullOrWhiteSpace(patchApplyResult.GitApplyResult.Output))
-                        {
-                            <h4>Output</h4>
-                            <pre class="coder-output">@patchApplyResult.GitApplyResult.Output</pre>
-                        }
+                    <h4>Stdout</h4>
+                    <pre class="coder-output">@patchApplyResult.GitApplyResult.Output</pre>
 
-                        @if (!string.IsNullOrWhiteSpace(patchApplyResult.GitApplyResult.Error))
-                        {
-                            <h4>Error</h4>
-                            <pre class="coder-error">@patchApplyResult.GitApplyResult.Error</pre>
-                        }
-                    </RadzenCard>
-                }
+                    <h4>Stderr</h4>
+                    <pre class="coder-error">@patchApplyResult.GitApplyResult.Error</pre>
+                </RadzenCard>
 
                 @if (patchApplyResult.ChangedFiles.Count > 0)
                 {
@@ -419,6 +411,21 @@
         catch (Exception exception)
         {
             error = exception.Message;
+            var failedAt = DateTimeOffset.UtcNow;
+            patchApplyResult = new LocalCoderPatchApplyResult
+            {
+                Applied = false,
+                VerificationPassed = false,
+                Message = exception.Message,
+                GitApplyResult = new CommandRunResult
+                {
+                    Command = "git apply --whitespace=fix <temp-patch-file> (not run or did not return)",
+                    ExitCode = -1,
+                    Error = exception.Message,
+                    Started = failedAt,
+                    Finished = failedAt
+                }
+            };
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
