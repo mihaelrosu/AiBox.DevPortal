@@ -324,6 +324,7 @@ public sealed class CoderConsoleService(
 
             var backupRoot = CreatePatchBackupDirectory();
             var backupFiles = new List<string>();
+            var originalFileContents = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var changedFile in changedFiles)
             {
@@ -331,6 +332,7 @@ public sealed class CoderConsoleService(
                 var sourcePath = Path.Combine(rootPath, normalizedRelativePath);
                 var backupPath = Path.Combine(backupRoot, normalizedRelativePath);
 
+                originalFileContents[normalizedRelativePath] = await File.ReadAllBytesAsync(sourcePath);
                 Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
                 File.Copy(sourcePath, backupPath, overwrite: false);
                 backupFiles.Add(backupPath);
@@ -349,28 +351,54 @@ public sealed class CoderConsoleService(
                     Applied = false,
                     VerificationPassed = false,
                     Message = $"Patch apply failed after backups were created: {GetCommandFailureMessage(applyResult)}",
+                    GitApplyResult = applyResult,
                     ChangedFiles = changedFiles,
                     BackupFiles = backupFiles,
-                    VerificationResults = [applyResult]
+                    VerificationResults = []
                 };
             }
 
+            var actuallyChangedFiles = new List<string>();
+            foreach (var changedFile in changedFiles)
+            {
+                var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, changedFile);
+                var currentContent = await File.ReadAllBytesAsync(Path.Combine(rootPath, normalizedRelativePath));
+
+                if (!currentContent.AsSpan().SequenceEqual(originalFileContents[normalizedRelativePath]))
+                {
+                    actuallyChangedFiles.Add(normalizedRelativePath.Replace('\\', '/'));
+                }
+            }
+
+            var diffStatResult = await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat");
+            var buildResult = await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build");
+            var testResult = await RunFixedCommandAsync(rootPath, "dotnet", ["test"], "dotnet test");
             var verificationResults = new List<CommandRunResult>
             {
-                await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat"),
-                await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build"),
-                await RunFixedCommandAsync(rootPath, "dotnet", ["test"], "dotnet test")
+                diffStatResult,
+                buildResult,
+                testResult
             };
 
-            var verificationPassed = verificationResults.All(result => result.ExitCode == 0);
+            var repositoryChanged = actuallyChangedFiles.Count > 0 &&
+                                    diffStatResult.ExitCode == 0 &&
+                                    !string.IsNullOrWhiteSpace(diffStatResult.Output) &&
+                                    actuallyChangedFiles.All(changedFile =>
+                                        diffStatResult.Output.Contains(changedFile, StringComparison.OrdinalIgnoreCase));
+            var verificationPassed = repositoryChanged &&
+                                     buildResult.ExitCode == 0 &&
+                                     testResult.ExitCode == 0;
 
             return new LocalCoderPatchApplyResult
             {
-                Applied = true,
+                Applied = repositoryChanged,
                 VerificationPassed = verificationPassed,
-                Message = verificationPassed
-                    ? $"Patch applied to {rootPath} and verification passed."
-                    : $"Patch applied to {rootPath}, but verification failed. Review the verification results and backups.",
+                Message = !repositoryChanged
+                    ? $"git apply exited 0, but no changed selected files were proven by git diff --stat in {rootPath}."
+                    : verificationPassed
+                        ? $"Patch applied to {rootPath} and verification passed."
+                        : $"Patch applied to {rootPath}, but build or test verification failed. Review the verification results and backups.",
+                GitApplyResult = applyResult,
                 ChangedFiles = changedFiles,
                 BackupFiles = backupFiles,
                 VerificationResults = verificationResults

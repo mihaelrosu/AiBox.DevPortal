@@ -8,6 +8,8 @@ public sealed class LocalCoderPatchApplyResult
 
     public string Message { get; set; } = string.Empty;
 
+    public CommandRunResult? GitApplyResult { get; set; }
+
     public IReadOnlyList<string> ChangedFiles { get; set; } = [];
 
     public IReadOnlyList<string> BackupFiles { get; set; } = [];
