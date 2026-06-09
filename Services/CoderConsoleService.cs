@@ -254,6 +254,123 @@ public sealed class CoderConsoleService(
         };
     }
 
+    public async Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview)
+    {
+        ArgumentNullException.ThrowIfNull(patchPreview);
+
+        var rootPath = GetValidatedProjectRoot(patchPreview.ProjectPath);
+        var patchText = CleanPatchPreviewText(patchPreview.PatchText);
+
+        if (patchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("PATCH_NOT_POSSIBLE cannot be applied.");
+        }
+
+        var validation = ValidatePatchPreview(patchText, patchPreview.FileContexts);
+        if (!validation.IsValid)
+        {
+            throw new InvalidOperationException($"Patch apply validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.Errors)}");
+        }
+
+        var selectedPaths = new HashSet<string>(
+            patchPreview.FileContexts.Select(fileContext => NormalizePreviewPath(fileContext.RelativePath)),
+            StringComparer.OrdinalIgnoreCase);
+
+        var changedFiles = ExtractReferencedPaths(patchText.ReplaceLineEndings("\n").Split('\n'))
+            .Select(NormalizePreviewPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path) && !IsDevNullPath(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (changedFiles.Length == 0)
+        {
+            throw new InvalidOperationException("Patch does not contain any changed file paths.");
+        }
+
+        foreach (var changedFile in changedFiles)
+        {
+            if (Path.IsPathRooted(changedFile) ||
+                changedFile.StartsWith("/", StringComparison.Ordinal) ||
+                changedFile.Contains("..", StringComparison.Ordinal) ||
+                !selectedPaths.Contains(changedFile))
+            {
+                throw new InvalidOperationException($"Patch apply references a file not present in selected file context: {changedFile}");
+            }
+        }
+
+        var checkResult = await RunFixedCommandAsync(
+            rootPath,
+            "git",
+            ["apply", "--check", "--whitespace=fix"],
+            "git apply --check --whitespace=fix",
+            patchText);
+
+        if (checkResult.ExitCode != 0)
+        {
+            return new LocalCoderPatchApplyResult
+            {
+                Applied = false,
+                VerificationPassed = false,
+                Message = $"Patch could not be applied safely: {GetCommandFailureMessage(checkResult)}",
+                ChangedFiles = changedFiles
+            };
+        }
+
+        var backupRoot = CreatePatchBackupDirectory();
+        var backupFiles = new List<string>();
+
+        foreach (var changedFile in changedFiles)
+        {
+            var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, changedFile);
+            var sourcePath = Path.Combine(rootPath, normalizedRelativePath);
+            var backupPath = Path.Combine(backupRoot, normalizedRelativePath);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
+            File.Copy(sourcePath, backupPath, overwrite: false);
+            backupFiles.Add(backupPath);
+        }
+
+        var applyResult = await RunFixedCommandAsync(
+            rootPath,
+            "git",
+            ["apply", "--whitespace=fix"],
+            "git apply --whitespace=fix",
+            patchText);
+
+        if (applyResult.ExitCode != 0)
+        {
+            return new LocalCoderPatchApplyResult
+            {
+                Applied = false,
+                VerificationPassed = false,
+                Message = $"Patch apply failed after backups were created: {GetCommandFailureMessage(applyResult)}",
+                ChangedFiles = changedFiles,
+                BackupFiles = backupFiles
+            };
+        }
+
+        var verificationResults = new List<CommandRunResult>
+        {
+            await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat"),
+            await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build"),
+            await RunFixedCommandAsync(rootPath, "dotnet", ["test"], "dotnet test")
+        };
+
+        var verificationPassed = verificationResults.All(result => result.ExitCode == 0);
+
+        return new LocalCoderPatchApplyResult
+        {
+            Applied = true,
+            VerificationPassed = verificationPassed,
+            Message = verificationPassed
+                ? "Patch applied and verification passed."
+                : "Patch applied, but verification failed. Review the verification results and backups.",
+            ChangedFiles = changedFiles,
+            BackupFiles = backupFiles,
+            VerificationResults = verificationResults
+        };
+    }
+
     public async Task<CommandRunResult> RunCommandAsync(string projectPath, string command)
     {
         ValidateProjectPath(projectPath);
@@ -310,6 +427,78 @@ public sealed class CoderConsoleService(
         result.ExitCode = process.ExitCode;
         result.Finished = DateTimeOffset.UtcNow;
 
+        return result;
+    }
+
+    private static async Task<CommandRunResult> RunFixedCommandAsync(
+        string projectPath,
+        string executable,
+        IReadOnlyList<string> arguments,
+        string displayCommand,
+        string? standardInput = null)
+    {
+        var result = new CommandRunResult
+        {
+            Command = displayCommand,
+            Started = DateTimeOffset.UtcNow
+        };
+
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = executable,
+            WorkingDirectory = projectPath,
+            RedirectStandardInput = standardInput is not null,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        foreach (var argument in arguments)
+        {
+            processStartInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(processStartInfo)
+            ?? throw new InvalidOperationException($"Could not start fixed command: {displayCommand}");
+
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+
+        if (standardInput is not null)
+        {
+            await process.StandardInput.WriteAsync(standardInput);
+            await process.StandardInput.FlushAsync();
+            process.StandardInput.Close();
+        }
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+                // ignored
+            }
+
+            result.ExitCode = -1;
+            result.Error = "Command timed out after 10 minutes.";
+            result.Finished = DateTimeOffset.UtcNow;
+            return result;
+        }
+
+        result.Output = await outputTask;
+        result.Error = await errorTask;
+        result.ExitCode = process.ExitCode;
+        result.Finished = DateTimeOffset.UtcNow;
         return result;
     }
 
@@ -417,6 +606,36 @@ public sealed class CoderConsoleService(
     private string GetHistoryPath()
     {
         return Path.Combine(environment.ContentRootPath, "Data", "coder-tasks.json");
+    }
+
+    private string CreatePatchBackupDirectory()
+    {
+        var backupRoot = Path.Combine(
+            environment.ContentRootPath,
+            "Data",
+            "patch-backups",
+            DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss"));
+
+        var candidate = backupRoot;
+        var suffix = 1;
+
+        while (Directory.Exists(candidate))
+        {
+            candidate = $"{backupRoot}-{suffix:00}";
+            suffix++;
+        }
+
+        Directory.CreateDirectory(candidate);
+        return candidate;
+    }
+
+    private static string GetCommandFailureMessage(CommandRunResult result)
+    {
+        var detail = string.IsNullOrWhiteSpace(result.Error)
+            ? result.Output
+            : result.Error;
+
+        return $"{result.Command} exited {result.ExitCode}: {detail.Trim()}";
     }
 
     private string GetValidatedProjectRoot(string projectPath)

@@ -129,14 +129,76 @@
                              Wrap="FlexWrap.Wrap">
                     <RadzenText Text="Patch Preview" TextStyle="TextStyle.H5" />
 
-                    <CopyToClipboardButton Text="Copy Patch"
-                                           Value="@patchPreview.PatchText"
-                                           SuccessTitle="Patch copied"
-                                           SuccessMessage="The patch preview was copied to the clipboard." />
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <CopyToClipboardButton Text="Copy Patch"
+                                               Value="@patchPreview.PatchText"
+                                               SuccessTitle="Patch copied"
+                                               SuccessMessage="The patch preview was copied to the clipboard." />
+
+                        <RadzenButton Text="Apply Patch"
+                                      Icon="publish"
+                                      ButtonStyle="ButtonStyle.Danger"
+                                      Click="@ApplyPatchPreviewAsync"
+                                      Disabled="@(!CanApplyPatchPreview())" />
+                    </RadzenStack>
                 </RadzenStack>
 
                 <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
                 <pre class="coder-output">@patchPreview.PatchText</pre>
+            </RadzenStack>
+        </RadzenCard>
+    }
+
+    @if (patchApplyResult is not null)
+    {
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Patch Apply Result" TextStyle="TextStyle.H5" />
+
+                <RadzenAlert AlertStyle="@(patchApplyResult.Applied && patchApplyResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
+                             ShowIcon="true">
+                    @patchApplyResult.Message
+                </RadzenAlert>
+
+                @if (patchApplyResult.ChangedFiles.Count > 0)
+                {
+                    <RadzenText Text="Changed Files" TextStyle="TextStyle.H6" />
+                    @foreach (var changedFile in patchApplyResult.ChangedFiles)
+                    {
+                        <RadzenText Text="@changedFile" TextStyle="TextStyle.Body2" />
+                    }
+                }
+
+                @if (patchApplyResult.BackupFiles.Count > 0)
+                {
+                    <RadzenText Text="Backup Files" TextStyle="TextStyle.H6" />
+                    @foreach (var backupFile in patchApplyResult.BackupFiles)
+                    {
+                        <RadzenText Text="@backupFile" TextStyle="TextStyle.Body2" />
+                    }
+                }
+
+                @if (patchApplyResult.VerificationResults.Count > 0)
+                {
+                    <RadzenText Text="Verification Results" TextStyle="TextStyle.H6" />
+
+                    @foreach (var result in patchApplyResult.VerificationResults)
+                    {
+                        <RadzenCard>
+                            <RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" />
+
+                            @if (!string.IsNullOrWhiteSpace(result.Output))
+                            {
+                                <pre class="coder-output">@result.Output</pre>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(result.Error))
+                            {
+                                <pre class="coder-error">@result.Error</pre>
+                            }
+                        </RadzenCard>
+                    }
+                }
             </RadzenStack>
         </RadzenCard>
     }
@@ -241,6 +303,7 @@
 
 @code {
     [Inject] private ICoderConsoleService CoderConsoleService { get; set; } = default!;
+    [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
 
     private readonly LocalCoderRequest request = new();
@@ -255,11 +318,13 @@
 
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
     private LocalCoderPatchPreview? patchPreview;
+    private LocalCoderPatchApplyResult? patchApplyResult;
     private CommandRunResult? lastCommand;
 
     private bool isLoading;
     private bool isPlanning;
     private bool isGeneratingPatch;
+    private bool isApplyingPatch;
     private bool isRunningCommand;
     private bool isVerifying;
 
@@ -375,6 +440,7 @@
         fileContexts = [];
         request.FileContexts = [];
         patchPreview = null;
+        patchApplyResult = null;
     }
 
     private async Task CreatePlanAsync()
@@ -418,6 +484,7 @@
         isGeneratingPatch = true;
         error = null;
         patchPreview = null;
+        patchApplyResult = null;
 
         try
         {
@@ -455,6 +522,72 @@
         {
             isGeneratingPatch = false;
         }
+    }
+
+    private async Task ApplyPatchPreviewAsync()
+    {
+        if (!CanApplyPatchPreview() || patchPreview is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No patch preview",
+                "Generate and review an applicable patch preview before applying it.");
+            return;
+        }
+
+        var confirmed = await DialogService.Confirm(
+            "Apply this patch to selected files? Backups will be created first.",
+            "Apply Patch",
+            new ConfirmOptions { OkButtonText = "Apply Patch", CancelButtonText = "Cancel" });
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        isApplyingPatch = true;
+        error = null;
+        patchApplyResult = null;
+
+        try
+        {
+            patchApplyResult = await CoderConsoleService.ApplyPatchPreviewAsync(patchPreview);
+
+            if (patchApplyResult.Applied && patchApplyResult.VerificationPassed)
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Success,
+                    "Patch applied",
+                    patchApplyResult.Message);
+            }
+            else
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Warning,
+                    patchApplyResult.Applied ? "Verification failed" : "Patch apply failed",
+                    patchApplyResult.Message);
+            }
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+
+            NotificationService.Notify(
+                NotificationSeverity.Error,
+                "Patch apply failed",
+                exception.Message);
+        }
+        finally
+        {
+            isApplyingPatch = false;
+        }
+    }
+
+    private bool CanApplyPatchPreview()
+    {
+        return !isApplyingPatch &&
+               patchPreview is not null &&
+               !patchPreview.PatchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.Ordinal);
     }
 
     private async Task RunCommandAsync(string command)
