@@ -10,7 +10,7 @@ RUN dotnet publish "AiBox.DevPortal.csproj" -c Release -o /app/publish /p:UseApp
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS final
 WORKDIR /app
 
-ENV ASPNETCORE_URLS=http://+:14000
+ENV ASPNETCORE_HTTP_PORTS=14000
 EXPOSE 14000
 
 COPY --from=build /app/publish .
