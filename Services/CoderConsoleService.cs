@@ -617,6 +617,15 @@ public sealed class CoderConsoleService(
             fileContexts.Select(fileContext => NormalizePreviewPath(fileContext.RelativePath)),
             StringComparer.OrdinalIgnoreCase);
 
+        if (selectedPaths.Count == 0)
+        {
+            return new LocalCoderPatchValidationResult
+            {
+                IsValid = false,
+                Errors = ["Patch preview requires selected file context."]
+            };
+        }
+
         if (patchText.Contains("Short Diagnosis", StringComparison.OrdinalIgnoreCase) ||
             patchText.Contains("Files Likely Involved", StringComparison.OrdinalIgnoreCase) ||
             patchText.Contains("Step-by-Step Implementation Plan", StringComparison.OrdinalIgnoreCase) ||
@@ -667,9 +676,14 @@ public sealed class CoderConsoleService(
             errors.Add("Patch preview contains text outside a valid unified diff.");
         }
 
-        if (!HasMeaningfulChange(lines))
+        if (!HasMeaningfulAddedLine(lines))
         {
-            errors.Add("Patch preview must include at least one added line and one removed line.");
+            errors.Add("Patch preview must include at least one meaningful added line.");
+        }
+
+        if (!HasRemovedLine(lines))
+        {
+            errors.Add("Patch preview must include at least one removed line.");
         }
 
         if (HasOnlyClosingTagChanges(lines))
@@ -795,7 +809,7 @@ public sealed class CoderConsoleService(
     private static bool IsValidDiffMetadataLine(string line)
     {
         var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 4)
+        if (parts.Length != 4)
         {
             return false;
         }
@@ -810,7 +824,7 @@ public sealed class CoderConsoleService(
     private static bool IsValidIndexMetadataLine(string line)
     {
         var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 2)
+        if (parts.Length is < 2 or > 3)
         {
             return false;
         }
@@ -821,7 +835,12 @@ public sealed class CoderConsoleService(
             return false;
         }
 
-        return IsAllowedDiffHash(hashes[0]) && IsAllowedDiffHash(hashes[1]);
+        if (!IsAllowedDiffHash(hashes[0]) || !IsAllowedDiffHash(hashes[1]))
+        {
+            return false;
+        }
+
+        return parts.Length == 2 || parts[2].All(char.IsDigit);
     }
 
     private static bool IsValidPreviewPathToken(string path)
@@ -852,7 +871,7 @@ public sealed class CoderConsoleService(
             return false;
         }
 
-        if (IsSequentialPlaceholderHash(cleaned))
+        if (IsPlaceholderDiffHash(cleaned))
         {
             return false;
         }
@@ -860,7 +879,7 @@ public sealed class CoderConsoleService(
         return true;
     }
 
-    private static bool IsSequentialPlaceholderHash(string token)
+    private static bool IsPlaceholderDiffHash(string token)
     {
         var lower = token.Trim().ToLowerInvariant();
         string[] placeholders =
@@ -877,13 +896,23 @@ public sealed class CoderConsoleService(
             "feedface"
         ];
 
-        return placeholders.Contains(lower, StringComparer.Ordinal);
+        return placeholders.Contains(lower, StringComparer.Ordinal) ||
+               lower.Distinct().Count() == 1;
     }
 
-    private static bool HasMeaningfulChange(IReadOnlyList<string> lines)
+    private static bool HasMeaningfulAddedLine(IReadOnlyList<string> lines)
     {
-        return lines.Any(line => line.StartsWith("+", StringComparison.Ordinal) && !line.StartsWith("+++", StringComparison.Ordinal)) &&
-               lines.Any(line => line.StartsWith("-", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal));
+        return lines.Any(line =>
+            line.StartsWith("+", StringComparison.Ordinal) &&
+            !line.StartsWith("+++", StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(line[1..]));
+    }
+
+    private static bool HasRemovedLine(IReadOnlyList<string> lines)
+    {
+        return lines.Any(line =>
+            line.StartsWith("-", StringComparison.Ordinal) &&
+            !line.StartsWith("---", StringComparison.Ordinal));
     }
 
     private static bool HasUnsafeRazorClosingTagChange(IReadOnlyList<string> lines)
@@ -1034,6 +1063,14 @@ public sealed class CoderConsoleService(
                     }
                 }
             }
+            else if (line.StartsWith("rename from ", StringComparison.Ordinal))
+            {
+                yield return line["rename from ".Length..].Trim();
+            }
+            else if (line.StartsWith("rename to ", StringComparison.Ordinal))
+            {
+                yield return line["rename to ".Length..].Trim();
+            }
             else if (line.StartsWith("FILE:", StringComparison.OrdinalIgnoreCase))
             {
                 var path = line[5..].Trim();
@@ -1047,7 +1084,7 @@ public sealed class CoderConsoleService(
 
     private static bool IsPlanningOnlyTask(string task)
     {
-        var normalized = task.ToLowerInvariant();
+        var normalized = task.Trim().ToLowerInvariant();
 
         string[] strongEditVerbs =
         [
@@ -1065,7 +1102,10 @@ public sealed class CoderConsoleService(
             "modify"
         ];
 
-        if (strongEditVerbs.Any(verb => ContainsEditVerb(normalized, verb)))
+        // A concrete edit verb always takes precedence, including mixed tasks such as
+        // "Review the page and change the subtitle."
+        if (strongEditVerbs.Any(verb => StartsWithWord(normalized, verb)) ||
+            strongEditVerbs.Any(verb => ContainsWholeWord(normalized, verb)))
         {
             return false;
         }
@@ -1077,31 +1117,41 @@ public sealed class CoderConsoleService(
             "analyze",
             "explain",
             "plan",
-            "recommend",
-            "what should",
-            "how should",
+            "recommend"
+        ];
+
+        string[] planningPhrases =
+        [
+            "give me a plan",
             "next safe improvement"
         ];
 
-        return planningWords.Any(normalized.Contains);
+        return planningWords.Any(word => ContainsWholeWord(normalized, word)) ||
+               planningPhrases.Any(normalized.Contains);
     }
 
-    private static bool ContainsEditVerb(string task, string verb)
+    private static bool StartsWithWord(string text, string word)
     {
-        var index = task.IndexOf(verb, StringComparison.Ordinal);
+        return text.StartsWith(word, StringComparison.Ordinal) &&
+               (text.Length == word.Length || !char.IsLetterOrDigit(text[word.Length]));
+    }
+
+    private static bool ContainsWholeWord(string text, string word)
+    {
+        var index = text.IndexOf(word, StringComparison.Ordinal);
 
         while (index >= 0)
         {
-            var beforeOk = index == 0 || !char.IsLetterOrDigit(task[index - 1]);
-            var afterIndex = index + verb.Length;
-            var afterOk = afterIndex >= task.Length || !char.IsLetterOrDigit(task[afterIndex]);
+            var beforeOk = index == 0 || !char.IsLetterOrDigit(text[index - 1]);
+            var afterIndex = index + word.Length;
+            var afterOk = afterIndex >= text.Length || !char.IsLetterOrDigit(text[afterIndex]);
 
             if (beforeOk && afterOk)
             {
                 return true;
             }
 
-            index = task.IndexOf(verb, index + verb.Length, StringComparison.Ordinal);
+            index = text.IndexOf(word, index + word.Length, StringComparison.Ordinal);
         }
 
         return false;

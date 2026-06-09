@@ -4,6 +4,7 @@
 @using AiBox.DevPortal.Components.Common
 @using AiBox.DevPortal.Services
 @using Radzen.Blazor
+@using AiBox.DevPortal.Components
 
 <PageTitle>Local Coder</PageTitle>
 
@@ -46,10 +47,10 @@
                         </div>
 
                         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                            <RadzenButton Text="Read Selected Files"
+                            <RadzenButton Text="Preview Context"
                                           Icon="description"
                                           ButtonStyle="ButtonStyle.Primary"
-                                          Click="@ReadSelectedFilesAsync"
+                                          Click="@PreviewContextAsync"
                                           Disabled="@(isLoading || string.IsNullOrWhiteSpace(request.ProjectPath) || !selectedFilePaths.Any())" />
 
                             <RadzenButton Text="Clear Selected"
@@ -68,70 +69,12 @@
 
                     <RadzenText Text="@($"Loaded context files: {fileContexts.Count}")" TextStyle="TextStyle.Body2" />
 
-                    <RadzenFormField Text="Find file">
-                        <RadzenTextBox @bind-Value="fileSearchText"
-                                       Style="width: 100%;"
-                                       Placeholder="Search by relative path or file name, e.g. Coder.razor, service, Program.cs" />
-                    </RadzenFormField>
-
-                    @if (FilteredProjectFileItems.Count > 0)
-                    {
-                        <RadzenCard>
-                            <RadzenStack Gap="0.35rem">
-                                @foreach (var file in FilteredProjectFileItems)
-                                {
-                                    <RadzenStack Orientation="Orientation.Horizontal"
-                                                 AlignItems="AlignItems.Center"
-                                                 JustifyContent="JustifyContent.SpaceBetween"
-                                                 Gap="0.75rem"
-                                                 Style="padding: 0.35rem 0.5rem; border: 1px solid var(--rz-base-300); border-radius: 0.35rem;">
-                                        <RadzenText Text="@file.RelativePath"
-                                                    TextStyle="TextStyle.Body2"
-                                                    Style="word-break: break-word;" />
-
-                                        <RadzenButton Text="Add"
-                                                      Icon="add"
-                                                      Size="ButtonSize.Small"
-                                                      ButtonStyle="ButtonStyle.Primary"
-                                                      Click="@(() => AddFileByPath(file.RelativePath))"
-                                                      Disabled="@IsFileSelected(file.RelativePath)" />
-                                    </RadzenStack>
-                                }
-                            </RadzenStack>
-                        </RadzenCard>
-                    }
-
-                    <RadzenStack Gap="0.5rem">
-                        <RadzenText Text="Selected files" TextStyle="TextStyle.H6" />
-
-                        @if (selectedFilePaths.Count == 0)
-                        {
-                            <RadzenText Text="No files selected yet. Search for a file and click Add."
-                                        TextStyle="TextStyle.Body2" />
-                        }
-                        else
-                        {
-                            @foreach (var relativePath in selectedFilePaths.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
-                            {
-                                <RadzenStack Orientation="Orientation.Horizontal"
-                                             AlignItems="AlignItems.Center"
-                                             JustifyContent="JustifyContent.SpaceBetween"
-                                             Style="padding: 0.35rem 0.5rem; border: 1px solid var(--rz-base-300); border-radius: 0.35rem;"
-                                             Gap="0.75rem">
-                                    <RadzenText Text="@relativePath"
-                                                TextStyle="TextStyle.Body2"
-                                                Style="word-break: break-word;" />
-
-                                    <RadzenButton Text="Remove"
-                                                  Icon="close"
-                                                  Size="ButtonSize.Small"
-                                                  ButtonStyle="ButtonStyle.Light"
-                                                  Click="@(() => RemoveSelectedFile(relativePath))"
-                                                  Disabled="@isLoading" />
-                                </RadzenStack>
-                            }
-                        }
-                    </RadzenStack>
+                    <FileAutoComplete RootDirectory="@request.ProjectPath"
+                                      Placeholder="Search by relative path or file name, e.g. Coder.razor, service, Program.cs"
+                                      ShowSelectedInfo="true"
+                                      SelectedFiles="@selectedFiles"
+                                      SelectedFilesChanged="@OnSelectedFilesChanged"
+                                      FileSelected="@OnFileSelected" />
                 </RadzenStack>
             </RadzenCard>
 
@@ -161,7 +104,7 @@
                               Icon="difference"
                               ButtonStyle="ButtonStyle.Warning"
                               Click="@GeneratePatchPreviewAsync"
-                              Disabled="@(isLoading || isGeneratingPatch || string.IsNullOrWhiteSpace(request.Task) || selectedFilePaths.Count == 0)" />
+                              Disabled="@(isLoading || isGeneratingPatch || string.IsNullOrWhiteSpace(request.Task))" />
             </RadzenStack>
 
             <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
@@ -304,11 +247,11 @@
 
     private IReadOnlyList<string> workspaceRoots = [];
     private IReadOnlyList<string> models = [];
-    private IReadOnlyList<ProjectFileItem> projectFiles = [];
     private IReadOnlyList<CommandRunResult> verifyResults = [];
 
     private List<LocalCoderFileContext> fileContexts = [];
     private List<string> selectedFilePaths = [];
+    private List<FileSearchItem> selectedFiles = [];
 
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
     private LocalCoderPatchPreview? patchPreview;
@@ -321,35 +264,6 @@
     private bool isVerifying;
 
     private string? error;
-    private string fileSearchText = string.Empty;
-
-    private IReadOnlyList<ProjectFileItem> FilteredProjectFileItems
-    {
-        get
-        {
-            if (projectFiles.Count == 0)
-            {
-                return [];
-            }
-
-            if (string.IsNullOrWhiteSpace(fileSearchText))
-            {
-                return projectFiles
-                    .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
-                    .Take(12)
-                    .ToArray();
-            }
-
-            var search = fileSearchText.Trim();
-
-            return projectFiles
-                .Where(file => MatchesSearch(file, search))
-                .OrderBy(file => GetSearchRank(file, search))
-                .ThenBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
-                .Take(12)
-                .ToArray();
-        }
-    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -378,10 +292,6 @@
                     : models.FirstOrDefault() ?? request.Model;
             }
 
-            if (!string.IsNullOrWhiteSpace(request.ProjectPath))
-            {
-                await ReloadProjectFilesAsync(showNotification: false, clearSelectedState: false);
-            }
         }
         catch (Exception exception)
         {
@@ -393,93 +303,29 @@
         }
     }
 
-    private async Task OnProjectPathChanged(object? value)
+    private Task OnProjectPathChanged(object? value)
     {
         request.ProjectPath = value?.ToString() ?? string.Empty;
         ClearSelectedFiles();
-        ClearLoadedContext();
         currentTask = null;
         patchPreview = null;
         lastCommand = null;
         verifyResults = [];
 
-        await ReloadProjectFilesAsync(showNotification: true, clearSelectedState: false);
-    }
-
-    private async Task ReloadProjectFilesAsync(bool showNotification, bool clearSelectedState)
-    {
         error = null;
-
-        if (clearSelectedState)
-        {
-            ClearSelectedFiles();
-            ClearLoadedContext();
-        }
-
-        if (string.IsNullOrWhiteSpace(request.ProjectPath))
-        {
-            projectFiles = [];
-            return;
-        }
-
-        try
-        {
-            projectFiles = await CoderConsoleService.GetProjectFilesAsync(request.ProjectPath);
-
-            if (showNotification)
-            {
-                NotificationService.Notify(
-                    NotificationSeverity.Success,
-                    "Project files loaded",
-                    $"{projectFiles.Count} files are available for context.");
-            }
-        }
-        catch (Exception exception)
-        {
-            projectFiles = [];
-            if (clearSelectedState)
-            {
-                ClearSelectedFiles();
-                ClearLoadedContext();
-            }
-
-            error = exception.Message;
-
-            NotificationService.Notify(
-                NotificationSeverity.Error,
-                "Load project files failed",
-                exception.Message);
-        }
+        return Task.CompletedTask;
     }
 
-    private async Task ReadSelectedFilesAsync()
+    private async Task PreviewContextAsync()
     {
         error = null;
 
         try
         {
-            if (!selectedFilePaths.Any())
+            if (!await EnsureFileContextLoadedAsync())
             {
-                NotificationService.Notify(
-                    NotificationSeverity.Warning,
-                    "No files selected",
-                    "Select files before reading file context.");
-
                 return;
             }
-
-            fileContexts = (await CoderConsoleService.ReadFileContextsAsync(
-                    request.ProjectPath,
-                    selectedFilePaths.ToArray()))
-                .ToList();
-
-            request.FileContexts = fileContexts.ToList();
-            patchPreview = null;
-
-            NotificationService.Notify(
-                NotificationSeverity.Success,
-                "Context loaded",
-                $"{fileContexts.Count} file(s) loaded into context.");
         }
         catch (Exception exception)
         {
@@ -487,29 +333,14 @@
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
-                "Read context failed",
+                "Preview context failed",
                 exception.Message);
         }
-    }
-
-    private void RemoveSelectedFile(string relativePath)
-    {
-        selectedFilePaths.RemoveAll(path =>
-            path.Equals(relativePath, StringComparison.OrdinalIgnoreCase));
-
-        fileContexts = fileContexts
-            .Where(fileContext =>
-                !fileContext.RelativePath.Equals(relativePath, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        request.FileContexts = fileContexts.ToList();
-        patchPreview = null;
     }
 
     private Task ClearSelectedFilesAsync()
     {
         ClearSelectedFiles();
-        ClearLoadedContext();
 
         NotificationService.Notify(
             NotificationSeverity.Info,
@@ -534,7 +365,8 @@
     private void ClearSelectedFiles()
     {
         selectedFilePaths = [];
-        fileSearchText = string.Empty;
+        selectedFiles = [];
+        ClearLoadedContext();
         patchPreview = null;
     }
 
@@ -554,15 +386,11 @@
 
         try
         {
-            if (fileContexts.Count == 0)
+            if (!await EnsureFileContextLoadedAsync())
             {
-                NotificationService.Notify(
-                    NotificationSeverity.Warning,
-                    "No file context loaded",
-                    "Select files and click Read Selected Files first.");
+                return;
             }
 
-            request.FileContexts = fileContexts.ToList();
             currentTask = await CoderConsoleService.CreatePlanAsync(request);
 
             NotificationService.Notify(
@@ -593,32 +421,11 @@
 
         try
         {
-            if (selectedFilePaths.Count == 0)
+            if (!await EnsureFileContextLoadedAsync())
             {
-                NotificationService.Notify(
-                    NotificationSeverity.Warning,
-                    "No files selected",
-                    "Select files before generating a patch preview.");
-
                 return;
             }
 
-            if (fileContexts.Count == 0)
-            {
-                fileContexts = (await CoderConsoleService.ReadFileContextsAsync(
-                        request.ProjectPath,
-                        selectedFilePaths.ToArray()))
-                    .ToList();
-
-                request.FileContexts = fileContexts.ToList();
-
-                NotificationService.Notify(
-                    NotificationSeverity.Info,
-                    "Context auto-loaded",
-                    $"{fileContexts.Count} file(s) loaded before patch preview.");
-            }
-
-            request.FileContexts = fileContexts.ToList();
             patchPreview = await CoderConsoleService.GeneratePatchPreviewAsync(request);
 
             NotificationService.Notify(
@@ -727,88 +534,74 @@
         }
     }
 
-    private Task AddFileByPath(string relativePath)
+    private Task OnSelectedFilesChanged(IReadOnlyList<FileSearchItem> files)
     {
+        selectedFiles = files.ToList();
+        selectedFilePaths = selectedFiles
+            .Select(file => file.RelativePath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        ClearLoadedContext();
         error = null;
-
-        var match = projectFiles.FirstOrDefault(file =>
-            file.RelativePath.Equals(relativePath, StringComparison.OrdinalIgnoreCase));
-
-        if (match is null)
-        {
-            NotificationService.Notify(
-                NotificationSeverity.Warning,
-                "File not found",
-                $"{relativePath} is not in the loaded project file list.");
-
-            return Task.CompletedTask;
-        }
-
-        if (!IsFileSelected(match.RelativePath))
-        {
-            selectedFilePaths.Add(match.RelativePath);
-            patchPreview = null;
-
-            NotificationService.Notify(
-                NotificationSeverity.Success,
-                "File added",
-                match.RelativePath);
-        }
-        else
-        {
-            NotificationService.Notify(
-                NotificationSeverity.Info,
-                "File already selected",
-                match.RelativePath);
-        }
         return Task.CompletedTask;
     }
 
-    private bool IsFileSelected(string relativePath)
+    private Task OnFileSelected(FileSearchItem? file)
     {
-        return selectedFilePaths.Contains(relativePath, StringComparer.OrdinalIgnoreCase);
+        if (file is not null && !selectedFilePaths.Contains(file.RelativePath, StringComparer.OrdinalIgnoreCase))
+        {
+            selectedFilePaths.Add(file.RelativePath);
+            ClearLoadedContext();
+        }
+
+        return Task.CompletedTask;
     }
 
-    private static bool MatchesSearch(ProjectFileItem file, string search)
+    private async Task<bool> EnsureFileContextLoadedAsync()
     {
-        return file.RelativePath.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-               Path.GetFileName(file.RelativePath).Contains(search, StringComparison.OrdinalIgnoreCase);
-    }
+        if (fileContexts.Count > 0)
+        {
+            request.FileContexts = fileContexts.ToList();
+            return true;
+        }
 
-    private static (int rank, int depth, string path) GetSearchRank(ProjectFileItem file, string search)
-    {
-        var relativePath = file.RelativePath;
-        var fileName = Path.GetFileName(relativePath);
-        var fileNameMatch = fileName.Contains(search, StringComparison.OrdinalIgnoreCase);
-        var pathMatch = relativePath.Contains(search, StringComparison.OrdinalIgnoreCase);
-        var rank = fileName.StartsWith(search, StringComparison.OrdinalIgnoreCase)
-            ? 0
-            : fileNameMatch
-                ? 1
-                : pathMatch
-                    ? 2
-                    : 3;
+        if (selectedFilePaths.Count == 0)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No files selected",
+                "Select files before creating a plan or patch preview.");
 
-        return (rank, relativePath.Count(c => c == '/'), relativePath);
+            return false;
+        }
+
+        fileContexts = (await CoderConsoleService.ReadFileContextsAsync(
+                request.ProjectPath,
+                selectedFilePaths.ToArray()))
+            .ToList();
+
+        request.FileContexts = fileContexts.ToList();
+
+        NotificationService.Notify(
+            NotificationSeverity.Info,
+            "Context auto-loaded",
+            $"{fileContexts.Count} file(s) loaded into context.");
+
+        return true;
     }
 
     private string GetProjectFilesStatusText()
     {
         if (string.IsNullOrWhiteSpace(request.ProjectPath))
         {
-            return "Select a project path to load available files.";
+            return "Select a project path to search for files.";
         }
 
         if (isLoading)
         {
-            return "Loading project files...";
+            return "Loading project settings...";
         }
 
-        if (projectFiles.Count == 0)
-        {
-            return "No project files loaded.";
-        }
-
-        return $"{projectFiles.Count} file(s) available for selection.";
+        return $"Selected files: {selectedFilePaths.Count}. Use the file picker to add more files.";
     }
 }
