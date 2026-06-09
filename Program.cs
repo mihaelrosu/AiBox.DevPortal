@@ -41,6 +41,7 @@ builder.Services.AddScoped<IRepositoryFileContextService, RepositoryFileContextS
 builder.Services.AddScoped<IExecutionPermissionProfileService, ExecutionPermissionProfileService>();
 builder.Services.AddScoped<IExecutionEngineService, ExecutionEngineService>();
 builder.Services.AddScoped<IFileOperationService, FileOperationService>();
+builder.Services.AddScoped<IFileSearchService, FileSearchService>();
 builder.Services.AddScoped<IGitOperationService, GitOperationService>();
 builder.Services.AddScoped<IDockerOperationService, DockerOperationService>();
 builder.Services.AddScoped<IComfyUiOperationService, ComfyUiOperationService>();

@@ -1,0 +1,69 @@
+@page "/file-finder"
+@rendermode InteractiveServer
+@inject IConfiguration Configuration
+
+<PageTitle>File Finder</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenText Text="File Finder" TextStyle="TextStyle.H4" />
+            <RadzenText Text="Search files from the configured project root and select one to inspect its full path." TextStyle="TextStyle.Body2" />
+            <RadzenText Text="@($"Configured root: {projectsRoot}")" TextStyle="TextStyle.Caption" />
+        </RadzenStack>
+    </RadzenCard>
+
+    @if (string.IsNullOrWhiteSpace(projectsRoot))
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+            DevPortal:ProjectsRoot is not configured.
+        </RadzenAlert>
+    }
+    else if (!Directory.Exists(projectsRoot))
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+            The configured root directory does not exist: @projectsRoot
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenCard>
+            <FileAutoComplete RootDirectory="@projectsRoot"
+                              Placeholder="Search file..."
+                              ShowSelectedInfo="true"
+                              SelectedFile="@selectedFile"
+                              SelectedFileChanged="@OnSelectedFileChanged"
+                              FileSelected="@OnFileSelected" />
+        </RadzenCard>
+    }
+
+    @if (selectedFile is not null)
+    {
+        <RadzenCard>
+            <RadzenText Text="Selected file path" TextStyle="TextStyle.H5" />
+            <pre class="coder-output">@selectedFile.FullPath</pre>
+        </RadzenCard>
+    }
+</RadzenStack>
+
+@code {
+    private string projectsRoot = string.Empty;
+    private FileSearchItem? selectedFile;
+
+    protected override void OnInitialized()
+    {
+        projectsRoot = Configuration["DevPortal:ProjectsRoot"] ?? string.Empty;
+    }
+
+    private Task OnSelectedFileChanged(FileSearchItem? file)
+    {
+        selectedFile = file;
+        return Task.CompletedTask;
+    }
+
+    private Task OnFileSelected(FileSearchItem? file)
+    {
+        selectedFile = file;
+        return Task.CompletedTask;
+    }
+}

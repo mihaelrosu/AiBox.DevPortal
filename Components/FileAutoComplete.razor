@@ -1,0 +1,120 @@
+@using AiBox.DevPortal.Models
+@using AiBox.DevPortal.Services
+@inject IFileSearchService FileSearchService
+
+<RadzenStack Gap="0.75rem" Style="@Style">
+    <RadzenAutoComplete TValue="string"
+                        @bind-Value="@searchText"
+                        Data="@searchResults"
+                        TextProperty="DisplayText"
+                        Placeholder="@Placeholder"
+                        Style="width: 100%;"
+                        LoadData="@OnLoadDataAsync"
+                        Change="@OnSearchTextChangedAsync"
+                        SelectedItem="@selectedFile"
+                        SelectedItemChanged="@OnSelectedItemChangedAsync"
+                        MinLength="1"
+                        FilterDelay="200"
+                        OpenOnFocus="true" />
+
+    @if (ShowSelectedInfo && selectedFile is not null)
+    {
+        <RadzenCard>
+            <RadzenStack Gap="0.35rem">
+                <RadzenText Text="Selected File" TextStyle="TextStyle.H6" />
+                <RadzenText Text="@selectedFile.RelativePath" TextStyle="TextStyle.Body2" />
+                <RadzenText Text="@($"Full path: {selectedFile.FullPath}")" TextStyle="TextStyle.Body2" />
+                <RadzenText Text="@($"Size: {selectedFile.SizeBytes} bytes")" TextStyle="TextStyle.Caption" />
+            </RadzenStack>
+        </RadzenCard>
+    }
+</RadzenStack>
+
+@code {
+    [Parameter] public string RootDirectory { get; set; } = string.Empty;
+
+    [Parameter] public string SearchPattern { get; set; } = "*.*";
+
+    [Parameter] public bool IncludeSubdirectories { get; set; } = true;
+
+    [Parameter] public int MaxResults { get; set; } = 25;
+
+    [Parameter] public string Placeholder { get; set; } = "Search file...";
+
+    [Parameter] public string Style { get; set; } = "width:100%;";
+
+    [Parameter] public bool ShowSelectedInfo { get; set; } = true;
+
+    [Parameter] public FileSearchItem? SelectedFile { get; set; }
+
+    [Parameter] public EventCallback<FileSearchItem?> SelectedFileChanged { get; set; }
+
+    [Parameter] public EventCallback<FileSearchItem?> FileSelected { get; set; }
+
+    private List<FileSearchItem> searchResults = [];
+    private string searchText = string.Empty;
+    private FileSearchItem? selectedFile;
+    private string? selectedFilePath;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(SelectedFile?.FullPath, selectedFilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            selectedFile = SelectedFile;
+            selectedFilePath = SelectedFile?.FullPath;
+            searchText = SelectedFile?.DisplayText ?? string.Empty;
+        }
+    }
+
+    private async Task OnLoadDataAsync(LoadDataArgs args)
+    {
+        var query = args.Filter ?? searchText;
+        searchResults = await FileSearchService.SearchAsync(
+            RootDirectory,
+            query ?? string.Empty,
+            SearchPattern,
+            IncludeSubdirectories,
+            MaxResults);
+
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            selectedFile = searchResults.FirstOrDefault(item =>
+                item.DisplayText.Equals(searchText, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private async Task OnSearchTextChangedAsync()
+    {
+        selectedFile = searchResults.FirstOrDefault(item =>
+            item.DisplayText.Equals(searchText, StringComparison.OrdinalIgnoreCase));
+
+        await EmitSelectionAsync(selectedFile);
+    }
+
+    private async Task OnSelectedItemChangedAsync(object? value)
+    {
+        selectedFile = value as FileSearchItem;
+
+        if (selectedFile is not null)
+        {
+            searchText = selectedFile.DisplayText;
+        }
+
+        await EmitSelectionAsync(selectedFile);
+    }
+
+    private async Task EmitSelectionAsync(FileSearchItem? file)
+    {
+        selectedFilePath = file?.FullPath;
+
+        if (SelectedFileChanged.HasDelegate)
+        {
+            await SelectedFileChanged.InvokeAsync(file);
+        }
+
+        if (FileSelected.HasDelegate)
+        {
+            await FileSelected.InvokeAsync(file);
+        }
+    }
+}
