@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using AiBox.DevPortal.Models;
 using AiBox.DevPortal.Models.Agents;
 using ConsoleLocalCoderTask = AiBox.DevPortal.Models.LocalCoderTask;
@@ -237,7 +238,7 @@ public sealed class CoderConsoleService(
 
         var result = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
         var patchText = CleanPatchPreviewText(result?.Response ?? string.Empty);
-        var validation = ValidatePatchPreview(patchText, request.FileContexts);
+        var validation = ValidatePatchPreview(patchText, request.FileContexts, request.Task);
 
         if (!validation.IsValid)
         {
@@ -266,7 +267,7 @@ public sealed class CoderConsoleService(
             throw new InvalidOperationException("PATCH_NOT_POSSIBLE cannot be applied.");
         }
 
-        var validation = ValidatePatchPreview(patchText, patchPreview.FileContexts);
+        var validation = ValidatePatchPreview(patchText, patchPreview.FileContexts, patchPreview.Task);
         if (!validation.IsValid)
         {
             throw new InvalidOperationException($"Patch apply validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.Errors)}");
@@ -821,7 +822,10 @@ public sealed class CoderConsoleService(
         return string.Join(Environment.NewLine, fileContexts.Select(fileContext => $"- {fileContext.RelativePath}"));
     }
 
-    private static LocalCoderPatchValidationResult ValidatePatchPreview(string patchText, IReadOnlyList<LocalCoderFileContext> fileContexts)
+    private static LocalCoderPatchValidationResult ValidatePatchPreview(
+        string patchText,
+        IReadOnlyList<LocalCoderFileContext> fileContexts,
+        string task)
     {
         if (string.IsNullOrWhiteSpace(patchText))
         {
@@ -920,6 +924,11 @@ public sealed class CoderConsoleService(
             errors.Add("Patch preview may break Razor markup by changing closing tag type.");
         }
 
+        if (!PatchAppearsToImplementTask(task, lines))
+        {
+            errors.Add("Patch preview does not appear to implement the requested change.");
+        }
+
         foreach (var referencedPath in referencedPaths)
         {
             if (string.IsNullOrWhiteSpace(referencedPath) ||
@@ -937,6 +946,89 @@ public sealed class CoderConsoleService(
             IsValid = errors.Count == 0,
             Errors = errors
         };
+    }
+
+    private static bool PatchAppearsToImplementTask(string task, IReadOnlyList<string> lines)
+    {
+        if (string.IsNullOrWhiteSpace(task))
+        {
+            return true;
+        }
+
+        var addedLines = GetChangedContentLines(lines, '+');
+        var removedLines = GetChangedContentLines(lines, '-');
+        var quotedValues = ExtractQuotedTaskValues(task);
+
+        if (quotedValues.Count > 0 &&
+            !addedLines.Any(line => line.Contains(quotedValues[^1], StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        if (!ContainsWholeWord(task, "subtitle"))
+        {
+            return true;
+        }
+
+        var changedLines = removedLines.Concat(addedLines).ToArray();
+        if (changedLines.Length > 0 &&
+            changedLines.All(line => line.Contains("<RadzenButton", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        return HasRadzenTextChangeNearPageHeader(lines);
+    }
+
+    private static string[] GetChangedContentLines(IReadOnlyList<string> lines, char prefix)
+    {
+        var metadataPrefix = new string(prefix, 3);
+
+        return lines
+            .Where(line => line.Length > 0 &&
+                line[0] == prefix &&
+                !line.StartsWith(metadataPrefix, StringComparison.Ordinal))
+            .Select(line => line[1..].Trim())
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> ExtractQuotedTaskValues(string task)
+    {
+        return Regex.Matches(task, "[\"']([^\"'\\r\\n]+)[\"']")
+            .Select(match => match.Groups[1].Value.Trim())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToArray();
+    }
+
+    private static bool HasRadzenTextChangeNearPageHeader(IReadOnlyList<string> lines)
+    {
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var line = lines[index];
+            var isChangedLine = (line.StartsWith("+", StringComparison.Ordinal) && !line.StartsWith("+++", StringComparison.Ordinal)) ||
+                                (line.StartsWith("-", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal));
+
+            if (!isChangedLine || !line.Contains("<RadzenText", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var start = Math.Max(0, index - 12);
+            var end = Math.Min(lines.Count - 1, index + 12);
+
+            for (var nearbyIndex = start; nearbyIndex <= end; nearbyIndex++)
+            {
+                var nearbyLine = lines[nearbyIndex];
+                if (nearbyLine.Contains("<PageTitle", StringComparison.OrdinalIgnoreCase) ||
+                    nearbyLine.Contains("Text=\"Local Coder\"", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static string CleanPatchPreviewText(string patchText)
