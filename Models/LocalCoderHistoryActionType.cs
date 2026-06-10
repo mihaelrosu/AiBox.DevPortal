@@ -6,5 +6,7 @@ public enum LocalCoderHistoryActionType
     GeneratePatchPreview,
     ApplyPatch,
     RollbackPatch,
-    VerifyProject
+    VerifyProject,
+    CommitChanges,
+    BuildDeploy
 }

@@ -1152,7 +1152,8 @@
         return !isRunningCommand &&
                !isVerifying &&
                !isCommitRunning &&
-               !string.IsNullOrWhiteSpace(request.ProjectPath);
+               !string.IsNullOrWhiteSpace(request.ProjectPath) ;
+               @* && !string.IsNullOrWhiteSpace(commitMessage); *@
     }
 
     private bool CanBuildDeploy()
@@ -1177,19 +1178,18 @@
 
             commitResults = results;
 
-            var statusResult = results.FirstOrDefault(result => result.Command == "git status --short");
-            var noChanges = statusResult is not null &&
-                            statusResult.ExitCode == 0 &&
-                            string.IsNullOrEmpty(statusResult.Output);
-            var failed = results.FirstOrDefault(result => result.ExitCode != 0);
-            var success = !noChanges && failed is null;
+            var noChanges = results.Count == 2 &&
+                            string.Equals(results[1].Command, "No changes to commit.", StringComparison.OrdinalIgnoreCase);
+            var success = !noChanges &&
+                          results.Count > 0 &&
+                          results.All(result => result.ExitCode == 0);
 
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.CommitChanges,
                 success: success,
                 noChanges
                     ? "No changes to commit."
-                    : success ? "Commit and deploy completed." : "Commit or deploy failed.",
+                    : success ? "Commit completed." : "Commit failed.",
                 verificationResults: results);
 
             if (noChanges)
@@ -1201,18 +1201,19 @@
                 return;
             }
 
+            var failed = results.FirstOrDefault(result => result.ExitCode != 0);
             if (failed is null)
             {
                 NotificationService.Notify(
                     NotificationSeverity.Success,
-                    "Commit and deploy completed",
-                    "Commit and deploy completed.");
+                    "Commit completed",
+                    "dotnet build, git commit, and related checks completed successfully.");
             }
             else
             {
                 NotificationService.Notify(
                     NotificationSeverity.Warning,
-                    "Commit or deploy failed",
+                    "Commit failed",
                     $"{failed.Command}: exit {failed.ExitCode}");
             }
         }

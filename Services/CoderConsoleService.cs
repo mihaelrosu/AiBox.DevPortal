@@ -549,6 +549,96 @@ public sealed class CoderConsoleService(
         };
     }
 
+    public async Task<IReadOnlyList<CommandRunResult>> CommitChangesAsync(string projectPath, string commitMessage)
+    {
+        var rootPath = GetValidatedProjectRoot(projectPath);
+
+        if (string.IsNullOrWhiteSpace(commitMessage))
+        {
+            throw new InvalidOperationException("Commit message is required.");
+        }
+
+        var results = new List<CommandRunResult>();
+
+        var statusResult = await RunFixedCommandAsync(rootPath, "git", ["status", "--short"], "git status --short");
+        results.Add(statusResult);
+
+        if (statusResult.ExitCode != 0 || string.IsNullOrEmpty(statusResult.Output))
+        {
+            return results;
+        }
+
+        var buildResult = await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build");
+        results.Add(buildResult);
+
+        if (buildResult.ExitCode != 0)
+        {
+            return results;
+        }
+
+        var diffStatResult = await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat");
+        results.Add(diffStatResult);
+
+        var addResult = await RunFixedCommandAsync(rootPath, "git", ["add", "."], "git add .");
+        results.Add(addResult);
+
+        if (addResult.ExitCode != 0)
+        {
+            return results;
+        }
+
+        var commitResult = await RunFixedCommandAsync(
+            rootPath,
+            "git",
+            ["commit", "-m", commitMessage],
+            "git commit -m <commit message>");
+        results.Add(commitResult);
+
+        if (commitResult.ExitCode != 0)
+        {
+            return results;
+        }
+
+        var deployResult = await RunFixedCommandAsync(
+            rootPath,
+            "docker",
+            ["compose", "up", "-d", "--build", "aibox-devportal"],
+            "docker compose up -d --build aibox-devportal");
+        results.Add(deployResult);
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<CommandRunResult>> BuildDeployAsync(string projectPath)
+    {
+        var rootPath = GetValidatedProjectRoot(projectPath);
+
+        var results = new List<CommandRunResult>();
+
+        var buildResult = await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build");
+        results.Add(buildResult);
+
+        if (buildResult.ExitCode != 0)
+        {
+            return results;
+        }
+
+        var statusResult = await RunFixedCommandAsync(rootPath, "git", ["status", "--short"], "git status --short");
+        results.Add(statusResult);
+
+        var diffStatResult = await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat");
+        results.Add(diffStatResult);
+
+        var deployResult = await RunFixedCommandAsync(
+            rootPath,
+            "docker",
+            ["compose", "up", "-d", "--build", "aibox-devportal"],
+            "docker compose up -d --build aibox-devportal");
+        results.Add(deployResult);
+
+        return results;
+    }
+
     public async Task<CommandRunResult> RunCommandAsync(string projectPath, string command)
     {
         ValidateProjectPath(projectPath);
