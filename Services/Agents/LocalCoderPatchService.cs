@@ -91,6 +91,12 @@ public sealed partial class LocalCoderPatchService(
         var oldFileHeaders = OldFileHeaderRegex().Matches(patchText);
         var newFileHeaders = NewFileHeaderRegex().Matches(patchText);
         var hunks = HunkHeaderRegex().Matches(patchText);
+        var newFilePaths = diffHeaders
+            .Cast<Match>()
+            .Where(match => IsDevNullPath(match.Groups["old"].Value))
+            .Select(match => NormalizeDiffPath(match.Groups["new"].Value))
+            .Where(path => !string.IsNullOrWhiteSpace(path) && !IsDevNullPath(path))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (diffHeaders.Count == 0)
         {
@@ -114,13 +120,15 @@ public sealed partial class LocalCoderPatchService(
 
         foreach (Match match in diffHeaders)
         {
-            ValidateTouchedPath(task, match.Groups["old"].Value, touchedPaths, errors);
-            ValidateTouchedPath(task, match.Groups["new"].Value, touchedPaths, errors);
+            var allowUnselected = IsDevNullPath(match.Groups["old"].Value);
+            ValidateTouchedPath(task, match.Groups["old"].Value, touchedPaths, errors, allowUnselected);
+            ValidateTouchedPath(task, match.Groups["new"].Value, touchedPaths, errors, allowUnselected);
         }
 
         foreach (Match match in oldFileHeaders.Cast<Match>().Concat(newFileHeaders.Cast<Match>()))
         {
-            ValidateTouchedPath(task, match.Groups["path"].Value, touchedPaths, errors);
+            var allowUnselected = newFilePaths.Contains(NormalizeDiffPath(match.Groups["path"].Value));
+            ValidateTouchedPath(task, match.Groups["path"].Value, touchedPaths, errors, allowUnselected);
         }
 
         if (touchedPaths.Count == 0)
@@ -140,13 +148,13 @@ public sealed partial class LocalCoderPatchService(
         LocalCoderTask task,
         string rawPath,
         HashSet<string> touchedPaths,
-        List<string> errors)
+        List<string> errors,
+        bool allowUnselected)
     {
         var path = NormalizeDiffPath(rawPath);
 
         if (string.IsNullOrWhiteSpace(path) || path == "/dev/null")
         {
-            errors.Add("Creating or deleting files is not allowed in this stage.");
             return;
         }
 
@@ -175,7 +183,7 @@ public sealed partial class LocalCoderPatchService(
         }
 
         var selected = task.SelectedFilePaths ?? [];
-        if (!selected.Any(item => NormalizePath(item).Equals(path, StringComparison.OrdinalIgnoreCase)))
+        if (!allowUnselected && !selected.Any(item => NormalizePath(item).Equals(path, StringComparison.OrdinalIgnoreCase)))
         {
             errors.Add($"Patch path '{path}' was not explicitly selected for context.");
             return;
@@ -299,6 +307,11 @@ public sealed partial class LocalCoderPatchService(
         return normalized.StartsWith("a/", StringComparison.Ordinal) || normalized.StartsWith("b/", StringComparison.Ordinal)
             ? normalized[2..]
             : normalized;
+    }
+
+    private static bool IsDevNullPath(string path)
+    {
+        return string.Equals(NormalizeDiffPath(path), "/dev/null", StringComparison.Ordinal);
     }
 
     private static string NormalizePath(string path)

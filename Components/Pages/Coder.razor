@@ -171,6 +171,30 @@
         </RadzenAlert>
     }
 
+    @if (LastPatchValidationErrors.Count > 0)
+    {
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Patch Debug" TextStyle="TextStyle.H5" />
+
+                <div>
+                    <RadzenText Text="Validation Errors" TextStyle="TextStyle.H6" />
+                    <pre class="coder-error">@string.Join(Environment.NewLine, LastPatchValidationErrors.Select(errorText => $"- {errorText}"))</pre>
+                </div>
+
+                <div>
+                    <RadzenText Text="Raw Model Response" TextStyle="TextStyle.H6" />
+                    <pre class="coder-output">@LastPatchRawResponse</pre>
+                </div>
+
+                <div>
+                    <RadzenText Text="Normalized Diff" TextStyle="TextStyle.H6" />
+                    <pre class="coder-output">@LastPatchNormalizedDiff</pre>
+                </div>
+            </RadzenStack>
+        </RadzenCard>
+    }
+
     @if (patchPreview is not null)
     {
         <RadzenCard>
@@ -829,6 +853,9 @@
     private AgentRunRecord? selectedAgentRun;
     private PatchPackage? selectedPatchPackage;
     private string commitMessage = string.Empty;
+    private string LastPatchRawResponse { get; set; } = string.Empty;
+    private string LastPatchNormalizedDiff { get; set; } = string.Empty;
+    private IReadOnlyList<string> LastPatchValidationErrors { get; set; } = [];
 
     private bool isLoading;
     private bool isPlanning;
@@ -892,6 +919,7 @@
         ClearSelectedFiles();
         currentTask = null;
         patchPreview = null;
+        ClearPatchDebug();
         lastCommand = null;
         verifyResults = [];
         commitResults = [];
@@ -957,6 +985,7 @@
         selectedFiles = [];
         ClearLoadedContext();
         patchPreview = null;
+        ClearPatchDebug();
     }
 
     private void ClearLoadedContext()
@@ -966,6 +995,7 @@
         patchPreview = null;
         applyResult = null;
         rollbackResult = null;
+        ClearPatchDebug();
     }
 
     private async Task CreatePlanAsync()
@@ -1028,6 +1058,7 @@
         patchPreview = null;
         applyResult = null;
         rollbackResult = null;
+        ClearPatchDebug();
 
         try
         {
@@ -1042,6 +1073,7 @@
             }
 
             patchPreview = await AgentModeRunner.GeneratePatchPreviewAsync(request, profile);
+            ClearPatchDebug();
             try
             {
                 selectedPatchPackage = await PatchPackageService.CreateFromPreviewAsync(patchPreview!, request.Task);
@@ -1065,9 +1097,27 @@
                 "Patch preview created",
                 "Local coder generated a patch preview for the selected context.");
         }
+        catch (PatchPreviewValidationException exception)
+        {
+            error = exception.Message;
+            LastPatchRawResponse = exception.RawModelResponse;
+            LastPatchNormalizedDiff = exception.NormalizedDiff;
+            LastPatchValidationErrors = exception.ValidationErrors.ToArray();
+
+            await SaveHistoryEntryAsync(
+                LocalCoderHistoryActionType.GeneratePatchPreview,
+                success: false,
+                exception.Message);
+
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "Patch preview rejected",
+                exception.Message);
+        }
         catch (InvalidOperationException exception)
         {
             error = exception.Message;
+            ClearPatchDebug();
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: false,
@@ -1081,6 +1131,7 @@
         catch (Exception exception)
         {
             error = exception.Message;
+            ClearPatchDebug();
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: false,
@@ -1096,6 +1147,13 @@
             isGeneratingPatch = false;
             await LoadAgentRunHistoryAsync();
         }
+    }
+
+    private void ClearPatchDebug()
+    {
+        LastPatchRawResponse = string.Empty;
+        LastPatchNormalizedDiff = string.Empty;
+        LastPatchValidationErrors = [];
     }
 
     private async Task ApplyPatchAsync()

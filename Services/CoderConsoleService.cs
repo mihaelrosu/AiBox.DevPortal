@@ -17,6 +17,7 @@ public sealed class CoderConsoleService(
     private const long MaxProjectFileSizeBytes = 200 * 1024;
     private const int MaxSelectedFileCount = 12;
     private const int MaxPromptFileCharacters = 12_000;
+    private const string CreatedFileBackupSuffix = ".aibox-created";
 
     private static readonly HashSet<string> AllowedProjectFileExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -207,12 +208,15 @@ public sealed class CoderConsoleService(
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
-        var patchText = CleanPatchPreviewText(result?.Response ?? string.Empty);
+        var rawResponse = result?.Response ?? string.Empty;
+        await SavePatchDebugRawResponseAsync(rawResponse);
+
+        var patchText = NormalizePatchPreviewText(rawResponse);
         var validation = ValidatePatchPreview(patchText, request.FileContexts, request.Task);
 
         if (!validation.IsValid)
         {
-            throw new InvalidOperationException($"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.Errors)}");
+            throw CreatePatchPreviewValidationException(validation, rawResponse, patchText);
         }
 
         return new LocalCoderPatchPreview
@@ -230,7 +234,7 @@ public sealed class CoderConsoleService(
         ArgumentNullException.ThrowIfNull(patchPreview);
 
         var rootPath = GetValidatedProjectRoot(patchPreview.ProjectPath);
-        var patchText = CleanPatchPreviewText(patchPreview.PatchText);
+        var patchText = NormalizePatchPreviewText(patchPreview.PatchText);
 
         if (patchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.Ordinal))
         {
@@ -248,11 +252,8 @@ public sealed class CoderConsoleService(
             throw new InvalidOperationException($"Patch apply validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.Errors)}");
         }
 
-        var selectedPaths = new HashSet<string>(
-            patchPreview.FileContexts.Select(fileContext => NormalizePreviewPath(fileContext.RelativePath)),
-            StringComparer.OrdinalIgnoreCase);
-
-        var changedFiles = ExtractChangedPathsFromDiffHeaders(patchText.ReplaceLineEndings("\n").Split('\n'))
+        var changedFiles = ExtractChangedFilePathsFromDiffHeaders(patchText.ReplaceLineEndings("\n").Split('\n'))
+            .SelectMany(filePaths => new[] { filePaths.OldPath, filePaths.NewPath })
             .Select(NormalizePreviewPath)
             .Where(path => !string.IsNullOrWhiteSpace(path) && !IsDevNullPath(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -267,10 +268,9 @@ public sealed class CoderConsoleService(
         {
             if (Path.IsPathRooted(changedFile) ||
                 changedFile.StartsWith("/", StringComparison.Ordinal) ||
-                changedFile.Contains("..", StringComparison.Ordinal) ||
-                !selectedPaths.Contains(changedFile))
+                changedFile.Contains("..", StringComparison.Ordinal))
             {
-                throw new InvalidOperationException($"Patch apply references a file not present in selected file context: {changedFile}");
+                throw new InvalidOperationException($"Patch apply references an invalid file path: {changedFile}");
             }
         }
 
@@ -285,14 +285,25 @@ public sealed class CoderConsoleService(
 
             foreach (var changedFile in changedFiles)
             {
-                var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, changedFile);
+                var normalizedRelativePath = ValidateAndNormalizePatchTargetPath(rootPath, changedFile);
                 var sourcePath = Path.Combine(rootPath, normalizedRelativePath);
-                var backupPath = Path.Combine(backupRoot, normalizedRelativePath);
 
-                originalFileContents[normalizedRelativePath] = await File.ReadAllBytesAsync(sourcePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
-                File.Copy(sourcePath, backupPath, overwrite: false);
-                backupFiles.Add(Path.GetRelativePath(rootPath, backupPath).Replace('\\', '/'));
+                if (File.Exists(sourcePath))
+                {
+                    var backupPath = Path.Combine(backupRoot, normalizedRelativePath);
+                    originalFileContents[normalizedRelativePath] = await File.ReadAllBytesAsync(sourcePath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
+                    File.Copy(sourcePath, backupPath, overwrite: false);
+                    backupFiles.Add(Path.GetRelativePath(rootPath, backupPath).Replace('\\', '/'));
+                }
+                else
+                {
+                    var backupPath = Path.Combine(backupRoot, normalizedRelativePath + CreatedFileBackupSuffix);
+                    originalFileContents[normalizedRelativePath] = [];
+                    Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
+                    await File.WriteAllTextAsync(backupPath, string.Empty);
+                    backupFiles.Add(Path.GetRelativePath(rootPath, backupPath).Replace('\\', '/'));
+                }
             }
 
             var applyResult = await RunFixedCommandAsync(
@@ -350,7 +361,7 @@ public sealed class CoderConsoleService(
             var changedTargetProven = false;
             foreach (var changedFile in changedFiles)
             {
-                var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, changedFile);
+                var normalizedRelativePath = ValidateAndNormalizePatchTargetPath(rootPath, changedFile);
                 var currentContent = await File.ReadAllBytesAsync(Path.Combine(rootPath, normalizedRelativePath));
 
                 if (!currentContent.AsSpan().SequenceEqual(originalFileContents[normalizedRelativePath]))
@@ -366,7 +377,7 @@ public sealed class CoderConsoleService(
                 {
                     Applied = false,
                     VerificationPassed = false,
-                    Message = "Patch apply failed: no selected file changes detected after git apply.",
+                    Message = "Patch apply failed: no changed file updates detected after git apply.",
                     GitApplyResult = applyResult,
                     GitDiffStatResult = diffStatResult,
                     ChangedFiles = changedFiles,
@@ -463,11 +474,29 @@ public sealed class CoderConsoleService(
             }
 
             var restoredRelativePath = GetRestoredRelativePathFromBackup(backupRelativePath);
+            var deleteCreatedFile = restoredRelativePath.EndsWith(CreatedFileBackupSuffix, StringComparison.OrdinalIgnoreCase);
+
+            if (deleteCreatedFile)
+            {
+                restoredRelativePath = restoredRelativePath[..^CreatedFileBackupSuffix.Length];
+            }
+
             var restoredFullPath = Path.GetFullPath(Path.Combine(rootPath, restoredRelativePath));
 
             if (!restoredFullPath.StartsWith(rootPrefix, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException($"Restored path is outside the project root: {restoredRelativePath}");
+            }
+
+            if (deleteCreatedFile)
+            {
+                if (File.Exists(restoredFullPath))
+                {
+                    File.Delete(restoredFullPath);
+                }
+
+                restoredFiles.Add(restoredRelativePath.Replace('\\', '/'));
+                continue;
             }
 
             var restoredDirectory = Path.GetDirectoryName(restoredFullPath);
@@ -912,14 +941,12 @@ public sealed class CoderConsoleService(
         return $$"""
         You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
 
-        Return only the diff.
-        The diff must be a unified diff that starts with diff --git.
-        Do not return a plan.
-        Do not return markdown explanation.
-        Do not return headings.
-        Only modify files from the selected file context.
+        Return ONLY a unified diff.
+        Do not explain.
+        Do not use markdown fences.
+        Do not include text before or after the diff.
+        First line must be diff --git.
         Use repository-relative paths.
-        If no concrete patch can be created, return PATCH_NOT_POSSIBLE.
 
         {{profileText}}
 
@@ -1075,6 +1102,36 @@ public sealed class CoderConsoleService(
         if (fileInfo.Length > MaxProjectFileSizeBytes)
         {
             throw new InvalidOperationException($"Selected file path '{trimmed}' exceeds the {MaxProjectFileSizeBytes / 1024} KB limit.");
+        }
+
+        return Path.GetRelativePath(rootPath, fullPath);
+    }
+
+    private static string ValidateAndNormalizePatchTargetPath(string rootPath, string relativePath)
+    {
+        var trimmed = relativePath.Trim();
+
+        if (Path.IsPathRooted(trimmed))
+        {
+            throw new InvalidOperationException("Patch file paths must be repository-relative.");
+        }
+
+        if (trimmed.Contains(':', StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Patch file path '{trimmed}' must not contain a drive separator.");
+        }
+
+        if (trimmed.Contains("..", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Patch file path '{trimmed}' cannot contain '..'.");
+        }
+
+        var fullPath = Path.GetFullPath(Path.Combine(rootPath, trimmed));
+        var rootPrefix = rootPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        if (!fullPath.StartsWith(rootPrefix, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Patch file path '{trimmed}' is outside the project root.");
         }
 
         return Path.GetRelativePath(rootPath, fullPath);
@@ -1344,14 +1401,9 @@ public sealed class CoderConsoleService(
             errors.Add("Patch preview contains text outside a valid unified diff.");
         }
 
-        if (!HasMeaningfulAddedLine(lines))
+        if (!HasRealChangedLine(lines))
         {
-            errors.Add("Patch preview must include at least one meaningful added line.");
-        }
-
-        if (!HasRemovedLine(lines))
-        {
-            errors.Add("Patch preview must include at least one removed line.");
+            errors.Add("Patch preview must include at least one real changed line.");
         }
 
         if (HasOnlyClosingTagChanges(lines))
@@ -1359,10 +1411,7 @@ public sealed class CoderConsoleService(
             errors.Add("Patch preview only changes closing tags.");
         }
 
-        var referencedPaths = ExtractChangedPathsFromDiffHeaders(lines)
-            .Select(NormalizePreviewPath)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        var fileDiffs = ExtractChangedFilePathsFromDiffHeaders(lines).ToArray();
 
         if (HasUnsafeRazorClosingTagChange(lines))
         {
@@ -1374,16 +1423,10 @@ public sealed class CoderConsoleService(
             errors.Add("Patch preview does not appear to implement the requested change.");
         }
 
-        foreach (var referencedPath in referencedPaths)
+        foreach (var fileDiff in fileDiffs)
         {
-            if (string.IsNullOrWhiteSpace(referencedPath) ||
-                Path.IsPathRooted(referencedPath) ||
-                referencedPath.StartsWith("/", StringComparison.Ordinal) ||
-                referencedPath.Contains("..", StringComparison.Ordinal) ||
-                !selectedPaths.Contains(referencedPath))
-            {
-                errors.Add($"Patch preview references a file path not present in the selected file context: {referencedPath}");
-            }
+            ValidatePreviewPath(fileDiff.OldPath, selectedPaths, errors, allowUnselected: IsDevNullPath(fileDiff.OldPath));
+            ValidatePreviewPath(fileDiff.NewPath, selectedPaths, errors, allowUnselected: IsDevNullPath(fileDiff.OldPath));
         }
 
         return new LocalCoderPatchValidationResult
@@ -1476,25 +1519,48 @@ public sealed class CoderConsoleService(
         return false;
     }
 
-    private static string CleanPatchPreviewText(string patchText)
+    private static string NormalizePatchPreviewText(string patchText)
     {
-        var cleaned = patchText.ReplaceLineEndings("\n").Trim();
+        var cleaned = RemoveMarkdownFences(patchText);
+        var diffStart = cleaned.IndexOf("diff --git", StringComparison.Ordinal);
 
-        if (!cleaned.StartsWith("```", StringComparison.Ordinal))
-        {
-            return cleaned;
-        }
+        return diffStart >= 0 ? cleaned[diffStart..].Trim() : cleaned.Trim();
+    }
 
-        var lines = cleaned
+    private static string RemoveMarkdownFences(string patchText)
+    {
+        var lines = (patchText ?? string.Empty)
+            .ReplaceLineEndings("\n")
             .Split('\n')
-            .ToList();
-
-        if (lines.Count >= 2 && lines[0].TrimStart().StartsWith("```", StringComparison.Ordinal) && lines[^1].TrimStart().StartsWith("```", StringComparison.Ordinal))
-        {
-            lines = lines.Skip(1).Take(lines.Count - 2).ToList();
-        }
+            .Where(line =>
+            {
+                var trimmed = line.TrimStart();
+                return !trimmed.StartsWith("```", StringComparison.Ordinal);
+            });
 
         return string.Join(Environment.NewLine, lines).Trim();
+    }
+
+    private static PatchPreviewValidationException CreatePatchPreviewValidationException(
+        LocalCoderPatchValidationResult validation,
+        string rawResponse,
+        string normalizedDiff)
+    {
+        return new PatchPreviewValidationException(
+            $"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.Errors)}",
+            validation.Errors,
+            rawResponse,
+            normalizedDiff);
+    }
+
+    private async Task SavePatchDebugRawResponseAsync(string rawResponse)
+    {
+        var debugDirectory = Path.Combine(environment.ContentRootPath, "Data", "patch-debug");
+        Directory.CreateDirectory(debugDirectory);
+
+        var fileName = $"{DateTime.UtcNow:yyyyMMddHHmmss}-raw.txt";
+        var filePath = Path.Combine(debugDirectory, fileName);
+        await File.WriteAllTextAsync(filePath, rawResponse ?? string.Empty);
     }
 
     private static bool IsValidUnifiedDiff(IReadOnlyList<string> lines)
@@ -1656,19 +1722,12 @@ public sealed class CoderConsoleService(
                lower.Distinct().Count() == 1;
     }
 
-    private static bool HasMeaningfulAddedLine(IReadOnlyList<string> lines)
+    private static bool HasRealChangedLine(IReadOnlyList<string> lines)
     {
         return lines.Any(line =>
-            line.StartsWith("+", StringComparison.Ordinal) &&
-            !line.StartsWith("+++", StringComparison.Ordinal) &&
+            ((line.StartsWith("+", StringComparison.Ordinal) && !line.StartsWith("+++", StringComparison.Ordinal)) ||
+             (line.StartsWith("-", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal))) &&
             !string.IsNullOrWhiteSpace(line[1..]));
-    }
-
-    private static bool HasRemovedLine(IReadOnlyList<string> lines)
-    {
-        return lines.Any(line =>
-            line.StartsWith("-", StringComparison.Ordinal) &&
-            !line.StartsWith("---", StringComparison.Ordinal));
     }
 
     private static bool HasUnsafeRazorClosingTagChange(IReadOnlyList<string> lines)
@@ -1784,7 +1843,32 @@ public sealed class CoderConsoleService(
         }
     }
 
-    private static IEnumerable<string> ExtractChangedPathsFromDiffHeaders(IReadOnlyList<string> lines)
+    private static void ValidatePreviewPath(
+        string path,
+        IReadOnlySet<string> selectedPaths,
+        List<string> errors,
+        bool allowUnselected)
+    {
+        if (string.IsNullOrWhiteSpace(path) || IsDevNullPath(path))
+        {
+            return;
+        }
+
+        if (Path.IsPathRooted(path) ||
+            path.StartsWith("/", StringComparison.Ordinal) ||
+            path.Contains("..", StringComparison.Ordinal))
+        {
+            errors.Add($"Patch preview references an invalid file path: {path}");
+            return;
+        }
+
+        if (!allowUnselected && !selectedPaths.Contains(path))
+        {
+            errors.Add($"Patch preview references a file path not present in the selected file context: {path}");
+        }
+    }
+
+    private static IEnumerable<DiffFilePaths> ExtractChangedFilePathsFromDiffHeaders(IReadOnlyList<string> lines)
     {
         foreach (var line in lines)
         {
@@ -1793,22 +1877,15 @@ public sealed class CoderConsoleService(
                 var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length >= 4)
                 {
-                    var leftPath = StripDiffPathPrefix(parts[2]);
-                    var rightPath = StripDiffPathPrefix(parts[3]);
-
-                    if (!IsDevNullPath(leftPath))
-                    {
-                        yield return leftPath;
-                    }
-
-                    if (!IsDevNullPath(rightPath))
-                    {
-                        yield return rightPath;
-                    }
+                    yield return new DiffFilePaths(
+                        StripDiffPathPrefix(parts[2]),
+                        StripDiffPathPrefix(parts[3]));
                 }
             }
         }
     }
+
+    private sealed record DiffFilePaths(string OldPath, string NewPath);
 
     private static bool IsPlanningOnlyTask(string task)
     {

@@ -1,0 +1,16 @@
+```diff
+diff --git a/Components/Pages/Coder.razor b/Components/Pages/Coder.razor
+index 1234567..89abcde 100644
+--- a/Components/Pages/Coder.razor
++++ b/Components/Pages/Coder.razor
+@@ -11,6 +11,9 @@
+ <RadzenText Text="Use a local Ollama model to plan code changes, generate patch previews, apply patches, rollback patches, and run safe verification commands." TextStyle="TextStyle.Body2" />
+ </RadzenColumn>
+ <RadzenColumn Size="12" SizeMD="3">
++    <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
++        Patch previews must be approved before they can be applied.
++    </RadzenAlert>
+     <RadzenButton Text="Refresh" Icon="refresh" Click="@LoadAsync" Disabled="@isLoading" Style="width: 100%;" />
+ </RadzenColumn>
+ </RadzenRow>
+```
