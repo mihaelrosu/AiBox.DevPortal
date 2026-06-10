@@ -349,6 +349,127 @@
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                          JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
                 <div>
+                    <RadzenText Text="Patch Queue" TextStyle="TextStyle.H5" />
+                    <RadzenText Text="Generated patches are saved here as draft packages. Review, approve, apply, and verify from this queue."
+                                TextStyle="TextStyle.Body2" />
+                </div>
+
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Review" Icon="rate_review" ButtonStyle="ButtonStyle.Light"
+                                  Click="@ReviewSelectedPatchAsync" Disabled="@(!CanReviewSelectedPatch())" />
+                    <RadzenButton Text="Approve" Icon="check_circle" ButtonStyle="ButtonStyle.Success"
+                                  Click="@ApproveSelectedPatchAsync" Disabled="@(!CanApproveSelectedPatch())" />
+                    <RadzenButton Text="Apply" Icon="publish" ButtonStyle="ButtonStyle.Danger"
+                                  Click="@ApplySelectedPatchAsync" Disabled="@(!CanApplySelectedPatch())" />
+                    <RadzenButton Text="Verify" Icon="verified" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@VerifySelectedPatchAsync" Disabled="@(!CanVerifySelectedPatch())" />
+                    <RadzenButton Text="Rollback" Icon="undo" ButtonStyle="ButtonStyle.Warning"
+                                  Click="@RollbackSelectedPatchAsync" Disabled="@(!CanRollbackSelectedPatch())" />
+                </RadzenStack>
+            </RadzenStack>
+
+            <RadzenDataGrid Data="@patchPackages" TItem="PatchPackage" AllowPaging="true" PageSize="8"
+                            AllowSorting="false" EmptyText="No patch packages queued yet."
+                            RowSelect="@OnPatchPackageSelected">
+                <Columns>
+                    <RadzenDataGridColumn TItem="PatchPackage" Title="Created">
+                        <Template Context="package">
+                            @package.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="PatchPackage" Property="Status" Title="Status" />
+                    <RadzenDataGridColumn TItem="PatchPackage" Property="ProjectPath" Title="Project" />
+                    <RadzenDataGridColumn TItem="PatchPackage" Property="Model" Title="Model" />
+                    <RadzenDataGridColumn TItem="PatchPackage" Title="Files">
+                        <Template Context="package">
+                            @package.FileChanges.Count
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="PatchPackage" Property="StatusMessage" Title="Message" />
+                </Columns>
+            </RadzenDataGrid>
+
+            @if (selectedPatchPackage is not null)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="0.75rem">
+                        <RadzenText Text="Selected Patch" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="@($"Package ID: {selectedPatchPackage.Id}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Status: {selectedPatchPackage.Status}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Project path: {selectedPatchPackage.ProjectPath}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Model: {selectedPatchPackage.Model}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Request: {selectedPatchPackage.UserRequest}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Status message: {selectedPatchPackage.StatusMessage}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Approval gates passed: {selectedPatchPackage.ApprovalGatesPassed}")"
+                                    TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Backup folder: {selectedPatchPackage.BackupFolder}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Applied at: {(selectedPatchPackage.AppliedAt?.ToString("O") ?? "n/a")}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Rolled back: {selectedPatchPackage.RolledBack}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Rolled back at: {(selectedPatchPackage.RolledBackAt?.ToString("O") ?? "n/a")}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Rollback result: {selectedPatchPackage.RollbackResult}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Rollback error: {selectedPatchPackage.RollbackError}")" TextStyle="TextStyle.Body1" />
+
+                        <RadzenText Text="Approval Gate Results" TextStyle="TextStyle.H6" />
+                        @if (selectedPatchPackage.ApprovalGateResults.Count == 0)
+                        {
+                            <RadzenText Text="No approval gates have been run yet." TextStyle="TextStyle.Body2" />
+                        }
+                        else
+                        {
+                            @foreach (var gateResult in selectedPatchPackage.ApprovalGateResults)
+                            {
+                                <RadzenCard Style="margin: 0;">
+                                    <RadzenStack Gap="0.25rem">
+                                        <RadzenText Text="@gateResult.GateKey" TextStyle="TextStyle.Body1" />
+                                        <RadzenText Text="@($"Passed: {gateResult.Passed}")" TextStyle="TextStyle.Body2" />
+                                        <RadzenText Text="@($"Blocking: {gateResult.Blocking}")" TextStyle="TextStyle.Body2" />
+                                        <RadzenText Text="@($"Warning: {gateResult.Warning}")" TextStyle="TextStyle.Body2" />
+                                        @if (!string.IsNullOrWhiteSpace(gateResult.FilePath))
+                                        {
+                                            <RadzenText Text="@($"File: {gateResult.FilePath}")" TextStyle="TextStyle.Body2" />
+                                        }
+                                        <RadzenText Text="@gateResult.Message" TextStyle="TextStyle.Body2" />
+                                    </RadzenStack>
+                                </RadzenCard>
+                            }
+                        }
+
+                        <RadzenText Text="Selected Patch Files" TextStyle="TextStyle.H6" />
+                        @foreach (var fileChange in selectedPatchPackage.FileChanges)
+                        {
+                            <RadzenText Text="@fileChange.RelativePath" TextStyle="TextStyle.Body2" />
+                        }
+
+                        <RadzenText Text="Simple Before/After Diff" TextStyle="TextStyle.H6" />
+                        @foreach (var fileChange in selectedPatchPackage.FileChanges)
+                        {
+                            <details style="margin-bottom: 0.75rem;">
+                                <summary>@fileChange.RelativePath</summary>
+                                <RadzenText Text="Before" TextStyle="TextStyle.Body2" />
+                                <pre class="coder-output">@fileChange.OldContent</pre>
+                                <RadzenText Text="After" TextStyle="TextStyle.Body2" />
+                                <pre class="coder-output">@fileChange.NewContent</pre>
+                            </details>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(selectedPatchPackage.PatchText))
+                        {
+                            <details>
+                                <summary>Raw Patch Text</summary>
+                                <pre class="coder-output">@selectedPatchPackage.PatchText</pre>
+                            </details>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                <div>
                     <RadzenText Text="Task History" TextStyle="TextStyle.H5" />
                     <RadzenText Text="@($"Latest entries: {historyEntries.Count}")" TextStyle="TextStyle.Body2" />
                 </div>
@@ -676,6 +797,9 @@
     [Inject] private IAgentModeRunner AgentModeRunner { get; set; } = default!;
     [Inject] private IAgentModeProfileService AgentModeProfiles { get; set; } = default!;
     [Inject] private IAgentRunHistoryService AgentRunHistoryService { get; set; } = default!;
+    [Inject] private IPatchPackageService PatchPackageService { get; set; } = default!;
+    [Inject] private IPatchApplyService PatchApplyService { get; set; } = default!;
+    [Inject] private IPatchRollbackService PatchRollbackService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
     [Inject] private Radzen.NotificationService NotificationService { get; set; } = default!;
@@ -689,6 +813,7 @@
     private IReadOnlyList<CommandRunResult> buildDeployResults = [];
     private IReadOnlyList<AgentModeProfile> agentModeProfiles = [];
     private IReadOnlyList<AgentRunRecord> agentRunHistory = [];
+    private IReadOnlyList<PatchPackage> patchPackages = [];
     private IReadOnlyList<LocalCoderHistoryEntry> historyEntries = [];
 
     private List<LocalCoderFileContext> fileContexts = [];
@@ -702,6 +827,7 @@
     private CommandRunResult? lastCommand;
     private LocalCoderHistoryEntry? selectedHistoryEntry;
     private AgentRunRecord? selectedAgentRun;
+    private PatchPackage? selectedPatchPackage;
     private string commitMessage = string.Empty;
 
     private bool isLoading;
@@ -747,6 +873,7 @@
 
             agentModeProfiles = await AgentModeProfiles.GetAllAsync();
             await LoadAgentRunHistoryAsync();
+            await LoadPatchQueueAsync();
             await LoadHistoryAsync();
         }
         catch (Exception exception)
@@ -772,6 +899,7 @@
         rollbackResult = null;
         selectedHistoryEntry = null;
         selectedAgentRun = null;
+        selectedPatchPackage = null;
 
         error = null;
         return Task.CompletedTask;
@@ -914,6 +1042,18 @@
             }
 
             patchPreview = await AgentModeRunner.GeneratePatchPreviewAsync(request, profile);
+            try
+            {
+                selectedPatchPackage = await PatchPackageService.CreateFromPreviewAsync(patchPreview!, request.Task);
+                await LoadPatchQueueAsync();
+            }
+            catch (Exception packageException)
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Warning,
+                    "Patch queue save failed",
+                    packageException.Message);
+            }
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: true,
@@ -1506,10 +1646,216 @@
         }
     }
 
+    private async Task LoadPatchQueueAsync()
+    {
+        try
+        {
+            patchPackages = await PatchPackageService.GetAllAsync();
+
+            if (selectedPatchPackage is not null)
+            {
+                selectedPatchPackage = patchPackages.FirstOrDefault(package => package.Id == selectedPatchPackage.Id)
+                    ?? selectedPatchPackage;
+            }
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+    }
+
     private Task OnAgentRunSelected(AgentRunRecord run)
     {
         selectedAgentRun = run;
         return Task.CompletedTask;
+    }
+
+    private Task OnPatchPackageSelected(PatchPackage package)
+    {
+        selectedPatchPackage = package;
+        return Task.CompletedTask;
+    }
+
+    private bool CanReviewSelectedPatch()
+    {
+        return selectedPatchPackage is not null && !isCommitRunning && !isBuildDeployRunning && !isApplyingPatch;
+    }
+
+    private bool CanApproveSelectedPatch()
+    {
+        return selectedPatchPackage is not null &&
+               selectedPatchPackage.Status is PatchPackageStatus.Draft or PatchPackageStatus.Reviewed &&
+               !isCommitRunning &&
+               !isBuildDeployRunning &&
+               !isApplyingPatch;
+    }
+
+    private bool CanApplySelectedPatch()
+    {
+        return selectedPatchPackage is not null &&
+               selectedPatchPackage.Status == PatchPackageStatus.Approved &&
+               selectedPatchPackage.ApprovalGatesPassed &&
+               !isApplyingPatch &&
+               !isRollingBack;
+    }
+
+    private bool CanRollbackSelectedPatch()
+    {
+        return selectedPatchPackage is not null &&
+               selectedPatchPackage.Status == PatchPackageStatus.Applied &&
+               !selectedPatchPackage.RolledBack &&
+               !isApplyingPatch &&
+               !isRollingBack &&
+               !isCommitRunning &&
+               !isBuildDeployRunning;
+    }
+
+    private bool CanVerifySelectedPatch()
+    {
+        return selectedPatchPackage is not null &&
+               !isVerifying &&
+               !isRunningCommand;
+    }
+
+    private async Task ReviewSelectedPatchAsync()
+    {
+        if (selectedPatchPackage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            selectedPatchPackage = await PatchPackageService.UpdateStatusAsync(
+                selectedPatchPackage.Id,
+                PatchPackageStatus.Reviewed,
+                "Patch reviewed.");
+            await LoadPatchQueueAsync();
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                "Patch reviewed",
+                selectedPatchPackage?.Id ?? string.Empty);
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Patch review failed", exception.Message);
+        }
+    }
+
+    private async Task ApproveSelectedPatchAsync()
+    {
+        if (selectedPatchPackage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            selectedPatchPackage = await PatchPackageService.ApproveAsync(selectedPatchPackage.Id);
+            await LoadPatchQueueAsync();
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                "Patch approved",
+                selectedPatchPackage?.Id ?? string.Empty);
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Patch approval failed", exception.Message);
+        }
+    }
+
+    private async Task ApplySelectedPatchAsync()
+    {
+        if (selectedPatchPackage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            selectedPatchPackage = await PatchApplyService.ApplyAsync(selectedPatchPackage.Id);
+            await LoadPatchQueueAsync();
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                "Patch applied",
+                selectedPatchPackage?.StatusMessage ?? "Applied.");
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            await PatchPackageService.UpdateStatusAsync(
+                selectedPatchPackage.Id,
+                PatchPackageStatus.Failed,
+                exception.Message);
+            await LoadPatchQueueAsync();
+            NotificationService.Notify(NotificationSeverity.Error, "Patch apply failed", exception.Message);
+        }
+    }
+
+    private async Task RollbackSelectedPatchAsync()
+    {
+        if (selectedPatchPackage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            isRollingBack = true;
+            selectedPatchPackage = await PatchRollbackService.RollbackAsync(selectedPatchPackage.Id);
+            await LoadPatchQueueAsync();
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                "Patch rolled back",
+                selectedPatchPackage?.RollbackResult ?? "Rollback completed.");
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            await LoadPatchQueueAsync();
+            NotificationService.Notify(NotificationSeverity.Error, "Patch rollback failed", exception.Message);
+        }
+        finally
+        {
+            isRollingBack = false;
+        }
+    }
+
+    private async Task VerifySelectedPatchAsync()
+    {
+        if (selectedPatchPackage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var profile = GetRequiredProfile(AgentActionProfiles.ForVerifyProject());
+            var results = await AgentModeRunner.VerifyProjectAsync(selectedPatchPackage.ProjectPath, profile);
+            var failed = results.FirstOrDefault(result => result.ExitCode != 0);
+            var status = failed is null ? PatchPackageStatus.Verified : PatchPackageStatus.Failed;
+            var statusMessage = failed is null
+                ? "Patch verification passed."
+                : $"{failed.Command} exited {failed.ExitCode}";
+
+            selectedPatchPackage = await PatchPackageService.UpdateStatusAsync(
+                selectedPatchPackage.Id,
+                status,
+                statusMessage);
+            await LoadPatchQueueAsync();
+
+            NotificationService.Notify(
+                failed is null ? NotificationSeverity.Success : NotificationSeverity.Warning,
+                failed is null ? "Patch verified" : "Patch verification failed",
+                statusMessage);
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Patch verification failed", exception.Message);
+        }
     }
 
     private async Task ViewHistoryEntryAsync(string id)
