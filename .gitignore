@@ -11,6 +11,7 @@ obj/
 
 Data/DataProtection-Keys/
 Data/local-coder-history.json
+Data/coder-task-history.json
 
 .vscode/*
 !.vscode/extensions.json
