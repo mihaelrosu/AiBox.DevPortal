@@ -91,7 +91,7 @@
         </RadzenAlert>
     }
 
-    @* @if (patchPreview is not null)
+    @if (patchPreview is not null)
     {
         <RadzenCard>
             <RadzenStack Gap="0.75rem">
@@ -119,7 +119,7 @@
                 </RadzenStack>
             </RadzenStack>
         </RadzenCard>
-    } *@
+    }
 
     @if (applyResult is not null)
     {
@@ -553,7 +553,10 @@
             }
 
             patchPreview = await CoderConsoleService.GeneratePatchPreviewAsync(request);
-
+            Console.WriteLine("PATCH PREVIEW SERVICE RETURNED");
+            Console.WriteLine($"patchPreview null: {patchPreview is null}");
+            Console.WriteLine($"patchPreview patch length: {patchPreview?.PatchText?.Length ?? 0}");
+            Console.WriteLine($"patchPreview project path: {patchPreview?.ProjectPath}");
             NotificationService.Notify(
                 NotificationSeverity.Success,
                 "Patch preview created",
