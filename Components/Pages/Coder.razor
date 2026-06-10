@@ -311,6 +311,9 @@
                                 <RadzenText Text="History Detail" TextStyle="TextStyle.H5" />
                                 <RadzenText Text="@selectedHistoryEntry.Message" TextStyle="TextStyle.Body2" />
                             </div>
+
+                            <RadzenButton Text="Use as Context" Icon="call_split" ButtonStyle="ButtonStyle.Primary"
+                                          Click="@UseHistoryEntryAsContextAsync" />
                         </RadzenStack>
 
                         <RadzenText Text="@($"Action: {selectedHistoryEntry.ActionType}")" TextStyle="TextStyle.Body1" />
@@ -1153,6 +1156,36 @@
         selectedHistoryEntry = await LocalCoderHistoryService.GetEntryAsync(id);
     }
 
+    private async Task UseHistoryEntryAsContextAsync()
+    {
+        if (selectedHistoryEntry is null)
+        {
+            return;
+        }
+
+        request.ProjectPath = selectedHistoryEntry.ProjectPath;
+        if (!string.IsNullOrWhiteSpace(selectedHistoryEntry.Model))
+        {
+            request.Model = selectedHistoryEntry.Model;
+        }
+
+        selectedFilePaths = selectedHistoryEntry.SelectedFiles.ToList();
+        selectedFiles = [];
+        ClearLoadedContext();
+
+        await EnsureFileContextLoadedAsync();
+
+        var summary = BuildHistoryContextSummary(selectedHistoryEntry);
+        request.Task = string.IsNullOrWhiteSpace(request.Task)
+            ? summary
+            : $"{request.Task.TrimEnd()}{Environment.NewLine}{Environment.NewLine}{summary}";
+
+        NotificationService.Notify(
+            NotificationSeverity.Success,
+            "History context loaded",
+            "The history entry was loaded into the current task context.");
+    }
+
     private async Task ClearHistoryAsync()
     {
         var confirmed = await DialogService.Confirm(
@@ -1250,5 +1283,36 @@
     private static string GetHistoryStatusText(bool success)
     {
         return success ? "Success" : "Failed";
+    }
+
+    private static string BuildHistoryContextSummary(LocalCoderHistoryEntry entry)
+    {
+        var selectedFiles = entry.SelectedFiles.Count == 0
+            ? "none"
+            : string.Join(", ", entry.SelectedFiles);
+
+        var resultStatus = entry.ActionType switch
+        {
+            LocalCoderHistoryActionType.ApplyPatch => entry.ApplyResult is null
+                ? "n/a"
+                : $"{entry.ApplyResult.Applied}, verification {entry.ApplyResult.VerificationPassed}",
+            LocalCoderHistoryActionType.RollbackPatch => entry.RollbackResult is null
+                ? "n/a"
+                : $"{entry.RollbackResult.RolledBack}, verification {entry.RollbackResult.VerificationPassed}",
+            LocalCoderHistoryActionType.VerifyProject => entry.VerificationResults.Count == 0
+                ? "n/a"
+                : entry.Success.ToString(),
+            _ => entry.Success.ToString()
+        };
+
+        return string.Join(Environment.NewLine, new[]
+        {
+            "Previous Local Coder history context:",
+            $"- Previous action: {entry.ActionType}",
+            $"- Previous task: {entry.Task}",
+            $"- Previous selected files: {selectedFiles}",
+            $"- Previous result message: {entry.Message}",
+            $"- Apply/rollback/verify passed: {resultStatus}"
+        });
     }
 }
