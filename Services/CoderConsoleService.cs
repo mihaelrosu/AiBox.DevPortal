@@ -476,6 +476,79 @@ public sealed class CoderConsoleService(
         }
     }
 
+    public async Task<LocalCoderPatchRollbackResult> RollbackPatchAsync(
+        LocalCoderPatchApplyResult applyResult,
+        string projectPath)
+    {
+        ArgumentNullException.ThrowIfNull(applyResult);
+
+        var rootPath = GetValidatedProjectRoot(projectPath);
+
+        if (applyResult.BackupFiles.Count == 0)
+        {
+            throw new InvalidOperationException("Rollback requires backup files from a previous apply.");
+        }
+
+        var restoredFiles = new List<string>();
+
+        foreach (var backupFile in applyResult.BackupFiles)
+        {
+            if (string.IsNullOrWhiteSpace(backupFile))
+            {
+                continue;
+            }
+
+            var backupRelativePath = backupFile.Replace('\\', '/').Trim();
+            var backupFullPath = Path.GetFullPath(Path.Combine(rootPath, backupRelativePath));
+            var rootPrefix = rootPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+            if (!backupFullPath.StartsWith(rootPrefix, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Backup file is outside the project root: {backupFile}");
+            }
+
+            if (!File.Exists(backupFullPath))
+            {
+                throw new InvalidOperationException($"Backup file does not exist: {backupFile}");
+            }
+
+            var restoredRelativePath = GetRestoredRelativePathFromBackup(backupRelativePath);
+            var restoredFullPath = Path.GetFullPath(Path.Combine(rootPath, restoredRelativePath));
+
+            if (!restoredFullPath.StartsWith(rootPrefix, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Restored path is outside the project root: {restoredRelativePath}");
+            }
+
+            var restoredDirectory = Path.GetDirectoryName(restoredFullPath);
+            if (!string.IsNullOrWhiteSpace(restoredDirectory))
+            {
+                Directory.CreateDirectory(restoredDirectory);
+            }
+
+            File.Copy(backupFullPath, restoredFullPath, overwrite: true);
+            restoredFiles.Add(restoredRelativePath.Replace('\\', '/'));
+        }
+
+        var diffStatResult = await RunFixedCommandAsync(rootPath, "git", ["diff", "--stat"], "git diff --stat");
+        var buildResult = await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build");
+        var testResult = await RunFixedCommandAsync(rootPath, "dotnet", ["test"], "dotnet test");
+
+        var verificationResults = new[] { diffStatResult, buildResult, testResult };
+        var verificationPassed = verificationResults.All(result => result.ExitCode == 0);
+
+        return new LocalCoderPatchRollbackResult
+        {
+            RolledBack = true,
+            VerificationPassed = verificationPassed,
+            Message = verificationPassed
+                ? $"Rollback restored {restoredFiles.Count} file(s) and verification passed."
+                : $"Rollback restored {restoredFiles.Count} file(s), but verification failed. Review the verification results.",
+            RestoredFiles = restoredFiles,
+            VerificationResults = verificationResults
+        };
+    }
+
     public async Task<CommandRunResult> RunCommandAsync(string projectPath, string command)
     {
         ValidateProjectPath(projectPath);
@@ -732,6 +805,27 @@ public sealed class CoderConsoleService(
             : result.Error;
 
         return $"{result.Command} exited {result.ExitCode}: {detail.Trim()}";
+    }
+
+    private static string GetRestoredRelativePathFromBackup(string backupRelativePath)
+    {
+        const string backupPrefix = "Data/patch-backups/";
+        var normalizedBackupPath = backupRelativePath.Replace('\\', '/').Trim();
+
+        if (!normalizedBackupPath.StartsWith(backupPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Backup file is not under the expected backup folder: {backupRelativePath}");
+        }
+
+        var remainder = normalizedBackupPath[backupPrefix.Length..];
+        var firstSeparator = remainder.IndexOf('/');
+
+        if (firstSeparator < 0 || firstSeparator == remainder.Length - 1)
+        {
+            throw new InvalidOperationException($"Backup file path does not include a restorable file location: {backupRelativePath}");
+        }
+
+        return remainder[(firstSeparator + 1)..];
     }
 
     private string GetValidatedProjectRoot(string projectPath)

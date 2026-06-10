@@ -11,6 +11,7 @@ public interface ICoderConsoleService
     Task<LocalCoderTask> CreatePlanAsync(LocalCoderRequest request);
     Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request);
     Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview);
+    Task<LocalCoderPatchRollbackResult> RollbackPatchAsync(LocalCoderPatchApplyResult applyResult, string projectPath);
     Task<CommandRunResult> RunCommandAsync(string projectPath, string command);
     Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath);
     Task<IReadOnlyList<LocalCoderTask>> GetHistoryAsync();

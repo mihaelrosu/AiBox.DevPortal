@@ -133,6 +133,14 @@
                     @applyResult.Message
                 </RadzenAlert>
 
+                @if (CanRollbackPatch())
+                {
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <RadzenButton Text="Rollback Patch" Icon="undo" ButtonStyle="ButtonStyle.Warning"
+                                      Click="@RollbackPatchAsync" Disabled="@isRollingBack" />
+                    </RadzenStack>
+                }
+
                 <RadzenText Text="@($"Project path: {patchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
                 <RadzenText Text="@($"Applied: {applyResult.Applied}")" TextStyle="TextStyle.Body1" />
                 <RadzenText Text="@($"Verification passed: {applyResult.VerificationPassed}")"
@@ -189,6 +197,53 @@
                     <RadzenText Text="Verification Results" TextStyle="TextStyle.H6" />
 
                     @foreach (var result in applyResult.VerificationResults)
+                    {
+                        <RadzenCard>
+                            <RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" />
+
+                            @if (!string.IsNullOrWhiteSpace(result.Output))
+                            {
+                                <pre class="coder-output">@result.Output</pre>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(result.Error))
+                            {
+                                <pre class="coder-error">@result.Error</pre>
+                            }
+                        </RadzenCard>
+                    }
+                }
+            </RadzenStack>
+        </RadzenCard>
+    }
+
+    @if (rollbackResult is not null)
+    {
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Patch Rollback Result" TextStyle="TextStyle.H5" />
+
+                <RadzenAlert
+                    AlertStyle="@(rollbackResult.RolledBack && rollbackResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
+                    ShowIcon="true">
+                    @rollbackResult.Message
+                </RadzenAlert>
+
+                <RadzenText Text="@($"Rolled back: {rollbackResult.RolledBack}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Verification passed: {rollbackResult.VerificationPassed}")"
+                            TextStyle="TextStyle.Body1" />
+
+                <RadzenText Text="Restored Files" TextStyle="TextStyle.H6" />
+                @foreach (var restoredFile in rollbackResult.RestoredFiles)
+                {
+                    <RadzenText Text="@restoredFile" TextStyle="TextStyle.Body2" />
+                }
+
+                @if (rollbackResult.VerificationResults.Count > 0)
+                {
+                    <RadzenText Text="Verification Results" TextStyle="TextStyle.H6" />
+
+                    @foreach (var result in rollbackResult.VerificationResults)
                     {
                         <RadzenCard>
                             <RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" />
@@ -317,12 +372,14 @@
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
     private LocalCoderPatchPreview? patchPreview;
     private LocalCoderPatchApplyResult? applyResult;
+    private LocalCoderPatchRollbackResult? rollbackResult;
     private CommandRunResult? lastCommand;
 
     private bool isLoading;
     private bool isPlanning;
     private bool isGeneratingPatch;
     private bool isApplyingPatch;
+    private bool isRollingBack;
     private bool isRunningCommand;
     private bool isVerifying;
 
@@ -374,6 +431,7 @@
         patchPreview = null;
         lastCommand = null;
         verifyResults = [];
+        rollbackResult = null;
 
         error = null;
         return Task.CompletedTask;
@@ -439,6 +497,7 @@
         request.FileContexts = [];
         patchPreview = null;
         applyResult = null;
+        rollbackResult = null;
     }
 
     private async Task CreatePlanAsync()
@@ -484,6 +543,7 @@
         currentTask = null;
         patchPreview = null;
         applyResult = null;
+        rollbackResult = null;
 
         try
         {
@@ -551,6 +611,7 @@
             isApplyingPatch = true;
             error = null;
             applyResult = null;
+            rollbackResult = null;
 
             Console.WriteLine("APPLY STEP 2: calling ApplyPatchPreviewAsync.");
 
@@ -616,7 +677,6 @@
         finally
         {
             isApplyingPatch = false;
-
         }
     }
 
@@ -625,6 +685,71 @@
         return !isApplyingPatch &&
                patchPreview is not null &&
                !patchPreview.PatchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.Ordinal);
+    }
+
+    private bool CanRollbackPatch()
+    {
+        return applyResult is not null &&
+               applyResult.BackupFiles.Count > 0 &&
+               !isRollingBack;
+    }
+
+    private async Task RollbackPatchAsync()
+    {
+        try
+        {
+            var confirmed = await DialogService.Confirm(
+                "Restore files from backup and undo this patch?",
+                "Rollback Patch",
+                new ConfirmOptions { OkButtonText = "Rollback Patch", CancelButtonText = "Cancel" });
+
+            if (confirmed != true || applyResult is null)
+            {
+                return;
+            }
+
+            isRollingBack = true;
+            error = null;
+            rollbackResult = null;
+
+            rollbackResult = await CoderConsoleService.RollbackPatchAsync(applyResult, request.ProjectPath);
+
+            if (rollbackResult.RolledBack && rollbackResult.VerificationPassed)
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Success,
+                    "Rollback completed",
+                    rollbackResult.Message);
+            }
+            else
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Warning,
+                    "Rollback completed with issues",
+                    rollbackResult.Message);
+            }
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            rollbackResult = new LocalCoderPatchRollbackResult
+            {
+                RolledBack = false,
+                VerificationPassed = false,
+                Message = exception.ToString(),
+                RestoredFiles = [],
+                VerificationResults = []
+            };
+
+            NotificationService.Notify(
+                NotificationSeverity.Error,
+                "Rollback failed",
+                exception.Message);
+        }
+        finally
+        {
+            isRollingBack = false;
+        }
     }
 
     private async Task RunCommandAsync(string command)
