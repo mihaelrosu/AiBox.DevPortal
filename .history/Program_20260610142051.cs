@@ -31,7 +31,6 @@ builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<IClipboardService, ClipboardService>();
 builder.Services.AddScoped<IAgentRegistryService, AgentRegistryService>();
 builder.Services.AddScoped<IAgentModeProfileService, AgentModeProfileService>();
-builder.Services.AddScoped<IAgentRunHistoryService, AgentRunHistoryService>();
 builder.Services.AddScoped<IAgentModeRunner, AgentModeRunner>();
 builder.Services.AddScoped<ICoderConsoleService, CoderConsoleService>();
 builder.Services.AddScoped<AiBox.DevPortal.Services.ILocalCoderHistoryService, AiBox.DevPortal.Services.LocalCoderHistoryService>();

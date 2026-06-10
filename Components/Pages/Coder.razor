@@ -29,6 +29,87 @@
 
             <RadzenCard>
                 <RadzenStack Gap="0.75rem">
+                    <RadzenText Text="Agent Mode Profiles" TextStyle="TextStyle.H5" />
+                    <RadzenText Text="Each action below routes through a fixed profile before it runs."
+                                TextStyle="TextStyle.Body2" />
+
+                    @if (agentModeProfiles.Count == 0)
+                    {
+                        <RadzenText Text="Loading profiles..." TextStyle="TextStyle.Body2" />
+                    }
+                    else
+                    {
+                        @foreach (var profileRow in GetProfileRows())
+                        {
+                            <RadzenCard Style="margin: 0;">
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="@profileRow.ActionLabel" TextStyle="TextStyle.Body1" />
+                                    <RadzenText Text="@($"{profileRow.Profile.Name} | Model: {profileRow.Profile.Model}")"
+                                                TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@profileRow.Profile.RulesSummary" TextStyle="TextStyle.Caption" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        }
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenCard>
+                <RadzenStack Gap="0.75rem">
+                    <RadzenText Text="Agent Run History" TextStyle="TextStyle.H5" />
+                    <RadzenText Text="Newest runs appear first. Select a row to inspect the prompt and result text."
+                                TextStyle="TextStyle.Body2" />
+
+                    <RadzenDataGrid Data="@agentRunHistory" TItem="AgentRunRecord" AllowPaging="true" PageSize="10"
+                                    AllowSorting="false" EmptyText="No agent runs recorded yet."
+                                    RowSelect="@OnAgentRunSelected">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="AgentRunRecord" Title="Timestamp">
+                                <Template Context="run">
+                                    @run.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="AgentRunRecord" Property="ActionKey" Title="Action" />
+                            <RadzenDataGridColumn TItem="AgentRunRecord" Property="ProfileMode" Title="Profile" />
+                            <RadzenDataGridColumn TItem="AgentRunRecord" Property="Model" Title="Model" />
+                            <RadzenDataGridColumn TItem="AgentRunRecord" Title="Success">
+                                <Template Context="run">
+                                    <RadzenBadge Text="@(run.Success ? "Success" : "Failed")"
+                                                 BadgeStyle="@(run.Success ? BadgeStyle.Success : BadgeStyle.Warning)" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="AgentRunRecord" Property="ErrorMessage" Title="Error" />
+                        </Columns>
+                    </RadzenDataGrid>
+
+                    @if (selectedAgentRun is not null)
+                    {
+                        <RadzenCard>
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenText Text="Selected Run" TextStyle="TextStyle.H6" />
+                                <RadzenText Text="@($"Action: {selectedAgentRun.ActionKey}")" TextStyle="TextStyle.Body1" />
+                                <RadzenText Text="@($"Profile mode: {selectedAgentRun.ProfileMode}")" TextStyle="TextStyle.Body1" />
+                                <RadzenText Text="@($"Model: {selectedAgentRun.Model}")" TextStyle="TextStyle.Body1" />
+                                <RadzenText Text="@($"Timestamp: {selectedAgentRun.Timestamp:O}")" TextStyle="TextStyle.Body1" />
+                                <RadzenText Text="@($"Success: {selectedAgentRun.Success}")" TextStyle="TextStyle.Body1" />
+                                <RadzenText Text="@($"Error: {selectedAgentRun.ErrorMessage}")" TextStyle="TextStyle.Body1" />
+
+                                <RadzenText Text="User Request" TextStyle="TextStyle.H6" />
+                                <pre class="coder-output">@selectedAgentRun.UserRequest</pre>
+
+                                <RadzenText Text="Prompt Sent" TextStyle="TextStyle.H6" />
+                                <pre class="coder-output">@selectedAgentRun.PromptSent</pre>
+
+                                <RadzenText Text="Result Text" TextStyle="TextStyle.H6" />
+                                <pre class="coder-output">@selectedAgentRun.ResultText</pre>
+                            </RadzenStack>
+                        </RadzenCard>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenCard>
+                <RadzenStack Gap="0.75rem">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                                  JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
                         <div>
@@ -592,6 +673,9 @@
 
 @code {
     [Inject] private ICoderConsoleService CoderConsoleService { get; set; } = default!;
+    [Inject] private IAgentModeRunner AgentModeRunner { get; set; } = default!;
+    [Inject] private IAgentModeProfileService AgentModeProfiles { get; set; } = default!;
+    [Inject] private IAgentRunHistoryService AgentRunHistoryService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
     [Inject] private Radzen.NotificationService NotificationService { get; set; } = default!;
@@ -603,6 +687,8 @@
     private IReadOnlyList<CommandRunResult> verifyResults = [];
     private IReadOnlyList<CommandRunResult> commitResults = [];
     private IReadOnlyList<CommandRunResult> buildDeployResults = [];
+    private IReadOnlyList<AgentModeProfile> agentModeProfiles = [];
+    private IReadOnlyList<AgentRunRecord> agentRunHistory = [];
     private IReadOnlyList<LocalCoderHistoryEntry> historyEntries = [];
 
     private List<LocalCoderFileContext> fileContexts = [];
@@ -615,6 +701,7 @@
     private LocalCoderPatchRollbackResult? rollbackResult;
     private CommandRunResult? lastCommand;
     private LocalCoderHistoryEntry? selectedHistoryEntry;
+    private AgentRunRecord? selectedAgentRun;
     private string commitMessage = string.Empty;
 
     private bool isLoading;
@@ -658,6 +745,8 @@
                     : models.FirstOrDefault() ?? request.Model;
             }
 
+            agentModeProfiles = await AgentModeProfiles.GetAllAsync();
+            await LoadAgentRunHistoryAsync();
             await LoadHistoryAsync();
         }
         catch (Exception exception)
@@ -682,6 +771,7 @@
         buildDeployResults = [];
         rollbackResult = null;
         selectedHistoryEntry = null;
+        selectedAgentRun = null;
 
         error = null;
         return Task.CompletedTask;
@@ -759,6 +849,7 @@
 
         try
         {
+            var profile = GetRequiredProfile(AgentActionProfiles.ForCreatePlan());
             if (!await EnsureFileContextLoadedAsync())
             {
                 await SaveHistoryEntryAsync(
@@ -768,12 +859,13 @@
                 return;
             }
 
-            currentTask = await CoderConsoleService.CreatePlanAsync(request);
+            currentTask = await AgentModeRunner.CreatePlanAsync(request, profile);
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.CreatePlan,
                 success: true,
                 "Plan created.",
-                planText: currentTask!.Plan);
+                planText: currentTask!.Plan,
+                model: profile.Model);
 
             NotificationService.Notify(
                 NotificationSeverity.Success,
@@ -796,6 +888,7 @@
         finally
         {
             isPlanning = false;
+            await LoadAgentRunHistoryAsync();
         }
     }
 
@@ -810,6 +903,7 @@
 
         try
         {
+            var profile = GetRequiredProfile(AgentActionProfiles.ForGeneratePatchPreview());
             if (!await EnsureFileContextLoadedAsync())
             {
                 await SaveHistoryEntryAsync(
@@ -819,16 +913,13 @@
                 return;
             }
 
-            patchPreview = await CoderConsoleService.GeneratePatchPreviewAsync(request);
-            Console.WriteLine("PATCH PREVIEW SERVICE RETURNED");
-            Console.WriteLine($"patchPreview null: {patchPreview is null}");
-            Console.WriteLine($"patchPreview patch length: {patchPreview?.PatchText?.Length ?? 0}");
-            Console.WriteLine($"patchPreview project path: {patchPreview?.ProjectPath}");
+            patchPreview = await AgentModeRunner.GeneratePatchPreviewAsync(request, profile);
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: true,
                 "Patch preview created.",
-                patchPreviewText: patchPreview!.PatchText);
+                patchPreviewText: patchPreview!.PatchText,
+                model: profile.Model);
             NotificationService.Notify(
                 NotificationSeverity.Success,
                 "Patch preview created",
@@ -863,6 +954,7 @@
         finally
         {
             isGeneratingPatch = false;
+            await LoadAgentRunHistoryAsync();
         }
     }
 
@@ -870,6 +962,7 @@
     {
         try
         {
+            var profile = GetRequiredProfile(AgentActionProfiles.ForApplyPatch());
             NotificationService.Notify(
                 NotificationSeverity.Info,
                 "Apply Patch clicked",
@@ -898,12 +991,13 @@
 
             Console.WriteLine("APPLY STEP 2: calling ApplyPatchPreviewAsync.");
 
-            applyResult = await CoderConsoleService.ApplyPatchPreviewAsync(patchPreview);
+            applyResult = await AgentModeRunner.ApplyPatchPreviewAsync(patchPreview, profile);
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.ApplyPatch,
                 success: applyResult.Applied && applyResult.VerificationPassed,
                 applyResult.Message,
-                applyResult: applyResult);
+                applyResult: applyResult,
+                model: profile.Model);
 
             Console.WriteLine("APPLY STEP 3: service returned.");
             Console.WriteLine($"APPLIED: {applyResult.Applied}");
@@ -971,6 +1065,7 @@
         finally
         {
             isApplyingPatch = false;
+            await LoadAgentRunHistoryAsync();
         }
     }
 
@@ -992,6 +1087,7 @@
     {
         try
         {
+            var profile = GetRequiredProfile(AgentActionProfiles.ForRollbackPatch());
             var confirmed = await DialogService.Confirm(
                 "Restore files from backup and undo this patch?",
                 "Rollback Patch",
@@ -1006,13 +1102,14 @@
             error = null;
             rollbackResult = null;
 
-            rollbackResult = await CoderConsoleService.RollbackPatchAsync(applyResult, request.ProjectPath);
+            rollbackResult = await AgentModeRunner.RollbackPatchAsync(applyResult, request.ProjectPath, profile);
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.RollbackPatch,
                 success: rollbackResult.RolledBack && rollbackResult.VerificationPassed,
                 rollbackResult.Message,
                 applyResult: applyResult,
-                rollbackResult: rollbackResult);
+                rollbackResult: rollbackResult,
+                model: profile.Model);
 
             if (rollbackResult.RolledBack && rollbackResult.VerificationPassed)
             {
@@ -1056,6 +1153,7 @@
         finally
         {
             isRollingBack = false;
+            await LoadAgentRunHistoryAsync();
         }
     }
 
@@ -1066,9 +1164,11 @@
 
         try
         {
-            lastCommand = await CoderConsoleService.RunCommandAsync(
+            var profile = GetRequiredProfile(AgentActionProfiles.ForRunCommand());
+            lastCommand = await AgentModeRunner.RunCommandAsync(
                 request.ProjectPath,
-                command);
+                command,
+                profile);
 
             var severity = lastCommand.ExitCode == 0
                 ? NotificationSeverity.Success
@@ -1091,6 +1191,7 @@
         finally
         {
             isRunningCommand = false;
+            await LoadAgentRunHistoryAsync();
         }
     }
 
@@ -1102,7 +1203,8 @@
 
         try
         {
-            verifyResults = await CoderConsoleService.VerifyProjectAsync(request.ProjectPath);
+            var profile = GetRequiredProfile(AgentActionProfiles.ForVerifyProject());
+            verifyResults = await AgentModeRunner.VerifyProjectAsync(request.ProjectPath, profile);
 
             var failed = verifyResults.FirstOrDefault(x => x.ExitCode != 0);
 
@@ -1125,7 +1227,8 @@
                 LocalCoderHistoryActionType.VerifyProject,
                 success: failed is null,
                 failed is null ? "Verification passed." : $"{failed.Command}: exit {failed.ExitCode}",
-                verificationResults: verifyResults);
+                verificationResults: verifyResults,
+                model: profile.Model);
         }
         catch (Exception exception)
         {
@@ -1144,6 +1247,7 @@
         finally
         {
             isVerifying = false;
+            await LoadAgentRunHistoryAsync();
         }
     }
 
@@ -1171,9 +1275,11 @@
 
         try
         {
-            var results = await CoderConsoleService.CommitChangesAsync(
+            var profile = GetRequiredProfile(AgentActionProfiles.ForCommitChanges());
+            var results = await AgentModeRunner.CommitChangesAsync(
                 request.ProjectPath,
-                commitMessage.Trim());
+                commitMessage.Trim(),
+                profile);
 
             commitResults = results;
 
@@ -1190,7 +1296,8 @@
                 noChanges
                     ? "No changes to commit."
                     : success ? "Commit and deploy completed." : "Commit or deploy failed.",
-                verificationResults: results);
+                verificationResults: results,
+                model: profile.Model);
 
             if (noChanges)
             {
@@ -1228,6 +1335,7 @@
         finally
         {
             isCommitRunning = false;
+            await LoadAgentRunHistoryAsync();
         }
     }
 
@@ -1239,7 +1347,8 @@
 
         try
         {
-            var results = await CoderConsoleService.BuildDeployAsync(request.ProjectPath);
+            var profile = GetRequiredProfile(AgentActionProfiles.ForBuildDeploy());
+            var results = await AgentModeRunner.BuildDeployAsync(request.ProjectPath, profile);
 
             buildDeployResults = results;
 
@@ -1249,7 +1358,8 @@
                 LocalCoderHistoryActionType.BuildDeploy,
                 success: success,
                 success ? "Build and deploy completed." : "Build or deploy failed.",
-                verificationResults: results);
+                verificationResults: results,
+                model: profile.Model);
 
             var failed = results.FirstOrDefault(result => result.ExitCode != 0);
             if (failed is null)
@@ -1279,6 +1389,7 @@
         finally
         {
             isBuildDeployRunning = false;
+            await LoadAgentRunHistoryAsync();
         }
     }
 
@@ -1377,6 +1488,30 @@
         }
     }
 
+    private async Task LoadAgentRunHistoryAsync()
+    {
+        try
+        {
+            agentRunHistory = await AgentRunHistoryService.GetAllAsync();
+
+            if (selectedAgentRun is not null)
+            {
+                selectedAgentRun = agentRunHistory.FirstOrDefault(run => run.Id == selectedAgentRun.Id)
+                    ?? selectedAgentRun;
+            }
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+    }
+
+    private Task OnAgentRunSelected(AgentRunRecord run)
+    {
+        selectedAgentRun = run;
+        return Task.CompletedTask;
+    }
+
     private async Task ViewHistoryEntryAsync(string id)
     {
         selectedHistoryEntry = await LocalCoderHistoryService.GetEntryAsync(id);
@@ -1460,7 +1595,8 @@
         string? patchPreviewText = null,
         LocalCoderPatchApplyResult? applyResult = null,
         LocalCoderPatchRollbackResult? rollbackResult = null,
-        IReadOnlyList<CommandRunResult>? verificationResults = null)
+        IReadOnlyList<CommandRunResult>? verificationResults = null,
+        string? model = null)
     {
         try
         {
@@ -1469,7 +1605,7 @@
                 ActionType = actionType,
                 CreatedAt = DateTimeOffset.UtcNow,
                 ProjectPath = request.ProjectPath,
-                Model = request.Model,
+                Model = model ?? request.Model,
                 Task = request.Task,
                 SelectedFiles = selectedFilePaths.ToArray(),
                 LoadedContextFiles = request.FileContexts
@@ -1540,5 +1676,35 @@
             $"- Previous result message: {entry.Message}",
             $"- Apply/rollback/verify passed: {resultStatus}"
         });
+    }
+
+    private AgentModeProfile GetRequiredProfile(AgentMode mode)
+    {
+        var profile = agentModeProfiles.FirstOrDefault(item => item.Mode == mode);
+
+        if (profile is null)
+        {
+            throw new InvalidOperationException($"Agent mode profile is not configured for {mode}.");
+        }
+
+        return profile;
+    }
+
+    private IReadOnlyList<(string ActionLabel, AgentModeProfile Profile)> GetProfileRows()
+    {
+        var rows = new List<(string ActionLabel, AgentModeProfile Profile)>
+        {
+            ("Create Plan", GetRequiredProfile(AgentActionProfiles.ForCreatePlan())),
+            ("Generate Patch Preview", GetRequiredProfile(AgentActionProfiles.ForGeneratePatchPreview())),
+            ("Apply Patch", GetRequiredProfile(AgentActionProfiles.ForApplyPatch())),
+            ("Rollback Patch", GetRequiredProfile(AgentActionProfiles.ForRollbackPatch())),
+            ("Run Command", GetRequiredProfile(AgentActionProfiles.ForRunCommand())),
+            ("Verify Project", GetRequiredProfile(AgentActionProfiles.ForVerifyProject())),
+            ("Commit Changes", GetRequiredProfile(AgentActionProfiles.ForCommitChanges())),
+            ("Build & Deploy", GetRequiredProfile(AgentActionProfiles.ForBuildDeploy())),
+            ("Reviewer", GetRequiredProfile(AgentActionProfiles.ForReviewDiff()))
+        };
+
+        return rows;
     }
 }

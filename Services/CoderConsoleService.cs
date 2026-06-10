@@ -108,7 +108,7 @@ public sealed class CoderConsoleService(
         return contexts;
     }
 
-    public async Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request)
+    public async Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile? profile = null)
     {
         ValidateProjectPath(request.ProjectPath);
 
@@ -123,30 +123,7 @@ public sealed class CoderConsoleService(
 
         var fileContextText = BuildFileContextText(request.FileContexts);
 
-        var prompt = $$"""
-        You are a local coding assistant for a C# Blazor/Radzen project.
-
-        Project path:
-        {{request.ProjectPath}}
-
-        User task:
-        {{request.Task}}
-
-        Selected file count: {{request.FileContexts.Count}}
-
-        Selected file context:
-        {{fileContextText}}
-
-        Produce:
-        1. Short diagnosis.
-        2. Files likely involved.
-        3. Step-by-step implementation plan.
-        4. Safe commands to verify.
-        5. Do not invent files if unsure.
-        6. Do not suggest destructive commands.
-
-        Return plain markdown.
-        """;
+        var prompt = BuildCreatePlanPrompt(request, fileContextText, profile);
 
         var ollamaRequest = new OllamaGenerateRequest
         {
@@ -174,7 +151,7 @@ public sealed class CoderConsoleService(
         return task;
     }
 
-    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request)
+    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile? profile = null)
     {
         ValidateProjectPath(request.ProjectPath);
 
@@ -215,34 +192,7 @@ public sealed class CoderConsoleService(
         var fileContextText = BuildPatchPreviewFileContextText(request.FileContexts);
         var selectedFilePathsText = BuildSelectedFilePathsText(request.FileContexts);
 
-        var prompt = $$"""
-        You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
-
-        Return only the diff.
-        The diff must be a unified diff that starts with diff --git.
-        Do not return a plan.
-        Do not return markdown explanation.
-        Do not return headings.
-        Only modify files from the selected file context.
-        Use repository-relative paths.
-        If no concrete patch can be created, return PATCH_NOT_POSSIBLE.
-
-        Project path:
-        {{request.ProjectPath}}
-
-        Task:
-        {{request.Task}}
-
-        Selected file count: {{request.FileContexts.Count}}
-
-        Selected file paths:
-        {{selectedFilePathsText}}
-
-        Selected file context:
-        {{fileContextText}}
-
-        Generate the smallest safe patch preview possible.
-        """;
+        var prompt = BuildGeneratePatchPreviewPrompt(request, selectedFilePathsText, fileContextText, profile);
 
         var ollamaRequest = new OllamaGenerateRequest
         {
@@ -916,6 +866,95 @@ public sealed class CoderConsoleService(
         }
 
         return remainder[(firstSeparator + 1)..];
+    }
+
+    internal static string BuildCreatePlanPrompt(
+        LocalCoderRequest request,
+        string fileContextText,
+        AgentModeProfile? profile = null)
+    {
+        var profileText = BuildAgentModeProfileText(profile);
+        return $$"""
+        You are a local coding assistant for a C# Blazor/Radzen project.
+
+        {{profileText}}
+
+        Project path:
+        {{request.ProjectPath}}
+
+        User task:
+        {{request.Task}}
+
+        Selected file count: {{request.FileContexts.Count}}
+
+        Selected file context:
+        {{fileContextText}}
+
+        Produce:
+        1. Short diagnosis.
+        2. Files likely involved.
+        3. Step-by-step implementation plan.
+        4. Safe commands to verify.
+        5. Do not invent files if unsure.
+        6. Do not suggest destructive commands.
+
+        Return plain markdown.
+        """;
+    }
+
+    internal static string BuildGeneratePatchPreviewPrompt(
+        LocalCoderRequest request,
+        string selectedFilePathsText,
+        string fileContextText,
+        AgentModeProfile? profile = null)
+    {
+        var profileText = BuildAgentModeProfileText(profile);
+        return $$"""
+        You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
+
+        Return only the diff.
+        The diff must be a unified diff that starts with diff --git.
+        Do not return a plan.
+        Do not return markdown explanation.
+        Do not return headings.
+        Only modify files from the selected file context.
+        Use repository-relative paths.
+        If no concrete patch can be created, return PATCH_NOT_POSSIBLE.
+
+        {{profileText}}
+
+        Project path:
+        {{request.ProjectPath}}
+
+        Task:
+        {{request.Task}}
+
+        Selected file count: {{request.FileContexts.Count}}
+
+        Selected file paths:
+        {{selectedFilePathsText}}
+
+        Selected file context:
+        {{fileContextText}}
+
+        Generate the smallest safe patch preview possible.
+        """;
+    }
+
+    internal static string BuildAgentModeProfileText(AgentModeProfile? profile)
+    {
+        if (profile is null)
+        {
+            return string.Empty;
+        }
+
+        return $"""
+        Agent mode profile:
+        Name: {profile.Name}
+        Mode: {profile.Mode}
+        Model: {profile.Model}
+        Rules summary: {profile.RulesSummary}
+        """;
     }
 
     private string GetValidatedProjectRoot(string projectPath)

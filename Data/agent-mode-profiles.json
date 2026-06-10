@@ -1,0 +1,37 @@
+[
+  {
+    "id": "planner",
+    "mode": "planner",
+    "name": "Planner",
+    "model": "qwen2.5-coder:7b",
+    "rulesSummary": "No tools. Produce a plan only."
+  },
+  {
+    "id": "patch-builder",
+    "mode": "patchBuilder",
+    "name": "Patch Builder",
+    "model": "qwen2.5-coder:7b",
+    "rulesSummary": "Patch preview only. Return a minimal unified diff."
+  },
+  {
+    "id": "verifier",
+    "mode": "verifier",
+    "name": "Verifier",
+    "model": "qwen2.5-coder:7b",
+    "rulesSummary": "Verification commands only. No file edits."
+  },
+  {
+    "id": "reviewer",
+    "mode": "reviewer",
+    "name": "Reviewer",
+    "model": "qwen2.5-coder:7b",
+    "rulesSummary": "Diff review only. No commands or edits."
+  },
+  {
+    "id": "tool-runner",
+    "mode": "toolRunner",
+    "name": "Tool Runner",
+    "model": "qwen2.5-coder:7b",
+    "rulesSummary": "Approved tools only. No arbitrary shell usage."
+  }
+]

@@ -1,4 +1,6 @@
 using AiBox.DevPortal.Models;
+using AiBox.DevPortal.Models.Agents;
+using ConsoleLocalCoderTask = AiBox.DevPortal.Models.LocalCoderTask;
 
 namespace AiBox.DevPortal.Services;
 
@@ -8,13 +10,13 @@ public interface ICoderConsoleService
     Task<IReadOnlyList<string>> GetOllamaModelsAsync();
     Task<IReadOnlyList<ProjectFileItem>> GetProjectFilesAsync(string projectPath);
     Task<IReadOnlyList<LocalCoderFileContext>> ReadFileContextsAsync(string projectPath, IReadOnlyList<string> relativePaths);
-    Task<LocalCoderTask> CreatePlanAsync(LocalCoderRequest request);
-    Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request);
+    Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile? profile = null);
+    Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile? profile = null);
     Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview);
     Task<LocalCoderPatchRollbackResult> RollbackPatchAsync(LocalCoderPatchApplyResult applyResult, string projectPath);
     Task<IReadOnlyList<CommandRunResult>> CommitChangesAsync(string projectPath, string commitMessage);
     Task<IReadOnlyList<CommandRunResult>> BuildDeployAsync(string projectPath);
     Task<CommandRunResult> RunCommandAsync(string projectPath, string command);
     Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath);
-    Task<IReadOnlyList<LocalCoderTask>> GetHistoryAsync();
+    Task<IReadOnlyList<ConsoleLocalCoderTask>> GetHistoryAsync();
 }
