@@ -91,7 +91,7 @@
         </RadzenAlert>
     }
 
-    @* @if (patchPreview is not null)
+    @if (patchPreview is not null)
     {
         <RadzenCard>
             <RadzenStack Gap="0.75rem">
@@ -117,187 +117,186 @@
                         <pre class="coder-output">@applyResult.Message</pre>
                     }
                 </RadzenStack>
+            </RadzenCard>
+        }
+
+        @if (applyResult is not null)
+        {
+            <RadzenCard>
+                <RadzenStack Gap="0.75rem">
+                    <RadzenText Text="Patch Apply Result" TextStyle="TextStyle.H5" />
+
+                    <RadzenAlert
+                        AlertStyle="@(applyResult.Applied && applyResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
+                        ShowIcon="true">
+                        @applyResult.Message
+                    </RadzenAlert>
+
+                    <RadzenText Text="@($"Project path: {patchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Applied: {applyResult.Applied}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Verification passed: {applyResult.VerificationPassed}")"
+                                TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Message: {applyResult.Message}")" TextStyle="TextStyle.Body1" />
+
+                    <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
+                    <RadzenCard>
+                        <RadzenText Text="@($"Exit code: {applyResult.GitApplyResult.ExitCode}")" TextStyle="TextStyle.Body1" />
+
+                        <h4>Stdout</h4>
+                        <pre class="coder-output">@applyResult.GitApplyResult.Output</pre>
+
+                        <h4>Stderr</h4>
+                        <pre class="coder-error">@applyResult.GitApplyResult.Error</pre>
+                    </RadzenCard>
+
+                    <RadzenText Text="Git Diff Stat" TextStyle="TextStyle.H6" />
+                    <RadzenCard>
+                        <RadzenText Text="@($"Exit code: {applyResult.GitDiffStatResult.ExitCode}")"
+                                    TextStyle="TextStyle.Body1" />
+                        <pre class="coder-output">@applyResult.GitDiffStatResult.Output</pre>
+                        <pre class="coder-error">@applyResult.GitDiffStatResult.Error</pre>
+                    </RadzenCard>
+
+                    <RadzenText Text="Changed Files Diff" TextStyle="TextStyle.H6" />
+                    <RadzenCard>
+                        <RadzenText Text="@($"Exit code: {applyResult.ChangedFilesDiffResult.ExitCode}")"
+                                    TextStyle="TextStyle.Body1" />
+                        <pre class="coder-output">@applyResult.ChangedFilesDiffResult.Output</pre>
+                        <pre class="coder-error">@applyResult.ChangedFilesDiffResult.Error</pre>
+                    </RadzenCard>
+
+                    @if (applyResult.ChangedFiles.Count > 0)
+                    {
+                        <RadzenText Text="Changed Files" TextStyle="TextStyle.H6" />
+                        @foreach (var changedFile in applyResult.ChangedFiles)
+                        {
+                            <RadzenText Text="@changedFile" TextStyle="TextStyle.Body2" />
+                        }
+                    }
+
+                    @if (applyResult.BackupFiles.Count > 0)
+                    {
+                        <RadzenText Text="Backup Files" TextStyle="TextStyle.H6" />
+                        @foreach (var backupFile in applyResult.BackupFiles)
+                        {
+                            <RadzenText Text="@backupFile" TextStyle="TextStyle.Body2" />
+                        }
+                    }
+
+                    @if (applyResult.VerificationResults.Count > 0)
+                    {
+                        <RadzenText Text="Verification Results" TextStyle="TextStyle.H6" />
+
+                        @foreach (var result in applyResult.VerificationResults)
+                        {
+                            <RadzenCard>
+                                <RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" />
+
+                                @if (!string.IsNullOrWhiteSpace(result.Output))
+                                {
+                                    <pre class="coder-output">@result.Output</pre>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(result.Error))
+                                {
+                                    <pre class="coder-error">@result.Error</pre>
+                                }
+                            </RadzenCard>
+                        }
+                    }
+                </RadzenStack>
+            </RadzenCard>
+        }
+
+        @if (currentTask is not null)
+        {
+            <RadzenCard>
+                <RadzenText Text="Plan" TextStyle="TextStyle.H5" />
+                <pre class="coder-output">@currentTask.Plan</pre>
+            </RadzenCard>
+        }
+
+        @if (fileContexts.Count > 0)
+        {
+            <RadzenCard>
+                <RadzenText Text="Loaded File Context" TextStyle="TextStyle.H5" />
+
+                @foreach (var fileContext in fileContexts)
+                {
+                    <details style="margin-bottom: 0.75rem;">
+                        <summary>@fileContext.RelativePath (@fileContext.CharacterCount chars)</summary>
+                        <pre class="coder-output">@fileContext.Content</pre>
+                    </details>
+                }
+            </RadzenCard>
+        }
+
+        <RadzenCard>
+            <RadzenText Text="Safe Commands" TextStyle="TextStyle.H5" />
+            <RadzenText Text="Verify Project runs git status, dotnet build, and dotnet test."
+                        TextStyle="TextStyle.Caption" />
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenButton Text="git status" Click="@(() => RunCommandAsync("git status"))"
+                              Disabled="@isRunningCommand" />
+
+                <RadzenButton Text="git diff" Click="@(() => RunCommandAsync("git diff"))" Disabled="@isRunningCommand" />
+
+                <RadzenButton Text="dotnet build" ButtonStyle="ButtonStyle.Primary"
+                              Click="@(() => RunCommandAsync("dotnet build"))" Disabled="@isRunningCommand" />
+
+                <RadzenButton Text="dotnet test" ButtonStyle="ButtonStyle.Light"
+                              Click="@(() => RunCommandAsync("dotnet test"))" Disabled="@isRunningCommand" />
+
+                <RadzenButton Text="Verify Project" Icon="verified" ButtonStyle="ButtonStyle.Success"
+                              Click="@VerifyProjectAsync"
+                              Disabled="@(isRunningCommand || isVerifying || string.IsNullOrWhiteSpace(request.ProjectPath))" />
             </RadzenStack>
         </RadzenCard>
-    } *@
 
-    @if (applyResult is not null)
-    {
-        <RadzenCard>
-            <RadzenStack Gap="0.75rem">
-                <RadzenText Text="Patch Apply Result" TextStyle="TextStyle.H5" />
+        @if (lastCommand is not null)
+        {
+            <RadzenCard>
+                <RadzenText Text="@($"Command: {lastCommand.Command}")" TextStyle="TextStyle.H5" />
+                <RadzenText Text="@($"Exit code: {lastCommand.ExitCode}")" TextStyle="TextStyle.Body2" />
 
-                <RadzenAlert
-                    AlertStyle="@(applyResult.Applied && applyResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
-                    ShowIcon="true">
-                    @applyResult.Message
-                </RadzenAlert>
+                <h4>Output</h4>
+                <pre class="coder-output">@lastCommand.Output</pre>
 
-                <RadzenText Text="@($"Project path: {patchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
-                <RadzenText Text="@($"Applied: {applyResult.Applied}")" TextStyle="TextStyle.Body1" />
-                <RadzenText Text="@($"Verification passed: {applyResult.VerificationPassed}")"
-                            TextStyle="TextStyle.Body1" />
-                <RadzenText Text="@($"Message: {applyResult.Message}")" TextStyle="TextStyle.Body1" />
-
-                <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
-                <RadzenCard>
-                    <RadzenText Text="@($"Exit code: {applyResult.GitApplyResult.ExitCode}")" TextStyle="TextStyle.Body1" />
-
-                    <h4>Stdout</h4>
-                    <pre class="coder-output">@applyResult.GitApplyResult.Output</pre>
-
-                    <h4>Stderr</h4>
-                    <pre class="coder-error">@applyResult.GitApplyResult.Error</pre>
-                </RadzenCard>
-
-                <RadzenText Text="Git Diff Stat" TextStyle="TextStyle.H6" />
-                <RadzenCard>
-                    <RadzenText Text="@($"Exit code: {applyResult.GitDiffStatResult.ExitCode}")"
-                                TextStyle="TextStyle.Body1" />
-                    <pre class="coder-output">@applyResult.GitDiffStatResult.Output</pre>
-                    <pre class="coder-error">@applyResult.GitDiffStatResult.Error</pre>
-                </RadzenCard>
-
-                <RadzenText Text="Changed Files Diff" TextStyle="TextStyle.H6" />
-                <RadzenCard>
-                    <RadzenText Text="@($"Exit code: {applyResult.ChangedFilesDiffResult.ExitCode}")"
-                                TextStyle="TextStyle.Body1" />
-                    <pre class="coder-output">@applyResult.ChangedFilesDiffResult.Output</pre>
-                    <pre class="coder-error">@applyResult.ChangedFilesDiffResult.Error</pre>
-                </RadzenCard>
-
-                @if (applyResult.ChangedFiles.Count > 0)
+                @if (!string.IsNullOrWhiteSpace(lastCommand.Error))
                 {
-                    <RadzenText Text="Changed Files" TextStyle="TextStyle.H6" />
-                    @foreach (var changedFile in applyResult.ChangedFiles)
-                    {
-                        <RadzenText Text="@changedFile" TextStyle="TextStyle.Body2" />
-                    }
+                    <h4>Error</h4>
+                    <pre class="coder-error">@lastCommand.Error</pre>
                 }
+            </RadzenCard>
+        }
 
-                @if (applyResult.BackupFiles.Count > 0)
+        @if (verifyResults.Count > 0)
+        {
+            <RadzenCard>
+                <RadzenText Text="Verification Result" TextStyle="TextStyle.H5" />
+
+                @foreach (var item in verifyResults)
                 {
-                    <RadzenText Text="Backup Files" TextStyle="TextStyle.H6" />
-                    @foreach (var backupFile in applyResult.BackupFiles)
-                    {
-                        <RadzenText Text="@backupFile" TextStyle="TextStyle.Body2" />
-                    }
+                    <RadzenCard Style="margin-top: 1rem;">
+                        <RadzenText Text="@($"{item.Command} — exit {item.ExitCode}")" TextStyle="TextStyle.H6" />
+
+                        @if (!string.IsNullOrWhiteSpace(item.Output))
+                        {
+                            <h4>Output</h4>
+                            <pre class="coder-output">@item.Output</pre>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(item.Error))
+                        {
+                            <h4>Error</h4>
+                            <pre class="coder-error">@item.Error</pre>
+                        }
+                    </RadzenCard>
                 }
-
-                @if (applyResult.VerificationResults.Count > 0)
-                {
-                    <RadzenText Text="Verification Results" TextStyle="TextStyle.H6" />
-
-                    @foreach (var result in applyResult.VerificationResults)
-                    {
-                        <RadzenCard>
-                            <RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" />
-
-                            @if (!string.IsNullOrWhiteSpace(result.Output))
-                            {
-                                <pre class="coder-output">@result.Output</pre>
-                            }
-
-                            @if (!string.IsNullOrWhiteSpace(result.Error))
-                            {
-                                <pre class="coder-error">@result.Error</pre>
-                            }
-                        </RadzenCard>
-                    }
-                }
-            </RadzenStack>
-        </RadzenCard>
-    }
-
-    @if (currentTask is not null)
-    {
-        <RadzenCard>
-            <RadzenText Text="Plan" TextStyle="TextStyle.H5" />
-            <pre class="coder-output">@currentTask.Plan</pre>
-        </RadzenCard>
-    }
-
-    @if (fileContexts.Count > 0)
-    {
-        <RadzenCard>
-            <RadzenText Text="Loaded File Context" TextStyle="TextStyle.H5" />
-
-            @foreach (var fileContext in fileContexts)
-            {
-                <details style="margin-bottom: 0.75rem;">
-                    <summary>@fileContext.RelativePath (@fileContext.CharacterCount chars)</summary>
-                    <pre class="coder-output">@fileContext.Content</pre>
-                </details>
-            }
-        </RadzenCard>
-    }
-
-    <RadzenCard>
-        <RadzenText Text="Safe Commands" TextStyle="TextStyle.H5" />
-        <RadzenText Text="Verify Project runs git status, dotnet build, and dotnet test."
-                    TextStyle="TextStyle.Caption" />
-
-        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-            <RadzenButton Text="git status" Click="@(() => RunCommandAsync("git status"))"
-                          Disabled="@isRunningCommand" />
-
-            <RadzenButton Text="git diff" Click="@(() => RunCommandAsync("git diff"))" Disabled="@isRunningCommand" />
-
-            <RadzenButton Text="dotnet build" ButtonStyle="ButtonStyle.Primary"
-                          Click="@(() => RunCommandAsync("dotnet build"))" Disabled="@isRunningCommand" />
-
-            <RadzenButton Text="dotnet test" ButtonStyle="ButtonStyle.Light"
-                          Click="@(() => RunCommandAsync("dotnet test"))" Disabled="@isRunningCommand" />
-
-            <RadzenButton Text="Verify Project" Icon="verified" ButtonStyle="ButtonStyle.Success"
-                          Click="@VerifyProjectAsync"
-                          Disabled="@(isRunningCommand || isVerifying || string.IsNullOrWhiteSpace(request.ProjectPath))" />
-        </RadzenStack>
-    </RadzenCard>
-
-    @if (lastCommand is not null)
-    {
-        <RadzenCard>
-            <RadzenText Text="@($"Command: {lastCommand.Command}")" TextStyle="TextStyle.H5" />
-            <RadzenText Text="@($"Exit code: {lastCommand.ExitCode}")" TextStyle="TextStyle.Body2" />
-
-            <h4>Output</h4>
-            <pre class="coder-output">@lastCommand.Output</pre>
-
-            @if (!string.IsNullOrWhiteSpace(lastCommand.Error))
-            {
-                <h4>Error</h4>
-                <pre class="coder-error">@lastCommand.Error</pre>
-            }
-        </RadzenCard>
-    }
-
-    @if (verifyResults.Count > 0)
-    {
-        <RadzenCard>
-            <RadzenText Text="Verification Result" TextStyle="TextStyle.H5" />
-
-            @foreach (var item in verifyResults)
-            {
-                <RadzenCard Style="margin-top: 1rem;">
-                    <RadzenText Text="@($"{item.Command} — exit {item.ExitCode}")" TextStyle="TextStyle.H6" />
-
-                    @if (!string.IsNullOrWhiteSpace(item.Output))
-                    {
-                        <h4>Output</h4>
-                        <pre class="coder-output">@item.Output</pre>
-                    }
-
-                    @if (!string.IsNullOrWhiteSpace(item.Error))
-                    {
-                        <h4>Error</h4>
-                        <pre class="coder-error">@item.Error</pre>
-                    }
-                </RadzenCard>
-            }
-        </RadzenCard>
-    }
-</RadzenStack>
+            </RadzenCard>
+        }
+    </RadzenStack>
 
 @code {
     [Inject] private ICoderConsoleService CoderConsoleService { get; set; } = default!;
