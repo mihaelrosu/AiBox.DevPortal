@@ -4,7 +4,7 @@ using AiBox.DevPortal.Models;
 
 namespace AiBox.DevPortal.Services;
 
-public sealed class PatchEditOperationService : IPatchEditOperationService
+public sealed class PatchEditOperationService(ILogger<PatchEditOperationService> logger) : IPatchEditOperationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> AllowedOperations = new(StringComparer.OrdinalIgnoreCase)
@@ -122,7 +122,7 @@ public sealed class PatchEditOperationService : IPatchEditOperationService
         };
     }
 
-    private static string? ApplyOperation(
+    private string? ApplyOperation(
         PatchEditOperation operation,
         string filePath,
         string currentContent,
@@ -154,7 +154,7 @@ public sealed class PatchEditOperationService : IPatchEditOperationService
         };
     }
 
-    private static string? InsertBefore(
+    private string? InsertBefore(
         string filePath,
         string currentContent,
         string anchor,
@@ -167,17 +167,16 @@ public sealed class PatchEditOperationService : IPatchEditOperationService
             return null;
         }
 
-        var index = currentContent.IndexOf(anchor, StringComparison.Ordinal);
-        if (index < 0)
+        if (!TryResolveAnchor("insert_before", filePath, currentContent, anchor, out var match))
         {
             validationErrors.Add($"Anchor not found for insert_before in file '{filePath}': {anchor}");
             return null;
         }
 
-        return currentContent[..index] + newText + currentContent[index..];
+        return currentContent[..match!.Index] + newText + currentContent[match.Index..];
     }
 
-    private static string? InsertAfter(
+    private string? InsertAfter(
         string filePath,
         string currentContent,
         string anchor,
@@ -190,15 +189,37 @@ public sealed class PatchEditOperationService : IPatchEditOperationService
             return null;
         }
 
-        var index = currentContent.IndexOf(anchor, StringComparison.Ordinal);
-        if (index < 0)
+        if (!TryResolveAnchor("insert_after", filePath, currentContent, anchor, out var match))
         {
             validationErrors.Add($"Anchor not found for insert_after in file '{filePath}': {anchor}");
             return null;
         }
 
-        var insertIndex = index + anchor.Length;
+        var insertIndex = match!.Index + match.Length;
         return currentContent[..insertIndex] + newText + currentContent[insertIndex..];
+    }
+
+    private bool TryResolveAnchor(
+        string operation,
+        string filePath,
+        string currentContent,
+        string anchor,
+        out PatchAnchorMatch? match)
+    {
+        if (!PatchAnchorMatcher.TryResolve(currentContent, anchor, out match))
+        {
+            return false;
+        }
+
+        logger.LogInformation(
+            "Patch anchor matched for {Operation} in {FilePath}. Original anchor: {OriginalAnchor}; Normalized anchor: {NormalizedAnchor}; Match strategy: {MatchStrategy}",
+            operation,
+            filePath,
+            match!.OriginalAnchor,
+            match.NormalizedAnchor,
+            match.Strategy);
+
+        return true;
     }
 
     private static string? ReplaceText(

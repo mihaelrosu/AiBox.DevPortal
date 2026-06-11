@@ -15,6 +15,9 @@
   <ItemGroup>
     <RazorComponent Remove="Data/patch-backups/**" />
     <Content Remove="Data/patch-backups/**" />
+    <Compile Remove="tests/**" />
+    <Content Remove="tests/**" />
+    <None Remove="tests/**" />
   </ItemGroup>
 
   <ItemGroup>
