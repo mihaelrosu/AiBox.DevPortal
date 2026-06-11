@@ -1,5 +1,6 @@
 using AiBox.DevPortal.Models;
 using AiBox.DevPortal.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -51,6 +52,76 @@ public sealed class PatchEditOperationServiceTests
                 Directory.Delete(projectRoot, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public async Task BuildAsync_RealCoderRazor_HtmlAnchorFallsBackToPatchQueueRadzenText()
+    {
+        var projectRoot = FindProjectRoot();
+        const string relativePath = "Components/Pages/Coder.razor";
+        var content = await File.ReadAllTextAsync(Path.Combine(projectRoot, relativePath));
+        var logger = new ListLogger<PatchEditOperationService>();
+
+        var service = new PatchEditOperationService(logger);
+        var result = await service.BuildAsync(
+            projectRoot,
+            [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+            """
+            {
+              "operations": [
+                {
+                  "filePath": "Components/Pages/Coder.razor",
+                  "operation": "insert_after",
+                  "anchor": "<h3>Patch Queue</h3>",
+                  "newText": "\n<!-- Patch Queue integration test -->"
+                }
+              ]
+            }
+            """);
+
+        var change = Assert.Single(result.FileChanges);
+        Assert.Contains(
+            """
+            <RadzenText Text="Patch Queue" TextStyle="TextStyle.H5" />
+            <!-- Patch Queue integration test -->
+            """,
+            change.NewContent,
+            StringComparison.Ordinal);
+        Assert.Contains(logger.Entries, entry => entry.Contains("Contains Patch Queue: True", StringComparison.Ordinal));
+        Assert.Contains(logger.Entries, entry => entry.Contains("Patch Queue count: 1", StringComparison.Ordinal));
+        Assert.Contains(logger.Entries, entry => entry.Contains("Match strategy: ExactText", StringComparison.Ordinal));
+        Assert.StartsWith(
+            "diff --git a/Components/Pages/Coder.razor b/Components/Pages/Coder.razor",
+            result.PatchText,
+            StringComparison.Ordinal);
+        Assert.Contains("--- a/Components/Pages/Coder.razor", result.PatchText, StringComparison.Ordinal);
+        Assert.Contains("+++ b/Components/Pages/Coder.razor", result.PatchText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Coder.razorComponents", result.PatchText, StringComparison.Ordinal);
+        Assert.Contains(logger.Entries, entry =>
+            entry.Contains("Original diff header:", StringComparison.Ordinal) &&
+            entry.Contains("Parsed old path:", StringComparison.Ordinal) &&
+            entry.Contains("Parsed new path:", StringComparison.Ordinal) &&
+            entry.Contains("Normalized path: a/Components/Pages/Coder.razor -> b/Components/Pages/Coder.razor", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ReadFileContextsAsync_RealCoderRazor_PreservesCurrentPatchQueueContent()
+    {
+        var projectRoot = FindProjectRoot();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
+            })
+            .Build();
+        var service = new CoderConsoleService(null!, configuration, null!, null!);
+
+        var contexts = await service.ReadFileContextsAsync(projectRoot, ["Components/Pages/Coder.razor"]);
+
+        var context = Assert.Single(contexts);
+        var currentContent = await File.ReadAllTextAsync(Path.Combine(projectRoot, context.RelativePath));
+        Assert.Equal(currentContent, context.Content);
+        Assert.Contains("<RadzenText Text=\"Patch Queue\" TextStyle=\"TextStyle.H5\" />", context.Content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -127,6 +198,26 @@ public sealed class PatchEditOperationServiceTests
                 Directory.Delete(projectRoot, recursive: true);
             }
         }
+    }
+
+    private static string FindProjectRoot()
+    {
+        foreach (var startPath in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+        {
+            var directory = new DirectoryInfo(startPath);
+            while (directory is not null)
+            {
+                if (File.Exists(Path.Combine(directory.FullName, "Components", "Pages", "Coder.razor")) &&
+                    File.Exists(Path.Combine(directory.FullName, "AiBox.DevPortal.csproj")))
+                {
+                    return directory.FullName;
+                }
+
+                directory = directory.Parent;
+            }
+        }
+
+        throw new DirectoryNotFoundException("Could not locate the AiBox.DevPortal project root.");
     }
 
     private sealed class ListLogger<T> : ILogger<T>

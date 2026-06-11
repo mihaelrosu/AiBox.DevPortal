@@ -104,9 +104,7 @@ public sealed class CoderConsoleService(
             {
                 RelativePath = normalizedRelativePath.Replace(Path.DirectorySeparatorChar, '/'),
                 CharacterCount = content.Length,
-                Content = content.Length <= MaxPromptFileCharacters
-                    ? content
-                    : content[..MaxPromptFileCharacters]
+                Content = content
             });
         }
 

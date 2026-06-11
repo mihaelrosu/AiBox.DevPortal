@@ -206,6 +206,20 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         string anchor,
         out PatchAnchorMatch? match)
     {
+        const string diagnosticText = "Patch Queue";
+        var diagnosticIndex = currentContent.IndexOf(diagnosticText, StringComparison.Ordinal);
+        var diagnosticCount = CountOccurrences(currentContent, diagnosticText);
+        var diagnosticSnippet = BuildDiagnosticSnippet(currentContent, diagnosticIndex, 300);
+
+        logger.LogInformation(
+            "Resolving patch anchor. FilePath: {FilePath}; Operation: {Operation}; Anchor: {Anchor}; Contains Patch Queue: {ContainsPatchQueue}; Patch Queue count: {PatchQueueCount}; Patch Queue context: {PatchQueueContext}",
+            filePath,
+            operation,
+            anchor,
+            diagnosticIndex >= 0,
+            diagnosticCount,
+            diagnosticSnippet);
+
         if (!PatchAnchorMatcher.TryResolve(currentContent, anchor, out match))
         {
             return false;
@@ -220,6 +234,32 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             match.Strategy);
 
         return true;
+    }
+
+    private static int CountOccurrences(string content, string value)
+    {
+        var count = 0;
+        var searchIndex = 0;
+
+        while ((searchIndex = content.IndexOf(value, searchIndex, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            searchIndex += value.Length;
+        }
+
+        return count;
+    }
+
+    private static string BuildDiagnosticSnippet(string content, int matchIndex, int maxLength)
+    {
+        if (matchIndex < 0 || string.IsNullOrEmpty(content))
+        {
+            return string.Empty;
+        }
+
+        var startIndex = Math.Max(0, matchIndex - (maxLength / 2));
+        var length = Math.Min(maxLength, content.Length - startIndex);
+        return content.Substring(startIndex, length);
     }
 
     private static string? ReplaceText(
@@ -245,7 +285,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         return currentContent[..index] + newText + currentContent[(index + oldText.Length)..];
     }
 
-    private static async Task<string> BuildPatchTextAsync(
+    private async Task<string> BuildPatchTextAsync(
         IReadOnlyList<PatchFileChange> fileChanges,
         CancellationToken cancellationToken)
     {
@@ -287,7 +327,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 var updatedPath = Path.Combine(updatedRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
                 var fileDiff = await RunGitDiffAsync(originalPath, updatedPath, cancellationToken);
-                diffBuilder.AppendLine(NormalizeGitDiffPaths(fileDiff, originalRoot, updatedRoot, relativePath));
+                diffBuilder.AppendLine(NormalizeGitDiffPaths(fileDiff, relativePath));
             }
 
             return diffBuilder.ToString().Trim();
@@ -331,14 +371,21 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         return output;
     }
 
-    private static string NormalizeGitDiffPaths(string diffText, string originalRoot, string updatedRoot, string relativePath)
+    private string NormalizeGitDiffPaths(string diffText, string relativePath)
     {
-        var normalized = diffText.ReplaceLineEndings("\n");
-        normalized = normalized.Replace(originalRoot.Replace('\\', '/') + "/", $"a/{relativePath}", StringComparison.Ordinal);
-        normalized = normalized.Replace(updatedRoot.Replace('\\', '/') + "/", $"b/{relativePath}", StringComparison.Ordinal);
-        normalized = normalized.Replace(originalRoot.Replace('\\', '/'), $"a/{relativePath}", StringComparison.Ordinal);
-        normalized = normalized.Replace(updatedRoot.Replace('\\', '/'), $"b/{relativePath}", StringComparison.Ordinal);
-        return normalized.Trim();
+        var normalized = PatchDiffPathNormalizer.Normalize(diffText, relativePath, out var headerNormalizations);
+        foreach (var header in headerNormalizations)
+        {
+            logger.LogInformation(
+                "Normalized patch diff header. Original diff header: {OriginalDiffHeader}; Parsed old path: {ParsedOldPath}; Parsed new path: {ParsedNewPath}; Normalized path: {NormalizedOldPath} -> {NormalizedNewPath}",
+                header.OriginalHeader,
+                header.ParsedOldPath,
+                header.ParsedNewPath,
+                header.NormalizedOldPath,
+                header.NormalizedNewPath);
+        }
+
+        return normalized;
     }
 
     private static bool ValidatePath(
