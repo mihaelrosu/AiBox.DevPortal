@@ -17,7 +17,7 @@
 else
 {
     <RadzenCard>
-        <RadzenDataGrid Data="@templates" TItem="WorkflowTemplateDefinition" AllowPaging="true" PageSize="10"
+        <AppDataGrid @ref="grid1" Data="@templates" TItem="WorkflowTemplateDefinition" PageSize="10"
                         EmptyText="No workflow templates configured.">
             <Columns>
                 <RadzenDataGridColumn TItem="WorkflowTemplateDefinition" Property="Name" Title="Name" />
@@ -45,7 +45,7 @@ else
                     </Template>
                 </RadzenDataGridColumn>
             </Columns>
-        </RadzenDataGrid>
+        </AppDataGrid>
     </RadzenCard>
 }
 
@@ -66,8 +66,8 @@ else
                 </RadzenStack>
             </RadzenStack>
 
-            <RadzenDataGrid Data="@selectedTemplate.Steps.OrderBy(step => step.Order)" TItem="WorkflowStepDefinition"
-                            AllowPaging="false" EmptyText="This template has no steps.">
+            <AppDataGrid @ref="grid2" Data="@selectedTemplate.Steps.OrderBy(step => step.Order)" TItem="WorkflowStepDefinition"
+                            EmptyText="This template has no steps.">
                 <Columns>
                     <RadzenDataGridColumn TItem="WorkflowStepDefinition" Property="Order" Title="#" Width="5rem" />
                     <RadzenDataGridColumn TItem="WorkflowStepDefinition" Property="Name" Title="Step" />
@@ -78,7 +78,7 @@ else
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="WorkflowStepDefinition" Property="PreviousResultMode" Title="Previous Results" />
                 </Columns>
-            </RadzenDataGrid>
+            </AppDataGrid>
         </RadzenStack>
     </RadzenCard>
 }
@@ -95,6 +95,8 @@ else
     private WorkflowTemplateDefinition? selectedTemplate;
     private bool isLoading;
     private bool isCreating;
+    private object? grid1;
+    private object? grid2;
 
     protected override async Task OnInitializedAsync()
     {

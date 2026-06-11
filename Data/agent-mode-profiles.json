@@ -11,7 +11,7 @@
     "mode": "patchBuilder",
     "name": "Patch Builder",
     "model": "qwen2.5-coder:7b",
-    "rulesSummary": "Patch preview only. Return a minimal unified diff."
+    "rulesSummary": "Patch preview only. Return JSON edit operations."
   },
   {
     "id": "verifier",

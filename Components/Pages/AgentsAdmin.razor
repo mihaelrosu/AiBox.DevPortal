@@ -12,7 +12,7 @@
 </div>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@agents" TItem="AgentDefinition" AllowPaging="true" PageSize="10" EmptyText="No agents registered.">
+    <AppDataGrid @ref="grid" Data="@agents" TItem="AgentDefinition" PageSize="10" EmptyText="No agents registered.">
         <Columns>
             <RadzenDataGridColumn TItem="AgentDefinition" Property="Name" Title="Name" />
             <RadzenDataGridColumn TItem="AgentDefinition" Property="Role" Title="Role" />
@@ -57,7 +57,7 @@
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </AppDataGrid>
 </RadzenCard>
 
 @if (editingAgent is not null)
@@ -115,7 +115,6 @@
                                 TextProperty="Name"
                                 ValueProperty="Id"
                                 @bind-Value="@editingAgent.ExecutionPermissionProfileId"
-                                AllowFiltering="true"
                                 AllowClear="false"
                                 Style="width: 100%;" />
             </RadzenFormField>
@@ -151,6 +150,7 @@
     [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
 
+    private object? grid;
     private IReadOnlyList<AgentDefinition> agents = [];
     private IReadOnlyList<ExecutionPermissionProfile> profiles = [];
     private readonly AgentRole[] agentRoles = Enum.GetValues<AgentRole>();

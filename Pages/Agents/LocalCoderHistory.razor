@@ -48,7 +48,7 @@
 </RadzenCard>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@FilteredRecords" TItem="LocalCoderTaskHistoryRecord" AllowPaging="true" AllowSorting="true" PageSize="10"
+    <AppDataGrid @ref="grid" Data="@FilteredRecords" TItem="LocalCoderTaskHistoryRecord" PageSize="10"
                     RowSelect="@SelectRecord" EmptyText="No Local Coder history records match the current filters.">
         <Columns>
             <RadzenDataGridColumn TItem="LocalCoderTaskHistoryRecord" Title="Updated">
@@ -80,7 +80,7 @@
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </AppDataGrid>
 </RadzenCard>
 
 @if (selectedRecord is not null)
@@ -159,6 +159,7 @@
     [Inject] private NotificationService NotificationService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
+    private object? grid;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,

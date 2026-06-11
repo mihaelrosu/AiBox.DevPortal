@@ -28,7 +28,7 @@
 </RadzenCard>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@filteredRuns" TItem="WorkflowRunRecord" AllowPaging="true" AllowSorting="true" PageSize="10"
+    <AppDataGrid @ref="grid" Data="@filteredRuns" TItem="WorkflowRunRecord" PageSize="10"
                     RowSelect="@((WorkflowRunRecord run) => SelectRun(run))" EmptyText="No planned workflow runs saved.">
         <Columns>
             <RadzenDataGridColumn TItem="WorkflowRunRecord" Property="Created" Title="Created">
@@ -66,7 +66,7 @@
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </AppDataGrid>
 </RadzenCard>
 
 @if (selectedRun is not null)
@@ -144,6 +144,7 @@
     [Inject] private NotificationService NotificationService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
+    private object? grid;
     private IReadOnlyList<WorkflowRunRecord> runs = [];
     private IReadOnlyList<ProjectDefinition> projects = [];
     private WorkflowRunRecord? selectedRun;

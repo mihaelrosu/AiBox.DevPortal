@@ -4,6 +4,15 @@ namespace AiBox.DevPortal.Services;
 
 public sealed class FileSearchService : IFileSearchService
 {
+    private static readonly HashSet<string> IgnoredDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git",
+        ".history",
+        "bin",
+        "obj",
+        "node_modules"
+    };
+
     public Task<List<FileSearchItem>> SearchAsync(
         string rootDirectory,
         string searchText,
@@ -109,7 +118,9 @@ public sealed class FileSearchService : IFileSearchService
     {
         try
         {
-            return Directory.EnumerateDirectories(directoryPath, "*", SearchOption.TopDirectoryOnly);
+            return Directory
+                .EnumerateDirectories(directoryPath, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => !IgnoredDirectoryNames.Contains(Path.GetFileName(path)));
         }
         catch
         {

@@ -36,7 +36,7 @@
             </RadzenStack>
         </RadzenStack>
 
-        <RadzenDataGrid Data="@historyRecords" TItem="LocalCoderTaskHistoryRecord" AllowPaging="true" PageSize="5" EmptyText="No Local Coder history yet.">
+        <AppDataGrid @ref="grid1" Data="@historyRecords" TItem="LocalCoderTaskHistoryRecord" PageSize="5" EmptyText="No Local Coder history yet.">
             <Columns>
                 <RadzenDataGridColumn TItem="LocalCoderTaskHistoryRecord" Property="Task.Title" Title="Title">
                     <Template Context="record">@(string.IsNullOrWhiteSpace(record.Task.Title) ? "Untitled task" : record.Task.Title)</Template>
@@ -61,7 +61,7 @@
                     </Template>
                 </RadzenDataGridColumn>
             </Columns>
-        </RadzenDataGrid>
+        </AppDataGrid>
     </RadzenStack>
 </RadzenCard>
 
@@ -136,7 +136,7 @@
                         </RadzenColumn>
                     </RadzenRow>
 
-                    <RadzenDataGrid Data="@FilteredContextFiles" TItem="RepositoryFileSummary" AllowPaging="true" PageSize="10"
+                    <AppDataGrid @ref="grid2" Data="@FilteredContextFiles" TItem="RepositoryFileSummary" PageSize="10"
                                     EmptyText="No safe files match the current filter.">
                         <Columns>
                             <RadzenDataGridColumn TItem="RepositoryFileSummary" Title="Use" Width="5rem" Sortable="false" Filterable="false">
@@ -148,7 +148,7 @@
                             </RadzenDataGridColumn>
                             <RadzenDataGridColumn TItem="RepositoryFileSummary" Property="RelativePath" Title="Repository-relative path" />
                         </Columns>
-                    </RadzenDataGrid>
+                    </AppDataGrid>
 
                     <RadzenText Text="@ScanSummary" TextStyle="TextStyle.Caption" />
                 }
@@ -268,6 +268,8 @@
     private bool isBusy;
     private IReadOnlyList<LocalCoderTaskHistoryRecord> historyRecords = [];
     private string loadedHistoryId = string.Empty;
+    private object? grid1;
+    private object? grid2;
 
     private string TaskJson => JsonSerializer.Serialize(task, JsonOptions);
     private LocalCoderPatchValidationResult PatchValidation => LocalCoderPatchService.ValidatePatch(task, patchOutput);

@@ -20,7 +20,7 @@
     <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" Text="@errorMessage" />
 }
 
-<RadzenDataGrid Data="@containers" TItem="DockerContainerInfo" AllowPaging="true" PageSize="12" AllowSorting="true" IsLoading="@isLoading" class="portal-grid">
+<AppDataGrid @ref="grid" Data="@containers" TItem="DockerContainerInfo" PageSize="12" IsLoading="@isLoading" class="portal-grid">
     <Columns>
         <RadzenDataGridColumn TItem="DockerContainerInfo" Property="Name" Title="Name" />
         <RadzenDataGridColumn TItem="DockerContainerInfo" Property="Image" Title="Image" />
@@ -38,7 +38,7 @@
             </Template>
         </RadzenDataGridColumn>
     </Columns>
-</RadzenDataGrid>
+</AppDataGrid>
 
 @code {
     [Inject]
@@ -47,6 +47,7 @@
     [Inject]
     private NotificationService NotificationService { get; set; } = default!;
 
+    private object? grid;
     private List<DockerContainerInfo> containers = [];
     private bool isLoading;
     private string? errorMessage;

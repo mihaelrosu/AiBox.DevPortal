@@ -12,7 +12,7 @@
 </div>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@projects" TItem="ProjectDefinition" AllowPaging="true" PageSize="10" EmptyText="No projects configured.">
+    <AppDataGrid @ref="grid" Data="@projects" TItem="ProjectDefinition" PageSize="10" EmptyText="No projects configured.">
         <Columns>
             <RadzenDataGridColumn TItem="ProjectDefinition" Property="Name" Title="Name" />
             <RadzenDataGridColumn TItem="ProjectDefinition" Property="Type" Title="Type" />
@@ -52,7 +52,7 @@
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </AppDataGrid>
 </RadzenCard>
 
 @if (editingProject is not null)
@@ -122,7 +122,6 @@
                                         TextProperty="Name"
                                         ValueProperty="Id"
                                         @bind-Value="@editingProject.DefaultExecutionPermissionProfileId"
-                                        AllowFiltering="true"
                                         AllowClear="false"
                                         Style="width: 100%;" />
                     </RadzenFormField>
@@ -150,6 +149,7 @@
     [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
 
+    private object? grid;
     private readonly ProjectType[] projectTypes = Enum.GetValues<ProjectType>();
     private IReadOnlyList<ProjectDefinition> projects = [];
     private IReadOnlyList<ExecutionPermissionProfile> profiles = [];

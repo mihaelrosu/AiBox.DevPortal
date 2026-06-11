@@ -34,6 +34,7 @@ builder.Services.AddScoped<IAgentModeProfileService, AgentModeProfileService>();
 builder.Services.AddScoped<IAgentRunHistoryService, AgentRunHistoryService>();
 builder.Services.AddScoped<IAgentModeRunner, AgentModeRunner>();
 builder.Services.AddScoped<IPatchApprovalGateService, PatchApprovalGateService>();
+builder.Services.AddScoped<IPatchEditOperationService, PatchEditOperationService>();
 builder.Services.AddScoped<IPatchPackageService, PatchPackageService>();
 builder.Services.AddScoped<IPatchApplyService, PatchApplyService>();
 builder.Services.AddScoped<IPatchRollbackService, PatchRollbackService>();

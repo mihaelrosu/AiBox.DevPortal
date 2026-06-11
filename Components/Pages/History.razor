@@ -23,11 +23,9 @@
         </RadzenStack>
     </RadzenCard>
 
-    <RadzenDataGrid TItem="GeneratedImage"
+    <AppDataGrid @ref="grid" TItem="GeneratedImage"
                     Data="@filteredImages"
                     IsLoading="@isLoading"
-                    AllowPaging="true"
-                    AllowSorting="true"
                     PageSize="12"
                     RowSelect="@OpenDetails"
                     EmptyText="No generated images found.">
@@ -49,7 +47,7 @@
             </RadzenDataGridColumn>
             <RadzenDataGridColumn TItem="GeneratedImage" Property="Model" Title="Model" />
         </Columns>
-    </RadzenDataGrid>
+    </AppDataGrid>
 </RadzenStack>
 
 @code {
@@ -59,6 +57,7 @@
     [Inject]
     private NavigationManager NavigationManager { get; set; } = default!;
 
+    private object? grid;
     private IReadOnlyList<GeneratedImage> images = [];
     private IReadOnlyList<GeneratedImage> filteredImages = [];
     private string? searchText;

@@ -8,5 +8,6 @@ public sealed class LocalCoderPatchPreview
     public string Model { get; set; } = string.Empty;
     public string Task { get; set; } = string.Empty;
     public IReadOnlyList<LocalCoderFileContext> FileContexts { get; set; } = [];
+    public IReadOnlyList<PatchFileChange> FileChanges { get; set; } = [];
     public string PatchText { get; set; } = string.Empty;
 }

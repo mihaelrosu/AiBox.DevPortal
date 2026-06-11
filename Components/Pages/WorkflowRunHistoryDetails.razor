@@ -109,22 +109,22 @@ else
                     <RadzenText Text="@verificationResult.RecommendedNextAction" TextStyle="TextStyle.Body1" />
                 </div>
 
-                <RadzenDataGrid Data="@verificationResult.Checks" TValue="VerificationCheck" AllowPaging="false" EmptyText="No verification checks recorded.">
+                <AppDataGrid @ref="grid1" Data="@verificationResult.Checks" TItem="VerificationCheck" EmptyText="No verification checks recorded.">
                     <Columns>
-                        <RadzenDataGridColumn TValue="VerificationCheck" Property="Name" Title="Check" />
-                        <RadzenDataGridColumn TValue="VerificationCheck" Title="Status">
+                        <RadzenDataGridColumn TItem="VerificationCheck" Property="Name" Title="Check" />
+                        <RadzenDataGridColumn TItem="VerificationCheck" Title="Status">
                             <Template Context="item">
                                 <RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@VerificationStatusBadgeStyle(item.Status)" />
                             </Template>
                         </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TValue="VerificationCheck" Title="Severity">
+                        <RadzenDataGridColumn TItem="VerificationCheck" Title="Severity">
                             <Template Context="item">
                                 <RadzenBadge Text="@item.Severity.ToString()" BadgeStyle="@VerificationSeverityBadgeStyle(item.Severity)" />
                             </Template>
                         </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TValue="VerificationCheck" Property="Message" Title="Message" />
+                        <RadzenDataGridColumn TItem="VerificationCheck" Property="Message" Title="Message" />
                     </Columns>
-                </RadzenDataGrid>
+                </AppDataGrid>
 
                 @if (!string.IsNullOrWhiteSpace(verificationResult.LocalLlmReview))
                 {
@@ -370,7 +370,7 @@ else
                 </RadzenAlert>
             }
 
-            <RadzenDataGrid Data="@fileOperationHistory" TItem="FileOperationResult" AllowPaging="true" PageSize="5" EmptyText="No file operations recorded yet.">
+            <AppDataGrid @ref="grid2" Data="@fileOperationHistory" TItem="FileOperationResult" PageSize="5" EmptyText="No file operations recorded yet.">
                 <Columns>
                     <RadzenDataGridColumn TItem="FileOperationResult" Property="CreatedAt" Title="Created">
                         <Template Context="item">
@@ -388,7 +388,7 @@ else
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="FileOperationResult" Property="Message" Title="Message" />
                 </Columns>
-            </RadzenDataGrid>
+            </AppDataGrid>
         </RadzenStack>
     </RadzenCard>
 
@@ -507,7 +507,7 @@ else
                 </RadzenAlert>
             }
 
-            <RadzenDataGrid Data="@gitOperationHistory" TItem="GitOperationResult" AllowPaging="true" PageSize="5" EmptyText="No Git operations recorded yet.">
+            <AppDataGrid @ref="grid3" Data="@gitOperationHistory" TItem="GitOperationResult" PageSize="5" EmptyText="No Git operations recorded yet.">
                 <Columns>
                     <RadzenDataGridColumn TItem="GitOperationResult" Property="CreatedAt" Title="Created">
                         <Template Context="item">
@@ -525,7 +525,7 @@ else
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="GitOperationResult" Property="Message" Title="Message" />
                 </Columns>
-            </RadzenDataGrid>
+            </AppDataGrid>
         </RadzenStack>
     </RadzenCard>
 
@@ -632,22 +632,22 @@ else
                 <RadzenAlert AlertStyle="@dockerOperationAlertStyle" ShowIcon="true">@dockerOperationMessage</RadzenAlert>
             }
 
-            <RadzenDataGrid Data="@dockerOperationHistory" TValue="DockerOperationResult" AllowPaging="true" PageSize="5" EmptyText="No Docker operations recorded yet.">
+            <AppDataGrid @ref="grid4" Data="@dockerOperationHistory" TItem="DockerOperationResult" PageSize="5" EmptyText="No Docker operations recorded yet.">
                 <Columns>
-                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="CreatedAt" Title="Created">
+                    <RadzenDataGridColumn TItem="DockerOperationResult" Property="CreatedAt" Title="Created">
                         <Template Context="item">@item.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="OperationType" Title="Operation" />
-                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="ServiceName" Title="Service" />
-                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="ExitCode" Title="Exit code" />
-                    <RadzenDataGridColumn TValue="DockerOperationResult" Title="Result">
+                    <RadzenDataGridColumn TItem="DockerOperationResult" Property="OperationType" Title="Operation" />
+                    <RadzenDataGridColumn TItem="DockerOperationResult" Property="ServiceName" Title="Service" />
+                    <RadzenDataGridColumn TItem="DockerOperationResult" Property="ExitCode" Title="Exit code" />
+                    <RadzenDataGridColumn TItem="DockerOperationResult" Title="Result">
                         <Template Context="item">
                             <RadzenBadge Text="@ResultLabel(item.Success)" BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TValue="DockerOperationResult" Property="Message" Title="Message" />
+                    <RadzenDataGridColumn TItem="DockerOperationResult" Property="Message" Title="Message" />
                 </Columns>
-            </RadzenDataGrid>
+            </AppDataGrid>
         </RadzenStack>
     </RadzenCard>
 
@@ -753,22 +753,22 @@ else
                 <RadzenAlert AlertStyle="@comfyUiOperationAlertStyle" ShowIcon="true">@comfyUiOperationMessage</RadzenAlert>
             }
 
-            <RadzenDataGrid Data="@comfyUiOperationHistory" TValue="ComfyUiOperationResult" AllowPaging="true" PageSize="5" EmptyText="No ComfyUI operations recorded yet.">
+            <AppDataGrid @ref="grid5" Data="@comfyUiOperationHistory" TItem="ComfyUiOperationResult" PageSize="5" EmptyText="No ComfyUI operations recorded yet.">
                 <Columns>
-                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="CreatedAt" Title="Created">
+                    <RadzenDataGridColumn TItem="ComfyUiOperationResult" Property="CreatedAt" Title="Created">
                         <Template Context="item">@item.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="OperationType" Title="Operation" />
-                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="WorkflowFileName" Title="Workflow" />
-                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="PromptId" Title="Prompt ID" />
-                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Title="Result">
+                    <RadzenDataGridColumn TItem="ComfyUiOperationResult" Property="OperationType" Title="Operation" />
+                    <RadzenDataGridColumn TItem="ComfyUiOperationResult" Property="WorkflowFileName" Title="Workflow" />
+                    <RadzenDataGridColumn TItem="ComfyUiOperationResult" Property="PromptId" Title="Prompt ID" />
+                    <RadzenDataGridColumn TItem="ComfyUiOperationResult" Title="Result">
                         <Template Context="item">
                             <RadzenBadge Text="@ResultLabel(item.Success)" BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TValue="ComfyUiOperationResult" Property="Message" Title="Message" />
+                    <RadzenDataGridColumn TItem="ComfyUiOperationResult" Property="Message" Title="Message" />
                 </Columns>
-            </RadzenDataGrid>
+            </AppDataGrid>
         </RadzenStack>
     </RadzenCard>
 
@@ -872,6 +872,11 @@ else
     [Inject] private NotificationService NotificationService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
+    private object? grid1;
+    private object? grid2;
+    private object? grid3;
+    private object? grid4;
+    private object? grid5;
     private readonly ExecutionCommandType[] commandTypes = Enum.GetValues<ExecutionCommandType>();
     private readonly FileOperationType[] fileOperationTypes = Enum.GetValues<FileOperationType>();
     private WorkflowRunRecord? run;

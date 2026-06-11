@@ -110,7 +110,7 @@ public sealed class AgentModeProfileService(IWebHostEnvironment environment) : I
                 Mode = AgentMode.PatchBuilder,
                 Name = "Patch Builder",
                 Model = "qwen2.5-coder:7b",
-                RulesSummary = "Patch preview only. Return a minimal unified diff."
+                RulesSummary = "Patch preview only. Return JSON edit operations."
             },
             new AgentModeProfile
             {

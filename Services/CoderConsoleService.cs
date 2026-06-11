@@ -12,7 +12,8 @@ namespace AiBox.DevPortal.Services;
 public sealed class CoderConsoleService(
     HttpClient httpClient,
     IConfiguration configuration,
-    IWebHostEnvironment environment) : ICoderConsoleService
+    IWebHostEnvironment environment,
+    IPatchEditOperationService patchEditOperationService) : ICoderConsoleService
 {
     private const long MaxProjectFileSizeBytes = 200 * 1024;
     private const int MaxSelectedFileCount = 12;
@@ -42,11 +43,14 @@ public sealed class CoderConsoleService(
 
     public Task<IReadOnlyList<string>> GetWorkspaceRootsAsync()
     {
-        var roots = configuration
-            .GetSection("AiBox:LocalCoder:WorkspaceRoots")
-            .Get<string[]>() ?? [];
+        var allowedRoots = GetAllowedWorkspaceRoots();
+        var projectRoots = allowedRoots
+            .SelectMany(GetProjectRoots)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-        return Task.FromResult<IReadOnlyList<string>>(roots);
+        return Task.FromResult<IReadOnlyList<string>>(projectRoots.Length > 0 ? projectRoots : allowedRoots);
     }
 
     public async Task<IReadOnlyList<string>> GetOllamaModelsAsync()
@@ -211,7 +215,28 @@ public sealed class CoderConsoleService(
         var rawResponse = result?.Response ?? string.Empty;
         await SavePatchDebugRawResponseAsync(rawResponse);
 
-        var patchText = NormalizePatchPreviewText(rawResponse);
+        PatchEditOperationResult editResult;
+        try
+        {
+            editResult = await patchEditOperationService.BuildAsync(
+                request.ProjectPath,
+                request.FileContexts,
+                rawResponse);
+        }
+        catch (PatchPreviewValidationException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new PatchPreviewValidationException(
+                $"Patch preview validation failed:{Environment.NewLine}- {exception.Message}",
+                [exception.Message],
+                rawResponse,
+                string.Empty);
+        }
+
+        var patchText = editResult.PatchText;
         var validation = ValidatePatchPreview(patchText, request.FileContexts, request.Task);
 
         if (!validation.IsValid)
@@ -225,6 +250,7 @@ public sealed class CoderConsoleService(
             Model = ollamaRequest.Model,
             Task = request.Task,
             FileContexts = request.FileContexts.ToArray(),
+            FileChanges = editResult.FileChanges,
             PatchText = patchText
         };
     }
@@ -941,12 +967,25 @@ public sealed class CoderConsoleService(
         return $$"""
         You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
 
-        Return ONLY a unified diff.
+        Return ONLY JSON.
         Do not explain.
         Do not use markdown fences.
-        Do not include text before or after the diff.
-        First line must be diff --git.
-        Use repository-relative paths.
+        Do not include git diff.
+        Output format:
+        {
+          "operations": [
+            {
+              "filePath": "Components/Pages/Coder.razor",
+              "operation": "insert_after",
+              "anchor": "<h3>Patch Queue</h3>",
+              "oldText": "",
+              "newText": "<RadzenAlert ...>...</RadzenAlert>",
+              "summary": "Add patch approval info alert"
+            }
+          ]
+        }
+        Use only files from the selected file context.
+        Use exact anchors and exact string replacements.
 
         {{profileText}}
 
@@ -964,7 +1003,7 @@ public sealed class CoderConsoleService(
         Selected file context:
         {{fileContextText}}
 
-        Generate the smallest safe patch preview possible.
+        Generate the smallest safe patch operation set possible.
         """;
     }
 
@@ -998,13 +1037,8 @@ public sealed class CoderConsoleService(
             throw new InvalidOperationException($"Project path does not exist: {fullPath}");
         }
 
-        var roots = configuration
-            .GetSection("AiBox:LocalCoder:WorkspaceRoots")
-            .Get<string[]>() ?? [];
-
-        var allowed = roots
-            .Select(Path.GetFullPath)
-            .Any(root => fullPath.StartsWith(root, StringComparison.Ordinal));
+        var allowed = GetAllowedWorkspaceRoots()
+            .Any(root => IsPathWithinRoot(fullPath, root));
 
         if (!allowed)
         {
@@ -1012,6 +1046,72 @@ public sealed class CoderConsoleService(
         }
 
         return fullPath.TrimEnd(Path.DirectorySeparatorChar);
+    }
+
+    private string[] GetAllowedWorkspaceRoots()
+    {
+        var configuredRoots = configuration
+            .GetSection("AiBox:LocalCoder:WorkspaceRoots")
+            .Get<string[]>() ?? [];
+        var projectsRoot = configuration["DevPortal:ProjectsRoot"];
+
+        return configuredRoots
+            .Append(projectsRoot ?? string.Empty)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Where(Directory.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IEnumerable<string> GetProjectRoots(string root)
+    {
+        if (IsProjectRoot(root))
+        {
+            yield return root;
+            yield break;
+        }
+
+        IEnumerable<string> directories;
+        try
+        {
+            directories = Directory.EnumerateDirectories(root, "*", SearchOption.TopDirectoryOnly);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        foreach (var directory in directories)
+        {
+            if (IsProjectRoot(directory))
+            {
+                yield return Path.GetFullPath(directory);
+            }
+        }
+    }
+
+    private static bool IsProjectRoot(string path)
+    {
+        try
+        {
+            return Directory.Exists(Path.Combine(path, ".git")) ||
+                   Directory.EnumerateFiles(path, "*.csproj", SearchOption.TopDirectoryOnly).Any() ||
+                   Directory.EnumerateFiles(path, "*.sln", SearchOption.TopDirectoryOnly).Any();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsPathWithinRoot(string path, string root)
+    {
+        var normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
+        var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+
+        return normalizedPath.Equals(normalizedRoot, StringComparison.Ordinal) ||
+               normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
     private static IEnumerable<string> EnumerateProjectFiles(string rootPath)

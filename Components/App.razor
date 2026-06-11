@@ -34,6 +34,14 @@
                     document.body.removeChild(textArea);
                 }
             };
+
+            window.aiBoxOpenRadzenAutoComplete = (element) => {
+                if (!element?.id || !window.Radzen?.openPopup) {
+                    return;
+                }
+
+                window.Radzen.openPopup(element, `popup${element.id}`, true);
+            };
     </script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
     <script src="_framework/blazor.web.js"></script>

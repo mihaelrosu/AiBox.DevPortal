@@ -24,13 +24,13 @@ else
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenFormField Text="Project" Style="width: 100%;">
                         <RadzenDropDown TValue="string" Data="@dashboard.Projects" TextProperty="Name" ValueProperty="Id"
-                                        @bind-Value="@newRunProjectId" AllowFiltering="true" Style="width: 100%;" />
+                                        @bind-Value="@newRunProjectId" Style="width: 100%;" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenFormField Text="Workflow template" Style="width: 100%;">
                         <RadzenDropDown TValue="string" Data="@templates.Where(item => item.Enabled)" TextProperty="Name" ValueProperty="Id"
-                                        @bind-Value="@newRunTemplateId" AllowFiltering="true" Style="width: 100%;" />
+                                        @bind-Value="@newRunTemplateId" Style="width: 100%;" />
                     </RadzenFormField>
                 </RadzenColumn>
             </RadzenRow>
@@ -50,7 +50,7 @@ else
     <RadzenCard>
         <RadzenStack Gap="1rem">
             <RadzenText Text="Active Runs" TextStyle="TextStyle.H5" />
-            <RadzenDataGrid Data="@dashboard.ActiveRuns" TItem="OrchestrationRunSummary" AllowPaging="true" PageSize="10" EmptyText="No active runs.">
+            <AppDataGrid @ref="grid1" Data="@dashboard.ActiveRuns" TItem="OrchestrationRunSummary" PageSize="10" EmptyText="No active runs.">
                 <Columns>
                     <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="WorkflowName" Title="Workflow" />
                     <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="ProjectName" Title="Project" />
@@ -80,14 +80,14 @@ else
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>
-            </RadzenDataGrid>
+            </AppDataGrid>
         </RadzenStack>
     </RadzenCard>
 
     <RadzenCard>
         <RadzenStack Gap="1rem">
             <RadzenText Text="Recent Runs" TextStyle="TextStyle.H5" />
-            <RadzenDataGrid Data="@dashboard.RecentRuns" TItem="OrchestrationRunSummary" AllowPaging="true" PageSize="10" EmptyText="No recent runs.">
+            <AppDataGrid @ref="grid2" Data="@dashboard.RecentRuns" TItem="OrchestrationRunSummary" PageSize="10" EmptyText="No recent runs.">
                 <Columns>
                     <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="WorkflowName" Title="Workflow" />
                     <RadzenDataGridColumn TItem="OrchestrationRunSummary" Property="ProjectName" Title="Project" />
@@ -104,7 +104,7 @@ else
                         <Template Context="item"><RadzenButton Text="Open" Icon="open_in_new" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(() => OpenRun(item.RunId))" /></Template>
                     </RadzenDataGridColumn>
                 </Columns>
-            </RadzenDataGrid>
+            </AppDataGrid>
         </RadzenStack>
     </RadzenCard>
 
@@ -113,7 +113,7 @@ else
             <RadzenCard>
                 <RadzenStack Gap="1rem">
                     <RadzenText Text="Agent Status" TextStyle="TextStyle.H5" />
-                    <RadzenDataGrid Data="@dashboard.Agents" TItem="OrchestrationAgentStatus" AllowPaging="true" PageSize="10">
+                    <AppDataGrid @ref="grid3" Data="@dashboard.Agents" TItem="OrchestrationAgentStatus" PageSize="10">
                         <Columns>
                             <RadzenDataGridColumn TItem="OrchestrationAgentStatus" Property="Name" Title="Agent" />
                             <RadzenDataGridColumn TItem="OrchestrationAgentStatus" Property="Model" Title="Model" />
@@ -122,7 +122,7 @@ else
                                 <Template Context="item"><RadzenBadge Text="@(item.ExecutionAllowed ? "Allowed" : "Not allowed")" BadgeStyle="@(item.ExecutionAllowed ? BadgeStyle.Success : BadgeStyle.Secondary)" /></Template>
                             </RadzenDataGridColumn>
                         </Columns>
-                    </RadzenDataGrid>
+                    </AppDataGrid>
                 </RadzenStack>
             </RadzenCard>
         </RadzenColumn>
@@ -130,7 +130,7 @@ else
             <RadzenCard>
                 <RadzenStack Gap="1rem">
                     <RadzenText Text="Project Status" TextStyle="TextStyle.H5" />
-                    <RadzenDataGrid Data="@dashboard.Projects" TItem="ProjectDefinition" AllowPaging="true" PageSize="10">
+                    <AppDataGrid @ref="grid4" Data="@dashboard.Projects" TItem="ProjectDefinition" PageSize="10">
                         <Columns>
                             <RadzenDataGridColumn TItem="ProjectDefinition" Property="Name" Title="Project" />
                             <RadzenDataGridColumn TItem="ProjectDefinition" Property="Type" Title="Type" />
@@ -138,7 +138,7 @@ else
                             <RadzenDataGridColumn TItem="ProjectDefinition" Property="BuildCommand" Title="Build command" />
                             <RadzenDataGridColumn TItem="ProjectDefinition" Property="GitRepository" Title="Git repository" />
                         </Columns>
-                    </RadzenDataGrid>
+                    </AppDataGrid>
                 </RadzenStack>
             </RadzenCard>
         </RadzenColumn>
@@ -147,7 +147,7 @@ else
     <RadzenCard>
         <RadzenStack Gap="1rem">
             <RadzenText Text="Verification Summary" TextStyle="TextStyle.H5" />
-            <RadzenDataGrid Data="@dashboard.Verifications" TItem="OrchestrationVerificationSummary" AllowPaging="true" PageSize="10" EmptyText="No verification results.">
+            <AppDataGrid @ref="grid5" Data="@dashboard.Verifications" TItem="OrchestrationVerificationSummary" PageSize="10" EmptyText="No verification results.">
                 <Columns>
                     <RadzenDataGridColumn TItem="OrchestrationVerificationSummary" Property="WorkflowName" Title="Workflow" />
                     <RadzenDataGridColumn TItem="OrchestrationVerificationSummary" Title="Status">
@@ -158,7 +158,7 @@ else
                         <Template Context="item">@item.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</Template>
                     </RadzenDataGridColumn>
                 </Columns>
-            </RadzenDataGrid>
+            </AppDataGrid>
         </RadzenStack>
     </RadzenCard>
 }
@@ -179,6 +179,11 @@ else
     private bool runImmediately;
     private bool isLoading;
     private bool isBusy;
+    private object? grid1;
+    private object? grid2;
+    private object? grid3;
+    private object? grid4;
+    private object? grid5;
 
     protected override async Task OnInitializedAsync()
     {

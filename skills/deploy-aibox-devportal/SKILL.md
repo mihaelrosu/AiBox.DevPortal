@@ -8,6 +8,26 @@ description: Validate and deploy changes to the AiBox.DevPortal ASP.NET Blazor a
 Run commands from the repository root containing `AiBox.DevPortal.csproj` and
 `docker-compose.yml`.
 
+## UI Grid Defaults
+
+When touching Razor pages that use `RadzenDataGrid`, apply the shared grid
+defaults from `RadzenDataGrid_def`:
+
+```razor
+<RadzenDataGrid @ref="grid"
+                FilterMode="FilterMode.Simple"
+                AllowVirtualization="false"
+                AllowPaging="true"
+                AllowSorting="true"
+                ShowPagingSummary="true"
+                AllowColumnResize="true"
+                AllowFiltering="true"
+                PagerPosition="PagerPosition.TopAndBottom">
+```
+
+If a page contains more than one grid, use `grid1`, `grid2`, `grid3`, and so
+on so the component still compiles.
+
 ## Workflow
 
 1. Inspect the changed files and preserve unrelated user changes.

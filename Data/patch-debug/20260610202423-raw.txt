@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Coder.razor",
+      "operation": "insert_after",
+      "anchor": "<h3>Patch Queue</h3>",
+      "oldText": "",
+      "newText": "<RadzenAlert AlertStyle=\"AlertStyle.Info\" ShowIcon=\"true\">Please review the patch preview and apply when ready.</RadzenAlert>",
+      "summary": "Add patch approval info alert"
+    }
+  ]
+}
+```

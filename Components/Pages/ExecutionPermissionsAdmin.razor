@@ -12,7 +12,7 @@
 </div>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@profiles" TItem="ExecutionPermissionProfile" AllowPaging="true" PageSize="10" EmptyText="No profiles configured.">
+    <AppDataGrid @ref="grid" Data="@profiles" TItem="ExecutionPermissionProfile" PageSize="10" EmptyText="No profiles configured.">
         <Columns>
             <RadzenDataGridColumn TItem="ExecutionPermissionProfile" Property="Name" Title="Name" />
             <RadzenDataGridColumn TItem="ExecutionPermissionProfile" Property="Level" Title="Level" />
@@ -51,7 +51,7 @@
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </AppDataGrid>
 </RadzenCard>
 
 @if (editingProfile is not null)
@@ -203,6 +203,7 @@
     [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
 
+    private object? grid;
     private readonly ExecutionPermissionLevel[] levels = Enum.GetValues<ExecutionPermissionLevel>();
     private IReadOnlyList<ExecutionPermissionProfile> profiles = [];
     private ExecutionPermissionProfile? editingProfile;

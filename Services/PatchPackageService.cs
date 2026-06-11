@@ -72,7 +72,40 @@ public sealed class PatchPackageService(
 
         try
         {
-            var package = BuildPackage(preview, userRequest);
+            var package = BuildPackage(
+                preview.ProjectPath,
+                userRequest,
+                preview.Model,
+                preview.PatchText,
+                BuildFileChanges(preview));
+            await SaveInternalAsync(package, cancellationToken);
+            return Clone(package);
+        }
+        finally
+        {
+            FileLock.Release();
+        }
+    }
+
+    public async Task<PatchPackage> CreateFromChangesAsync(
+        string projectPath,
+        string userRequest,
+        string model,
+        string patchText,
+        IReadOnlyList<PatchFileChange> fileChanges,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(patchText) ||
+            patchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Patch preview does not contain an applicable patch.");
+        }
+
+        await FileLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            var package = BuildPackage(projectPath, userRequest, model, patchText, fileChanges);
             await SaveInternalAsync(package, cancellationToken);
             return Clone(package);
         }
@@ -220,26 +253,35 @@ public sealed class PatchPackageService(
         return Path.Combine(GetPackagesDirectory(), $"{id}.json");
     }
 
-    private static PatchPackage BuildPackage(LocalCoderPatchPreview preview, string userRequest)
+    private static PatchPackage BuildPackage(
+        string projectPath,
+        string userRequest,
+        string model,
+        string patchText,
+        IReadOnlyList<PatchFileChange> fileChanges)
     {
-        var changes = BuildFileChanges(preview);
         return new PatchPackage
         {
             Id = Guid.NewGuid().ToString("N"),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
-            ProjectPath = preview.ProjectPath,
+            ProjectPath = projectPath,
             UserRequest = userRequest ?? string.Empty,
-            Model = preview.Model,
-            PatchText = preview.PatchText,
+            Model = model,
+            PatchText = patchText,
             Status = PatchPackageStatus.Draft,
             StatusMessage = "Draft patch package created from preview.",
-            FileChanges = changes
+            FileChanges = fileChanges.Select(Clone).ToArray()
         };
     }
 
     private static IReadOnlyList<PatchFileChange> BuildFileChanges(LocalCoderPatchPreview preview)
     {
+        if (preview.FileChanges is { Count: > 0 })
+        {
+            return preview.FileChanges.Select(Clone).ToArray();
+        }
+
         var fileContexts = preview.FileContexts
             .ToDictionary(context => NormalizePath(context.RelativePath), context => context.Content, StringComparer.OrdinalIgnoreCase);
 
@@ -427,6 +469,16 @@ public sealed class PatchPackageService(
                 OldContent = change.OldContent,
                 NewContent = change.NewContent
             }).ToArray()
+        };
+    }
+
+    private static PatchFileChange Clone(PatchFileChange change)
+    {
+        return new PatchFileChange
+        {
+            RelativePath = change.RelativePath,
+            OldContent = change.OldContent,
+            NewContent = change.NewContent
         };
     }
 }

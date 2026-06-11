@@ -12,7 +12,7 @@
 </div>
 
 <RadzenCard>
-    <RadzenDataGrid Data="@workflows" TItem="WorkflowDefinition" AllowPaging="true" PageSize="10" EmptyText="No workflows configured.">
+    <AppDataGrid @ref="grid" Data="@workflows" TItem="WorkflowDefinition" PageSize="10" EmptyText="No workflows configured.">
         <Columns>
             <RadzenDataGridColumn TItem="WorkflowDefinition" Property="Name" Title="Name" />
             <RadzenDataGridColumn TItem="WorkflowDefinition" Property="Status" Title="Status" />
@@ -44,7 +44,7 @@
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </AppDataGrid>
 </RadzenCard>
 
 @if (editingWorkflow is not null)
@@ -195,6 +195,7 @@
     [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;
 
+    private object? grid;
     private readonly WorkflowStatus[] workflowStatuses = [WorkflowStatus.Draft, WorkflowStatus.Active];
     private readonly PreviousResultMode[] previousResultModes = Enum.GetValues<PreviousResultMode>();
     private IReadOnlyList<WorkflowDefinition> workflows = [];
