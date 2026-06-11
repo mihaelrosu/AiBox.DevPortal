@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Pages/Agents/LocalCoderHistory.razor",
+      "operation": "insert_after",
+      "anchor": "@page \"/agents/local-coder-history\"",
+      "oldText": "",
+      "newText": "@* Documentation placeholder *@\n",
+      "summary": "Add documentation placeholder comment"
+    }
+  ]
+}
+```

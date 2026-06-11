@@ -168,6 +168,42 @@ public sealed class PatchEditOperationServiceTests
         }
     }
 
+    [Theory]
+    [InlineData("@page \"/test\"")]
+    [InlineData("@using System.Text")]
+    [InlineData("@inject NavigationManager Navigation")]
+    [InlineData("@attribute [Authorize]")]
+    [InlineData("@layout MainLayout")]
+    public async Task BuildAsync_InsertAfterRazorDirective_InsertsContentOnSeparatedLine(string directive)
+    {
+        var result = await BuildSingleFileOperationAsync(
+            directive,
+            directive,
+            "@* Test Comment *@");
+
+        var change = Assert.Single(result.FileChanges);
+        Assert.Equal(
+            $"{directive}{Environment.NewLine}{Environment.NewLine}@* Test Comment *@",
+            change.NewContent);
+    }
+
+    [Fact]
+    public async Task BuildAsync_InsertAfterRazorDirective_PreservesCrLfLineEndings()
+    {
+        const string directive = "@page \"/test\"";
+        var content = $"{directive}\r\n<h1>Test</h1>\r\n";
+
+        var result = await BuildSingleFileOperationAsync(
+            content,
+            directive,
+            "@* Test Comment *@");
+
+        var change = Assert.Single(result.FileChanges);
+        Assert.Equal(
+            $"{directive}\r\n\r\n@* Test Comment *@\r\n<h1>Test</h1>\r\n",
+            change.NewContent);
+    }
+
     [Fact]
     public async Task BuildAsync_UnclosedMarkdownFence_FailsJsonValidation()
     {
@@ -190,6 +226,49 @@ public sealed class PatchEditOperationServiceTests
                     """));
 
             Assert.Contains("JSON parse error", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    private static async Task<PatchEditOperationResult> BuildSingleFileOperationAsync(
+        string content,
+        string anchor,
+        string newText)
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-directive-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.razor";
+        var filePath = Path.Combine(projectRoot, relativePath);
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, content);
+
+            var rawJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                operations = new[]
+                {
+                    new
+                    {
+                        filePath = relativePath,
+                        operation = "insert_after",
+                        anchor,
+                        newText
+                    }
+                }
+            });
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            return await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                rawJson);
         }
         finally
         {

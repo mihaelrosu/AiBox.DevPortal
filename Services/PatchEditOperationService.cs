@@ -13,6 +13,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         "insert_before",
         "replace"
     };
+    private static readonly string[] RazorDirectives = ["@page", "@using", "@inject", "@attribute", "@layout"];
 
     public async Task<PatchEditOperationResult> BuildAsync(
         string projectPath,
@@ -196,7 +197,92 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         }
 
         var insertIndex = match!.Index + match.Length;
+        if (TryBuildRazorDirectiveInsertion(currentContent, match, newText, out insertIndex, out var directiveInsertion))
+        {
+            return currentContent[..insertIndex] + directiveInsertion + currentContent[insertIndex..];
+        }
+
         return currentContent[..insertIndex] + newText + currentContent[insertIndex..];
+    }
+
+    private static bool TryBuildRazorDirectiveInsertion(
+        string currentContent,
+        PatchAnchorMatch match,
+        string newText,
+        out int insertIndex,
+        out string insertion)
+    {
+        insertIndex = match.Index + match.Length;
+        insertion = string.Empty;
+
+        var lineStart = match.Index == 0
+            ? -1
+            : currentContent.LastIndexOf('\n', match.Index - 1);
+        lineStart = lineStart < 0 ? 0 : lineStart + 1;
+
+        var lineContentEnd = currentContent.IndexOfAny(['\r', '\n'], match.Index + match.Length);
+        lineContentEnd = lineContentEnd < 0 ? currentContent.Length : lineContentEnd;
+
+        var directiveLine = currentContent[lineStart..lineContentEnd].TrimStart();
+        if (!IsRazorDirectiveLine(directiveLine))
+        {
+            return false;
+        }
+
+        var lineEnding = DetectLineEnding(currentContent);
+        var lineEnd = lineContentEnd;
+        if (lineEnd < currentContent.Length)
+        {
+            lineEnd += currentContent[lineEnd] == '\r' &&
+                       lineEnd + 1 < currentContent.Length &&
+                       currentContent[lineEnd + 1] == '\n'
+                ? 2
+                : 1;
+        }
+
+        var normalizedNewText = newText
+            .ReplaceLineEndings(lineEnding)
+            .Trim('\r', '\n');
+
+        var separatorBefore = lineEnd > lineContentEnd
+            ? lineEnding
+            : lineEnding + lineEnding;
+        var separatorAfter = lineEnd < currentContent.Length
+            ? lineEnding
+            : string.Empty;
+
+        insertIndex = lineEnd;
+        insertion = separatorBefore + normalizedNewText + separatorAfter;
+        return true;
+    }
+
+    private static bool IsRazorDirectiveLine(string line)
+    {
+        return RazorDirectives.Any(directive =>
+            line.Equals(directive, StringComparison.Ordinal) ||
+            (line.StartsWith(directive, StringComparison.Ordinal) &&
+             line.Length > directive.Length &&
+             char.IsWhiteSpace(line[directive.Length])));
+    }
+
+    private static string DetectLineEnding(string content)
+    {
+        if (content.Contains("\r\n", StringComparison.Ordinal))
+        {
+            return "\r\n";
+        }
+
+        if (content.Contains('\n'))
+        {
+            return "\n";
+        }
+
+        if (content.Contains('\r'))
+        {
+            return "\r";
+        }
+
+        return Environment.NewLine;
     }
 
     private bool TryResolveAnchor(
