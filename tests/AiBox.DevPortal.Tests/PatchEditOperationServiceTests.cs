@@ -53,6 +53,82 @@ public sealed class PatchEditOperationServiceTests
         }
     }
 
+    [Fact]
+    public async Task BuildAsync_JsonMarkdownFence_ParsesOperations()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-fenced-json-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        var filePath = Path.Combine(projectRoot, relativePath);
+        const string content = "public class Example {}";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                """
+                ```json
+                {
+                  "operations": [
+                    {
+                      "filePath": "Example.cs",
+                      "operation": "insert_after",
+                      "anchor": "public class Example {}",
+                      "newText": "\n// Added"
+                    }
+                  ]
+                }
+                ```
+                """);
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal($"{content}{Environment.NewLine}// Added", change.NewContent);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_UnclosedMarkdownFence_FailsJsonValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-malformed-fence-test-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = "Example.cs", Content = "content" }],
+                    """
+                    ```json
+                    {
+                      "operations": []
+                    }
+                    """));
+
+            Assert.Contains("JSON parse error", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
     private sealed class ListLogger<T> : ILogger<T>
     {
         public List<string> Entries { get; } = [];

@@ -388,7 +388,8 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     {
         try
         {
-            var response = JsonSerializer.Deserialize<PatchEditOperationEnvelope>(rawJson, JsonOptions);
+            var normalizedJson = UnwrapMarkdownCodeFence(rawJson);
+            var response = JsonSerializer.Deserialize<PatchEditOperationEnvelope>(normalizedJson, JsonOptions);
             if (response is null)
             {
                 throw new JsonException("JSON payload was empty.");
@@ -405,6 +406,42 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 rawJson ?? string.Empty,
                 string.Empty);
         }
+    }
+
+    private static string UnwrapMarkdownCodeFence(string rawJson)
+    {
+        var trimmed = (rawJson ?? string.Empty).Trim();
+        if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        var openingLineEnd = trimmed.IndexOf('\n');
+        if (openingLineEnd < 0)
+        {
+            return trimmed;
+        }
+
+        var openingFence = trimmed[..openingLineEnd].TrimEnd('\r');
+        if (!openingFence.Equals("```", StringComparison.Ordinal) &&
+            !openingFence.Equals("```json", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        var closingLineStart = trimmed.LastIndexOf('\n');
+        if (closingLineStart <= openingLineEnd)
+        {
+            return trimmed;
+        }
+
+        var closingFence = trimmed[(closingLineStart + 1)..].Trim();
+        if (!closingFence.Equals("```", StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        return trimmed[(openingLineEnd + 1)..closingLineStart].Trim();
     }
 
     private static PatchPreviewValidationException BuildValidationException(
