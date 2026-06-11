@@ -1,17 +1,17 @@
 {
   "id": "6d5e5d2537d448caa95ce5d6f2ed8467",
   "createdAt": "2026-06-11T19:29:29.6536963+00:00",
-  "updatedAt": "2026-06-11T19:30:23.6026953+00:00",
+  "updatedAt": "2026-06-11T19:34:39.4546907+00:00",
   "backupFolder": "Data/patch-backups/20260611193023",
   "appliedAt": "2026-06-11T19:30:23.6012212+00:00",
-  "rolledBack": false,
-  "rolledBackAt": null,
+  "rolledBack": true,
+  "rolledBackAt": "2026-06-11T19:34:39.4529466+00:00",
   "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
   "userRequest": "Modify Pages/Agents/LocalCoderHistory.razor.\n\nAdd a comment immediately after the @page directive:\n\n@* Documentation placeholder *@\n\nGenerate patch preview only.\nDo not apply changes.",
   "model": "qwen2.5-coder:7b",
   "patchText": "diff --git a/Pages/Agents/LocalCoderHistory.razor b/Pages/Agents/LocalCoderHistory.razor\nindex d17cb9e..06bb07d 100644\n--- a/Pages/Agents/LocalCoderHistory.razor\n\u002B\u002B\u002B b/Pages/Agents/LocalCoderHistory.razor\n@@ -1,4 \u002B1,5 @@\n-@page \u0022/agents/local-coder-history\u0022\n\u002B@page \u0022/agents/local-coder-history\u0022@* Documentation placeholder *@\n\u002B\n @rendermode InteractiveServer\n @using System.Text.Json\n @using System.Text.Json.Serialization",
-  "status": "applied",
-  "statusMessage": "Applied with 1 backup file(s).",
+  "status": "rolledBack",
+  "statusMessage": "Restored 1 file(s) from Data/patch-backups/20260611193023.",
   "approvalGateResults": [
     {
       "gateKey": "patch-has-files",
@@ -55,7 +55,7 @@
     }
   ],
   "approvalGatesPassed": true,
-  "rollbackResult": "",
+  "rollbackResult": "Restored 1 file(s) from Data/patch-backups/20260611193023.",
   "rollbackError": "",
   "fileChanges": [
     {
