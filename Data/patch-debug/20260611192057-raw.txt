@@ -1,0 +1,12 @@
+{
+  "operations": [
+    {
+      "filePath": "Pages/Agents/LocalCoderHistory.razor",
+      "operation": "insert_after",
+      "anchor": "<p>Browse and inspect saved Local Coder sessions. This page does not execute Local Coder actions.</p>",
+      "oldText": "",
+      "newText": "<p>To use the features on this page, ensure you have the necessary permissions and that your environment is configured correctly.</p>",
+      "summary": "Add documentation about using the page"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenText Text="Safe Commands" TextStyle="TextStyle.H5" />
+        <RadzenText Text="Verify Project runs git status, dotnet build, and dotnet test."
+                    TextStyle="TextStyle.Caption" />
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Text="git status" Click="@(() => OnRunCommand.InvokeAsync("git status"))" Disabled="@IsRunningCommand" />
+            <RadzenButton Text="git diff" Click="@(() => OnRunCommand.InvokeAsync("git diff"))" Disabled="@IsRunningCommand" />
+            <RadzenButton Text="dotnet build" ButtonStyle="ButtonStyle.Primary"
+                          Click="@(() => OnRunCommand.InvokeAsync("dotnet build"))" Disabled="@IsRunningCommand" />
+            <RadzenButton Text="dotnet test" ButtonStyle="ButtonStyle.Light"
+                          Click="@(() => OnRunCommand.InvokeAsync("dotnet test"))" Disabled="@IsRunningCommand" />
+            <RadzenButton Text="Verify Project" Icon="verified" ButtonStyle="ButtonStyle.Success"
+                          Click="@OnVerifyProject" Disabled="@(!CanVerifyProject)" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenText Text="Commit Changes" TextStyle="TextStyle.H5" />
+        <RadzenFormField Text="Commit message">
+            <RadzenTextBox Value="@CommitMessage" ValueChanged="@CommitMessageChanged" Style="width: 100%;"
+                           Placeholder="Enter commit message" />
+        </RadzenFormField>
+        <RadzenButton Text="Commit Changes" Icon="commit" ButtonStyle="ButtonStyle.Primary"
+                      Click="@OnCommitChanges" Disabled="@(!CanCommitChanges)" />
+        @if (CommitResults.Count > 0)
+        {
+            @CommandResults(CommitResults)
+        }
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenText Text="Build & Deploy" TextStyle="TextStyle.H5" />
+        <RadzenButton Text="Build & Deploy" Icon="rocket_launch" ButtonStyle="ButtonStyle.Primary"
+                      Click="@OnBuildDeploy" Disabled="@(!CanBuildDeploy)" />
+        @if (BuildDeployResults.Count > 0)
+        {
+            @CommandResults(BuildDeployResults)
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@if (LastCommand is not null)
+{
+    <RadzenCard>
+        <RadzenText Text="@($"Command: {LastCommand.Command}")" TextStyle="TextStyle.H5" />
+        <RadzenText Text="@($"Exit code: {LastCommand.ExitCode}")" TextStyle="TextStyle.Body2" />
+        <h4>Output</h4>
+        <pre class="coder-output">@LastCommand.Output</pre>
+        @if (!string.IsNullOrWhiteSpace(LastCommand.Error))
+        {
+            <h4>Error</h4>
+            <pre class="coder-error">@LastCommand.Error</pre>
+        }
+    </RadzenCard>
+}
+
+@if (VerifyResults.Count > 0)
+{
+    <RadzenCard>
+        <RadzenText Text="Verification Result" TextStyle="TextStyle.H5" />
+        @foreach (var item in VerifyResults)
+        {
+            <RadzenCard Style="margin-top: 1rem;">
+                <RadzenText Text="@($"{item.Command} — exit {item.ExitCode}")" TextStyle="TextStyle.H6" />
+                @if (!string.IsNullOrWhiteSpace(item.Output))
+                {
+                    <h4>Output</h4>
+                    <pre class="coder-output">@item.Output</pre>
+                }
+                @if (!string.IsNullOrWhiteSpace(item.Error))
+                {
+                    <h4>Error</h4>
+                    <pre class="coder-error">@item.Error</pre>
+                }
+            </RadzenCard>
+        }
+    </RadzenCard>
+}
+
+@code {
+    [Parameter] public bool IsRunningCommand { get; set; }
+    [Parameter] public bool CanVerifyProject { get; set; }
+    [Parameter] public bool CanCommitChanges { get; set; }
+    [Parameter] public bool CanBuildDeploy { get; set; }
+    [Parameter] public string CommitMessage { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> CommitMessageChanged { get; set; }
+    [Parameter] public IReadOnlyList<CommandRunResult> CommitResults { get; set; } = [];
+    [Parameter] public IReadOnlyList<CommandRunResult> BuildDeployResults { get; set; } = [];
+    [Parameter] public IReadOnlyList<CommandRunResult> VerifyResults { get; set; } = [];
+    [Parameter] public CommandRunResult? LastCommand { get; set; }
+    [Parameter] public EventCallback<string> OnRunCommand { get; set; }
+    [Parameter] public EventCallback OnVerifyProject { get; set; }
+    [Parameter] public EventCallback OnCommitChanges { get; set; }
+    [Parameter] public EventCallback OnBuildDeploy { get; set; }
+
+    private RenderFragment CommandResults(IReadOnlyList<CommandRunResult> Results) => @<text>
+        <RadzenText Text="Command Results" TextStyle="TextStyle.H6" />
+        @foreach (var result in Results)
+        {
+            <RadzenCard>
+                <RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" />
+                @if (!string.IsNullOrWhiteSpace(result.Output))
+                {
+                    <pre class="coder-output">@result.Output</pre>
+                }
+                @if (!string.IsNullOrWhiteSpace(result.Error))
+                {
+                    <pre class="coder-error">@result.Error</pre>
+                }
+            </RadzenCard>
+        }
+    </text>;
+}

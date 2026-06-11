@@ -55,10 +55,10 @@ public sealed class PatchEditOperationServiceTests
     }
 
     [Fact]
-    public async Task BuildAsync_RealCoderRazor_HtmlAnchorFallsBackToPatchQueueRadzenText()
+    public async Task BuildAsync_RealPatchQueuePanel_HtmlAnchorFallsBackToPatchQueueRadzenText()
     {
         var projectRoot = FindProjectRoot();
-        const string relativePath = "Components/Pages/Coder.razor";
+        const string relativePath = "Components/Coder/CoderPatchQueuePanel.razor";
         var content = await File.ReadAllTextAsync(Path.Combine(projectRoot, relativePath));
         var logger = new ListLogger<PatchEditOperationService>();
 
@@ -70,7 +70,7 @@ public sealed class PatchEditOperationServiceTests
             {
               "operations": [
                 {
-                  "filePath": "Components/Pages/Coder.razor",
+                  "filePath": "Components/Coder/CoderPatchQueuePanel.razor",
                   "operation": "insert_after",
                   "anchor": "<h3>Patch Queue</h3>",
                   "newText": "\n<!-- Patch Queue integration test -->"
@@ -91,21 +91,21 @@ public sealed class PatchEditOperationServiceTests
         Assert.Contains(logger.Entries, entry => entry.Contains("Patch Queue count: 1", StringComparison.Ordinal));
         Assert.Contains(logger.Entries, entry => entry.Contains("Match strategy: ExactText", StringComparison.Ordinal));
         Assert.StartsWith(
-            "diff --git a/Components/Pages/Coder.razor b/Components/Pages/Coder.razor",
+            "diff --git a/Components/Coder/CoderPatchQueuePanel.razor b/Components/Coder/CoderPatchQueuePanel.razor",
             result.PatchText,
             StringComparison.Ordinal);
-        Assert.Contains("--- a/Components/Pages/Coder.razor", result.PatchText, StringComparison.Ordinal);
-        Assert.Contains("+++ b/Components/Pages/Coder.razor", result.PatchText, StringComparison.Ordinal);
-        Assert.DoesNotContain("Coder.razorComponents", result.PatchText, StringComparison.Ordinal);
+        Assert.Contains("--- a/Components/Coder/CoderPatchQueuePanel.razor", result.PatchText, StringComparison.Ordinal);
+        Assert.Contains("+++ b/Components/Coder/CoderPatchQueuePanel.razor", result.PatchText, StringComparison.Ordinal);
+        Assert.DoesNotContain("CoderPatchQueuePanel.razorComponents", result.PatchText, StringComparison.Ordinal);
         Assert.Contains(logger.Entries, entry =>
             entry.Contains("Original diff header:", StringComparison.Ordinal) &&
             entry.Contains("Parsed old path:", StringComparison.Ordinal) &&
             entry.Contains("Parsed new path:", StringComparison.Ordinal) &&
-            entry.Contains("Normalized path: a/Components/Pages/Coder.razor -> b/Components/Pages/Coder.razor", StringComparison.Ordinal));
+            entry.Contains("Normalized path: a/Components/Coder/CoderPatchQueuePanel.razor -> b/Components/Coder/CoderPatchQueuePanel.razor", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task ReadFileContextsAsync_RealCoderRazor_PreservesCurrentPatchQueueContent()
+    public async Task ReadFileContextsAsync_RealPatchQueuePanel_PreservesCurrentPatchQueueContent()
     {
         var projectRoot = FindProjectRoot();
         var configuration = new ConfigurationBuilder()
@@ -116,7 +116,7 @@ public sealed class PatchEditOperationServiceTests
             .Build();
         var service = new CoderConsoleService(null!, configuration, null!, null!);
 
-        var contexts = await service.ReadFileContextsAsync(projectRoot, ["Components/Pages/Coder.razor"]);
+        var contexts = await service.ReadFileContextsAsync(projectRoot, ["Components/Coder/CoderPatchQueuePanel.razor"]);
 
         var context = Assert.Single(contexts);
         var currentContent = await File.ReadAllTextAsync(Path.Combine(projectRoot, context.RelativePath));

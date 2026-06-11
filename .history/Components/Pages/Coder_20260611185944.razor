@@ -1,20 +1,11 @@
 @page "/coder"
 @rendermode InteractiveServer
 <PageTitle>Local Coder</PageTitle>
-<RadzenStack Gap="1rem">
 <RadzenText Text="Local Coder" TextStyle="TextStyle.H4" />
-<RadzenTabs Style="width: 100%;">
+<RadzenTabs>
     <Tabs>
-        <RadzenTabsItem Text="Work" Icon="edit_note">
+        <RadzenTabsItem Text="Work">
             <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Plan and prepare changes" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Select a project and files, describe the task, then create a plan or generate a patch preview."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-
                 <CoderProjectSelector ProjectPath="@request.ProjectPath"
                                       ProjectPathChanged="@OnProjectPathChanged"
                                       WorkspaceRoots="@workspaceRoots"
@@ -89,31 +80,16 @@
             </RadzenStack>
         </RadzenTabsItem>
 
-        <RadzenTabsItem Text="Agent Profiles" Icon="badge">
+        <RadzenTabsItem Text="Agent Mode Profiles">
             <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Action routing profiles" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Review which agent mode and model are assigned to each Local Coder action."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
                 <CoderAgentProfilesPanel ProfileRows="@GetProfileRows()" />
             </RadzenStack>
         </RadzenTabsItem>
 
-        <RadzenTabsItem Text="Patch Preview" Icon="difference">
+        <RadzenTabsItem Text="Patch Preview">
             <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Review and approve changes" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Inspect generated diffs and approval results before applying or rolling back a patch."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
                 <CoderDiffViewer Error="@error"
                                  ValidationErrors="@LastPatchValidationErrors"
-                                 ValidationGuidance="@LastPatchValidationGuidance"
                                  RawResponse="@LastPatchRawResponse"
                                  NormalizedDiff="@LastPatchNormalizedDiff"
                                  PatchPreview="@patchPreview"
@@ -140,15 +116,8 @@
             </RadzenStack>
         </RadzenTabsItem>
 
-        <RadzenTabsItem Text="Verify & Output" Icon="terminal">
+        <RadzenTabsItem Text="Verify & Output">
             <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Run and inspect project operations" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Run safe commands, verify the project, and review command, build, test, and deployment output."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
                 <CoderExecutionPanel IsRunningCommand="@isRunningCommand"
                                      CanVerifyProject="@(!isRunningCommand && !isVerifying && !string.IsNullOrWhiteSpace(request.ProjectPath))"
                                      CanCommitChanges="@CanCommitChanges()"
@@ -166,15 +135,8 @@
             </RadzenStack>
         </RadzenTabsItem>
 
-        <RadzenTabsItem Text="History" Icon="history">
+        <RadzenTabsItem Text="History">
             <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Review previous activity" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Inspect agent runs and Local Coder tasks, or reuse a previous task as context."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
                 <CoderHistoryPanel ShowAgentRunHistory="true"
                                    AgentRunHistory="@agentRunHistory"
                                    SelectedAgentRun="@selectedAgentRun"
@@ -191,7 +153,6 @@
         </RadzenTabsItem>
     </Tabs>
 </RadzenTabs>
-</RadzenStack>
 
 @code {
     #region Injected services
@@ -238,7 +199,6 @@
     private string LastPatchRawResponse { get; set; } = string.Empty;
     private string LastPatchNormalizedDiff { get; set; } = string.Empty;
     private IReadOnlyList<string> LastPatchValidationErrors { get; set; } = [];
-    private IReadOnlyList<PatchValidationGuidance> LastPatchValidationGuidance { get; set; } = [];
 
     private bool isLoading;
     private bool isPlanning;
@@ -506,7 +466,6 @@
             LastPatchRawResponse = exception.RawModelResponse;
             LastPatchNormalizedDiff = exception.NormalizedDiff;
             LastPatchValidationErrors = exception.ValidationErrors.ToArray();
-            LastPatchValidationGuidance = exception.Guidance.ToArray();
 
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
@@ -558,7 +517,6 @@
         LastPatchRawResponse = string.Empty;
         LastPatchNormalizedDiff = string.Empty;
         LastPatchValidationErrors = [];
-        LastPatchValidationGuidance = [];
     }
 
     #endregion

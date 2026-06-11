@@ -1,0 +1,144 @@
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Patch Queue" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Generated patches are saved here as draft packages. Review, approve, apply, and verify from this queue."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="1.25rem" Wrap="FlexWrap.Wrap">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Review" Icon="rate_review" ButtonStyle="ButtonStyle.Light"
+                                  Click="@OnReview" Disabled="@(!CanReview)" />
+                    <RadzenButton Text="Approve" Icon="check_circle" ButtonStyle="ButtonStyle.Success"
+                                  Click="@OnApprove" Disabled="@(!CanApprove)" />
+                    <RadzenButton Text="Verify" Icon="verified" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@OnVerify" Disabled="@(!CanVerify)" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Apply" Icon="publish" ButtonStyle="ButtonStyle.Danger"
+                                  Click="@OnApply" Disabled="@(!CanApply)" />
+                    <RadzenButton Text="Rollback" Icon="undo" ButtonStyle="ButtonStyle.Warning"
+                                  Click="@OnRollback" Disabled="@(!CanRollback)" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenStack>
+
+        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+            Patch previews must be approved before they can be applied.
+        </RadzenAlert>
+
+        <AppDataGrid Data="@PatchPackages" TItem="PatchPackage" PageSize="8"
+                     EmptyText="No patch packages queued yet."
+                     RowSelect="@OnPatchSelected">
+            <Columns>
+                <RadzenDataGridColumn TItem="PatchPackage" Title="Created">
+                    <Template Context="package">
+                        @package.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PatchPackage" Property="Status" Title="Status" />
+                <RadzenDataGridColumn TItem="PatchPackage" Property="ProjectPath" Title="Project" />
+                <RadzenDataGridColumn TItem="PatchPackage" Property="Model" Title="Model" />
+                <RadzenDataGridColumn TItem="PatchPackage" Title="Files">
+                    <Template Context="package">
+                        @package.FileChanges.Count
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PatchPackage" Property="StatusMessage" Title="Message" />
+            </Columns>
+        </AppDataGrid>
+
+        @if (SelectedPatchPackage is not null)
+        {
+            <RadzenCard>
+                <RadzenStack Gap="0.75rem">
+                    <RadzenText Text="Selected Patch" TextStyle="TextStyle.H6" />
+                    <RadzenText Text="@($"Package ID: {SelectedPatchPackage.Id}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Status: {SelectedPatchPackage.Status}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Project path: {SelectedPatchPackage.ProjectPath}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Model: {SelectedPatchPackage.Model}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Request: {SelectedPatchPackage.UserRequest}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Status message: {SelectedPatchPackage.StatusMessage}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Approval gates passed: {SelectedPatchPackage.ApprovalGatesPassed}")"
+                                TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Backup folder: {SelectedPatchPackage.BackupFolder}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Applied at: {(SelectedPatchPackage.AppliedAt?.ToString("O") ?? "n/a")}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Rolled back: {SelectedPatchPackage.RolledBack}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Rolled back at: {(SelectedPatchPackage.RolledBackAt?.ToString("O") ?? "n/a")}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Rollback result: {SelectedPatchPackage.RollbackResult}")" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@($"Rollback error: {SelectedPatchPackage.RollbackError}")" TextStyle="TextStyle.Body1" />
+
+                    <RadzenText Text="Approval Gate Results" TextStyle="TextStyle.H6" />
+                    @if (SelectedPatchPackage.ApprovalGateResults.Count == 0)
+                    {
+                        <RadzenText Text="No approval gates have been run yet." TextStyle="TextStyle.Body2" />
+                    }
+                    else
+                    {
+                        @foreach (var gateResult in SelectedPatchPackage.ApprovalGateResults)
+                        {
+                            <RadzenCard Style="margin: 0;">
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="@gateResult.GateKey" TextStyle="TextStyle.Body1" />
+                                    <RadzenText Text="@($"Passed: {gateResult.Passed}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Blocking: {gateResult.Blocking}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Warning: {gateResult.Warning}")" TextStyle="TextStyle.Body2" />
+                                    @if (!string.IsNullOrWhiteSpace(gateResult.FilePath))
+                                    {
+                                        <RadzenText Text="@($"File: {gateResult.FilePath}")" TextStyle="TextStyle.Body2" />
+                                    }
+                                    <RadzenText Text="@gateResult.Message" TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        }
+                    }
+
+                    <RadzenText Text="Selected Patch Files" TextStyle="TextStyle.H6" />
+                    @foreach (var fileChange in SelectedPatchPackage.FileChanges)
+                    {
+                        <RadzenText Text="@fileChange.RelativePath" TextStyle="TextStyle.Body2" />
+                    }
+
+                    <RadzenText Text="Simple Before/After Diff" TextStyle="TextStyle.H6" />
+                    @foreach (var fileChange in SelectedPatchPackage.FileChanges)
+                    {
+                        <details style="margin-bottom: 0.75rem;">
+                            <summary>@fileChange.RelativePath</summary>
+                            <RadzenText Text="Before" TextStyle="TextStyle.Body2" />
+                            <pre class="coder-output">@fileChange.OldContent</pre>
+                            <RadzenText Text="After" TextStyle="TextStyle.Body2" />
+                            <pre class="coder-output">@fileChange.NewContent</pre>
+                        </details>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(SelectedPatchPackage.PatchText))
+                    {
+                        <details>
+                            <summary>Raw Patch Text</summary>
+                            <pre class="coder-output">@SelectedPatchPackage.PatchText</pre>
+                        </details>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public IReadOnlyList<PatchPackage> PatchPackages { get; set; } = [];
+    [Parameter] public PatchPackage? SelectedPatchPackage { get; set; }
+    [Parameter] public bool CanReview { get; set; }
+    [Parameter] public bool CanApprove { get; set; }
+    [Parameter] public bool CanApply { get; set; }
+    [Parameter] public bool CanVerify { get; set; }
+    [Parameter] public bool CanRollback { get; set; }
+    [Parameter] public EventCallback<PatchPackage> OnPatchSelected { get; set; }
+    [Parameter] public EventCallback OnReview { get; set; }
+    [Parameter] public EventCallback OnApprove { get; set; }
+    [Parameter] public EventCallback OnApply { get; set; }
+    [Parameter] public EventCallback OnVerify { get; set; }
+    [Parameter] public EventCallback OnRollback { get; set; }
+}

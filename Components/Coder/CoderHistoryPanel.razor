@@ -1,0 +1,170 @@
+@if (ShowAgentRunHistory)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenText Text="Agent Run History" TextStyle="TextStyle.H5" />
+            <RadzenText Text="Newest runs appear first. Select a row to inspect the prompt and result text."
+                        TextStyle="TextStyle.Body2" />
+            <AppDataGrid Data="@AgentRunHistory" TItem="AgentRunRecord" PageSize="10"
+                         EmptyText="No agent runs recorded yet." RowSelect="@OnAgentRunSelected">
+                <Columns>
+                    <RadzenDataGridColumn TItem="AgentRunRecord" Title="Timestamp">
+                        <Template Context="run">@run.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentRunRecord" Property="ActionKey" Title="Action" />
+                    <RadzenDataGridColumn TItem="AgentRunRecord" Property="ProfileMode" Title="Profile" />
+                    <RadzenDataGridColumn TItem="AgentRunRecord" Property="Model" Title="Model" />
+                    <RadzenDataGridColumn TItem="AgentRunRecord" Title="Success">
+                        <Template Context="run">
+                            <RadzenBadge Text="@(run.Success ? "Success" : "Failed")"
+                                         BadgeStyle="@(run.Success ? BadgeStyle.Success : BadgeStyle.Warning)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentRunRecord" Property="ErrorMessage" Title="Error" />
+                </Columns>
+            </AppDataGrid>
+            @if (SelectedAgentRun is not null)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Selected Run" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="@($"Action: {SelectedAgentRun.ActionKey}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Profile mode: {SelectedAgentRun.ProfileMode}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Model: {SelectedAgentRun.Model}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Timestamp: {SelectedAgentRun.Timestamp:O}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Success: {SelectedAgentRun.Success}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="@($"Error: {SelectedAgentRun.ErrorMessage}")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="User Request" TextStyle="TextStyle.H6" />
+                        <pre class="coder-output">@SelectedAgentRun.UserRequest</pre>
+                        <RadzenText Text="Prompt Sent" TextStyle="TextStyle.H6" />
+                        <pre class="coder-output">@SelectedAgentRun.PromptSent</pre>
+                        <RadzenText Text="Result Text" TextStyle="TextStyle.H6" />
+                        <pre class="coder-output">@SelectedAgentRun.ResultText</pre>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@if (ShowTaskHistory)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                <div>
+                    <RadzenText Text="Task History" TextStyle="TextStyle.H5" />
+                    <RadzenText Text="@($"Latest entries: {HistoryEntries.Count}")" TextStyle="TextStyle.Body2" />
+                </div>
+                <RadzenButton Text="Clear History" Icon="delete" ButtonStyle="ButtonStyle.Light"
+                              Click="@OnClearHistory"
+                              Disabled="@(IsLoadingHistory || IsClearingHistory || HistoryEntries.Count == 0)" />
+            </RadzenStack>
+            @if (HistoryEntries.Count == 0)
+            {
+                <RadzenText Text="No Local Coder history entries yet." TextStyle="TextStyle.Body2" />
+            }
+            else
+            {
+                @foreach (var entry in HistoryEntries)
+                {
+                    <RadzenCard>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                            <div>
+                                <RadzenText Text="@($"{entry.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC")" TextStyle="TextStyle.Body1" />
+                                <RadzenText Text="@($"{entry.ActionType} | {GetStatusText(entry.Success)} | {GetMessageSummary(entry.Message)}")"
+                                            TextStyle="TextStyle.Body2" />
+                            </div>
+                            <RadzenButton Text="View" Icon="open_in_new" ButtonStyle="ButtonStyle.Primary"
+                                          Click="@(() => OnViewHistoryEntry.InvokeAsync(entry.Id))" />
+                        </RadzenStack>
+                    </RadzenCard>
+                }
+            }
+            @if (SelectedHistoryEntry is not null)
+            {
+                @HistoryDetail(SelectedHistoryEntry)
+            }
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Parameter] public bool ShowAgentRunHistory { get; set; }
+    [Parameter] public IReadOnlyList<AgentRunRecord> AgentRunHistory { get; set; } = [];
+    [Parameter] public AgentRunRecord? SelectedAgentRun { get; set; }
+    [Parameter] public EventCallback<AgentRunRecord> OnAgentRunSelected { get; set; }
+    [Parameter] public bool ShowTaskHistory { get; set; }
+    [Parameter] public IReadOnlyList<LocalCoderHistoryEntry> HistoryEntries { get; set; } = [];
+    [Parameter] public LocalCoderHistoryEntry? SelectedHistoryEntry { get; set; }
+    [Parameter] public bool IsLoadingHistory { get; set; }
+    [Parameter] public bool IsClearingHistory { get; set; }
+    [Parameter] public EventCallback OnClearHistory { get; set; }
+    [Parameter] public EventCallback<string> OnViewHistoryEntry { get; set; }
+    [Parameter] public EventCallback OnUseHistoryEntryAsContext { get; set; }
+
+    private static string GetStatusText(bool success) => success ? "Success" : "Failed";
+
+    private static string GetMessageSummary(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return string.Empty;
+        }
+
+        return message.Length <= 80 ? message : message[..77] + "...";
+    }
+
+    private RenderFragment HistoryDetail(LocalCoderHistoryEntry entry) => @<RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                <div><RadzenText Text="History Detail" TextStyle="TextStyle.H5" /><RadzenText Text="@entry.Message" TextStyle="TextStyle.Body2" /></div>
+                <RadzenButton Text="Use as Context" Icon="call_split" ButtonStyle="ButtonStyle.Primary" Click="@OnUseHistoryEntryAsContext" />
+            </RadzenStack>
+            <RadzenText Text="@($"Action: {entry.ActionType}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@($"Created: {entry.CreatedAt:O}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@($"Project path: {entry.ProjectPath}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@($"Model: {entry.Model}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@($"Success: {entry.Success}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="Task" TextStyle="TextStyle.H6" /><pre class="coder-output">@entry.Task</pre>
+            <RadzenText Text="Selected Files" TextStyle="TextStyle.H6" />
+            @foreach (var file in entry.SelectedFiles) { <RadzenText Text="@file" TextStyle="TextStyle.Body2" /> }
+            <RadzenText Text="Loaded Context Files" TextStyle="TextStyle.H6" />
+            @foreach (var file in entry.LoadedContextFiles) { <RadzenText Text="@($"{file.RelativePath} ({file.CharacterCount} chars)")" TextStyle="TextStyle.Body2" /> }
+            @if (!string.IsNullOrWhiteSpace(entry.PlanText)) { <details><summary>Plan</summary><pre class="coder-output">@entry.PlanText</pre></details> }
+            @if (!string.IsNullOrWhiteSpace(entry.PatchPreviewText)) { <details><summary>Patch Preview</summary><pre class="coder-output">@entry.PatchPreviewText</pre></details> }
+            @if (entry.ApplyResult is not null) { @ApplyDetail(entry.ApplyResult) }
+            @if (entry.RollbackResult is not null) { @RollbackDetail(entry.RollbackResult) }
+            @if ((entry.ActionType == LocalCoderHistoryActionType.CommitChanges || entry.ActionType == LocalCoderHistoryActionType.BuildDeploy) && entry.VerificationResults.Count > 0)
+            { <details><summary>@entry.ActionType</summary>@ResultCards(entry.VerificationResults)</details> }
+        </RadzenStack>
+    </RadzenCard>;
+
+    private RenderFragment ApplyDetail(LocalCoderPatchApplyResult result) => @<details>
+        <summary>Apply Result</summary>
+        <RadzenText Text="@($"Applied: {result.Applied}")" TextStyle="TextStyle.Body1" />
+        <RadzenText Text="@($"Verification passed: {result.VerificationPassed}")" TextStyle="TextStyle.Body1" />
+        <RadzenText Text="@result.Message" TextStyle="TextStyle.Body2" />
+        <details><summary>Git Apply Output</summary><pre class="coder-output">@result.GitApplyResult.Output</pre><pre class="coder-error">@result.GitApplyResult.Error</pre></details>
+        <details><summary>Git Diff</summary><pre class="coder-output">@result.GitDiffStatResult.Output</pre><pre class="coder-error">@result.GitDiffStatResult.Error</pre><pre class="coder-output">@result.ChangedFilesDiffResult.Output</pre><pre class="coder-error">@result.ChangedFilesDiffResult.Error</pre></details>
+        <details><summary>Build/Test Output</summary>@ResultCards(result.VerificationResults)</details>
+    </details>;
+
+    private RenderFragment RollbackDetail(LocalCoderPatchRollbackResult result) => @<details>
+        <summary>Rollback Result</summary>
+        <RadzenText Text="@($"Rolled back: {result.RolledBack}")" TextStyle="TextStyle.Body1" />
+        <RadzenText Text="@($"Verification passed: {result.VerificationPassed}")" TextStyle="TextStyle.Body1" />
+        <RadzenText Text="@result.Message" TextStyle="TextStyle.Body2" />
+        <details><summary>Build/Test Output</summary>@ResultCards(result.VerificationResults)</details>
+    </details>;
+
+    private RenderFragment ResultCards(IReadOnlyList<CommandRunResult> results) => @<text>
+        @foreach (var result in results)
+        {
+            <RadzenCard Style="margin-top: 0.5rem;"><RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" /><pre class="coder-output">@result.Output</pre><pre class="coder-error">@result.Error</pre></RadzenCard>
+        }
+    </text>;
+}

@@ -1,0 +1,199 @@
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">@Error</RadzenAlert>
+}
+
+@if (string.IsNullOrWhiteSpace(Error) &&
+     ValidationErrors.Count == 0 &&
+     PatchPreview is null &&
+     ApplyResult is null &&
+     RollbackResult is null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.25rem">
+            <RadzenText Text="No patch preview yet" TextStyle="TextStyle.H6" />
+            <RadzenText Text="Generate a patch preview from the Work tab to inspect its diff and validation results here."
+                        TextStyle="TextStyle.Body2" />
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@if (ValidationErrors.Count > 0)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenText Text="Patch Debug" TextStyle="TextStyle.H5" />
+            <div>
+                <RadzenText Text="Validation Errors" TextStyle="TextStyle.H6" />
+                <pre class="coder-error">@string.Join(Environment.NewLine, ValidationErrors.Select(errorText => $"- {errorText}"))</pre>
+            </div>
+            @if (ValidationGuidance.Count > 0)
+            {
+                <div>
+                    <RadzenText Text="Suggested Fix" TextStyle="TextStyle.H6" />
+                    <RadzenStack Gap="0.75rem">
+                        @foreach (var guidance in ValidationGuidance)
+                        {
+                            <RadzenCard>
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenBadge Text="@guidance.Category.ToString()"
+                                                 BadgeStyle="@CategoryBadgeStyle(guidance.Category)" />
+                                    <RadzenText Text="@guidance.Reason" TextStyle="TextStyle.Body2" />
+                                    <RadzenAlert AlertStyle="AlertStyle.Info" ShowIcon="true">
+                                        @guidance.SuggestedFix
+                                    </RadzenAlert>
+                                </RadzenStack>
+                            </RadzenCard>
+                        }
+                    </RadzenStack>
+                </div>
+            }
+            <div>
+                <RadzenText Text="Raw Model Response" TextStyle="TextStyle.H6" />
+                <pre class="coder-output">@RawResponse</pre>
+            </div>
+            <div>
+                <RadzenText Text="Normalized Diff" TextStyle="TextStyle.H6" />
+                <pre class="coder-output">@NormalizedDiff</pre>
+            </div>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@if (PatchPreview is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                <RadzenText Text="Patch Preview" TextStyle="TextStyle.H5" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <CopyToClipboardButton Text="Copy Patch" Value="@PatchPreview.PatchText" SuccessTitle="Patch copied"
+                                           SuccessMessage="The patch preview was copied to the clipboard." />
+                    <RadzenButton Text="Apply Patch" Icon="publish" ButtonStyle="ButtonStyle.Danger"
+                                  Click="@OnApplyPatch" Disabled="@(!CanApplyPatch)" />
+                </RadzenStack>
+                <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
+                <pre class="coder-output">@PatchPreview.PatchText</pre>
+                @if (ApplyResult is not null)
+                {
+                    <RadzenText Text="Apply Patch Message" TextStyle="TextStyle.H6" />
+                    <pre class="coder-output">@ApplyResult.Message</pre>
+                }
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@if (ApplyResult is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenText Text="Patch Apply Result" TextStyle="TextStyle.H5" />
+            <RadzenAlert AlertStyle="@(ApplyResult.Applied && ApplyResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
+                         ShowIcon="true">@ApplyResult.Message</RadzenAlert>
+            @if (CanRollbackPatch)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Rollback Patch" Icon="undo" ButtonStyle="ButtonStyle.Warning"
+                                  Click="@OnRollbackPatch" Disabled="@IsRollingBack" />
+                </RadzenStack>
+            }
+            <RadzenText Text="@($"Project path: {PatchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@($"Applied: {ApplyResult.Applied}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@($"Verification passed: {ApplyResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@($"Message: {ApplyResult.Message}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
+            @ResultCard(ApplyResult.GitApplyResult, true)
+            <RadzenText Text="Git Diff Stat" TextStyle="TextStyle.H6" />
+            @ResultCard(ApplyResult.GitDiffStatResult)
+            <RadzenText Text="Changed Files Diff" TextStyle="TextStyle.H6" />
+            @ResultCard(ApplyResult.ChangedFilesDiffResult)
+            @if (ApplyResult.ChangedFiles.Count > 0)
+            {
+                <RadzenText Text="Changed Files" TextStyle="TextStyle.H6" />
+                @foreach (var changedFile in ApplyResult.ChangedFiles)
+                {
+                    <RadzenText Text="@changedFile" TextStyle="TextStyle.Body2" />
+                }
+            }
+            @if (ApplyResult.BackupFiles.Count > 0)
+            {
+                <RadzenText Text="Backup Files" TextStyle="TextStyle.H6" />
+                @foreach (var backupFile in ApplyResult.BackupFiles)
+                {
+                    <RadzenText Text="@backupFile" TextStyle="TextStyle.Body2" />
+                }
+            }
+            @VerificationResults(ApplyResult.VerificationResults)
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@if (RollbackResult is not null)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenText Text="Patch Rollback Result" TextStyle="TextStyle.H5" />
+            <RadzenAlert AlertStyle="@(RollbackResult.RolledBack && RollbackResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
+                         ShowIcon="true">@RollbackResult.Message</RadzenAlert>
+            <RadzenText Text="@($"Rolled back: {RollbackResult.RolledBack}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@($"Verification passed: {RollbackResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="Restored Files" TextStyle="TextStyle.H6" />
+            @foreach (var restoredFile in RollbackResult.RestoredFiles)
+            {
+                <RadzenText Text="@restoredFile" TextStyle="TextStyle.Body2" />
+            }
+            @VerificationResults(RollbackResult.VerificationResults)
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public IReadOnlyList<string> ValidationErrors { get; set; } = [];
+    [Parameter] public IReadOnlyList<PatchValidationGuidance> ValidationGuidance { get; set; } = [];
+    [Parameter] public string RawResponse { get; set; } = string.Empty;
+    [Parameter] public string NormalizedDiff { get; set; } = string.Empty;
+    [Parameter] public LocalCoderPatchPreview? PatchPreview { get; set; }
+    [Parameter] public LocalCoderPatchApplyResult? ApplyResult { get; set; }
+    [Parameter] public LocalCoderPatchRollbackResult? RollbackResult { get; set; }
+    [Parameter] public bool CanApplyPatch { get; set; }
+    [Parameter] public bool CanRollbackPatch { get; set; }
+    [Parameter] public bool IsRollingBack { get; set; }
+    [Parameter] public EventCallback OnApplyPatch { get; set; }
+    [Parameter] public EventCallback OnRollbackPatch { get; set; }
+
+    private static BadgeStyle CategoryBadgeStyle(PatchValidationCategory category) => category switch
+    {
+        PatchValidationCategory.RazorMarkupRisk => BadgeStyle.Danger,
+        PatchValidationCategory.HtmlStructureRisk => BadgeStyle.Warning,
+        PatchValidationCategory.MissingAnchor => BadgeStyle.Info,
+        PatchValidationCategory.AmbiguousAnchor => BadgeStyle.Warning,
+        PatchValidationCategory.UnsafeFileOperation => BadgeStyle.Danger,
+        _ => BadgeStyle.Secondary
+    };
+
+    private RenderFragment ResultCard(CommandRunResult Result, bool ShowHeadings = false) => @<RadzenCard>
+        <RadzenText Text="@($"Exit code: {Result.ExitCode}")" TextStyle="TextStyle.Body1" />
+        @if (ShowHeadings) { <h4>Stdout</h4> }
+        <pre class="coder-output">@Result.Output</pre>
+        @if (ShowHeadings) { <h4>Stderr</h4> }
+        <pre class="coder-error">@Result.Error</pre>
+    </RadzenCard>;
+
+    private RenderFragment VerificationResults(IReadOnlyList<CommandRunResult> Results) => @<text>
+        @if (Results.Count > 0)
+        {
+            <RadzenText Text="Verification Results" TextStyle="TextStyle.H6" />
+            @foreach (var result in Results)
+            {
+                <RadzenCard>
+                    <RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" />
+                    @if (!string.IsNullOrWhiteSpace(result.Output)) { <pre class="coder-output">@result.Output</pre> }
+                    @if (!string.IsNullOrWhiteSpace(result.Error)) { <pre class="coder-error">@result.Error</pre> }
+                </RadzenCard>
+            }
+        }
+    </text>;
+}
