@@ -200,42 +200,96 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
     <RadzenCard>
         <RadzenStack Gap="0.75rem">
             <RadzenText Text="Patch Apply Result" TextStyle="TextStyle.H5" />
-            <RadzenAlert AlertStyle="@(ApplyResult.Applied && ApplyResult.VerificationPassed ? AlertStyle.Success : AlertStyle.Warning)"
-                         ShowIcon="true">@ApplyResult.Message</RadzenAlert>
-            @if (CanRollbackPatch)
+            @if (!ApplyResult.Applied || !ApplyResult.VerificationPassed)
             {
-                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                    <RadzenButton Text="Rollback Patch" Icon="undo" ButtonStyle="ButtonStyle.Warning"
-                                  Click="@OnRollbackPatch" Disabled="@IsRollingBack" />
-                </RadzenStack>
+                <RadzenCard>
+                    <RadzenStack Gap="0.75rem">
+                        <RadzenText Text="Patch Blocked" TextStyle="TextStyle.H6" />
+                        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                            @ApplyResult.Message
+                        </RadzenAlert>
+                        <div>
+                            <RadzenText Text="Reason" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@ApplyResult.Message" TextStyle="TextStyle.Body1" />
+                        </div>
+                        <div>
+                            <RadzenText Text="Requested Intent" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@DescribeRequestedIntent()" TextStyle="TextStyle.Body1" />
+                        </div>
+                        <div>
+                            <RadzenText Text="Modified Files" TextStyle="TextStyle.Body2" />
+                            @foreach (var file in ModifiedFiles())
+                            {
+                                <RadzenText Text="@file" TextStyle="TextStyle.Body1" />
+                            }
+                        </div>
+                        <div>
+                            <RadzenText Text="Protected Files" TextStyle="TextStyle.Body2" />
+                            @if (ProtectedFiles().Count == 0)
+                            {
+                                <RadzenText Text="None" TextStyle="TextStyle.Body1" />
+                            }
+                            else
+                            {
+                                @foreach (var file in ProtectedFiles())
+                                {
+                                    <RadzenText Text="@file" TextStyle="TextStyle.Body1" />
+                                }
+                            }
+                        </div>
+                        <div>
+                            <RadzenText Text="Scope Result" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@DescribeScopeResult()" TextStyle="TextStyle.Body1" />
+                        </div>
+                        <div>
+                            <RadzenText Text="Intent Result" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@DescribeIntentResult()" TextStyle="TextStyle.Body1" />
+                        </div>
+                        <details>
+                            <summary>Show Technical Details</summary>
+                            <pre class="coder-error">@TechnicalDetails()</pre>
+                        </details>
+                    </RadzenStack>
+                </RadzenCard>
             }
-            <RadzenText Text="@($"Project path: {PatchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
-            <RadzenText Text="@($"Applied: {ApplyResult.Applied}")" TextStyle="TextStyle.Body1" />
-            <RadzenText Text="@($"Verification passed: {ApplyResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
-            <RadzenText Text="@($"Message: {ApplyResult.Message}")" TextStyle="TextStyle.Body1" />
-            <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
-            @ResultCard(ApplyResult.GitApplyResult, true)
-            <RadzenText Text="Git Diff Stat" TextStyle="TextStyle.H6" />
-            @ResultCard(ApplyResult.GitDiffStatResult)
-            <RadzenText Text="Changed Files Diff" TextStyle="TextStyle.H6" />
-            @ResultCard(ApplyResult.ChangedFilesDiffResult)
-            @if (ApplyResult.ChangedFiles.Count > 0)
+            else
             {
-                <RadzenText Text="Changed Files" TextStyle="TextStyle.H6" />
-                @foreach (var changedFile in ApplyResult.ChangedFiles)
+                <RadzenAlert AlertStyle="AlertStyle.Success" ShowIcon="true">@ApplyResult.Message</RadzenAlert>
+                @if (CanRollbackPatch)
                 {
-                    <RadzenText Text="@changedFile" TextStyle="TextStyle.Body2" />
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <RadzenButton Text="Rollback Patch" Icon="undo" ButtonStyle="ButtonStyle.Warning"
+                                      Click="@OnRollbackPatch" Disabled="@IsRollingBack" />
+                    </RadzenStack>
                 }
-            }
-            @if (ApplyResult.BackupFiles.Count > 0)
-            {
-                <RadzenText Text="Backup Files" TextStyle="TextStyle.H6" />
-                @foreach (var backupFile in ApplyResult.BackupFiles)
+                <RadzenText Text="@($"Project path: {PatchPreview?.ProjectPath}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Applied: {ApplyResult.Applied}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Verification passed: {ApplyResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Message: {ApplyResult.Message}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
+                @ResultCard(ApplyResult.GitApplyResult, true)
+                <RadzenText Text="Git Diff Stat" TextStyle="TextStyle.H6" />
+                @ResultCard(ApplyResult.GitDiffStatResult)
+                <RadzenText Text="Changed Files Diff" TextStyle="TextStyle.H6" />
+                @ResultCard(ApplyResult.ChangedFilesDiffResult)
+                @if (ApplyResult.ChangedFiles.Count > 0)
                 {
-                    <RadzenText Text="@backupFile" TextStyle="TextStyle.Body2" />
+                    <RadzenText Text="Changed Files" TextStyle="TextStyle.H6" />
+                    @foreach (var changedFile in ApplyResult.ChangedFiles)
+                    {
+                        <RadzenText Text="@changedFile" TextStyle="TextStyle.Body2" />
+                    }
                 }
+                @if (ApplyResult.BackupFiles.Count > 0)
+                {
+                    <RadzenText Text="Backup Files" TextStyle="TextStyle.H6" />
+                    @foreach (var backupFile in ApplyResult.BackupFiles)
+                    {
+                        <RadzenText Text="@backupFile" TextStyle="TextStyle.Body2" />
+                    }
+                }
+                @VerificationResults(ApplyResult.VerificationResults)
             }
-            @VerificationResults(ApplyResult.VerificationResults)
         </RadzenStack>
     </RadzenCard>
 }
@@ -348,6 +402,51 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
         <= 2 => BadgeStyle.Warning,
         _ => BadgeStyle.Danger
     };
+
+    private string DescribeRequestedIntent()
+    {
+        if (PatchPreview?.Intent is null)
+        {
+            return "No intent was recorded.";
+        }
+
+        return $"{PatchPreview.Intent.Goal} | Scope: {PatchPreview.Intent.AllowedScope} | Expected: {PatchPreview.Intent.ExpectedChangeType}";
+    }
+
+    private string DescribeScopeResult()
+    {
+        if (PatchPreview?.ScopeAnalysis is null)
+        {
+            return "No scope analysis was recorded.";
+        }
+
+        return PatchPreview.ScopeAnalysis.IsBlocking
+            ? "Blocked by scope guard."
+            : "Scope passed.";
+    }
+
+    private string DescribeIntentResult()
+    {
+        var status = PatchPreview?.IntentValidation?.Status;
+        return status is null ? "No intent validation was recorded." : ValidationStatusText(status);
+    }
+
+    private IReadOnlyList<string> ModifiedFiles()
+    {
+        return PatchPreview?.IntentValidation?.ModifiedFiles ?? [];
+    }
+
+    private IReadOnlyList<string> ProtectedFiles()
+    {
+        return PatchPreview?.IntentValidation?.ProtectedFiles ?? [];
+    }
+
+    private string TechnicalDetails()
+    {
+        return ApplyResult?.TechnicalDetails
+               ?? ApplyResult?.GitApplyResult?.Error
+               ?? string.Empty;
+    }
 
     private RenderFragment ResultCard(CommandRunResult Result, bool ShowHeadings = false) => @<RadzenCard>
         <RadzenText Text="@($"Exit code: {Result.ExitCode}")" TextStyle="TextStyle.Body1" />

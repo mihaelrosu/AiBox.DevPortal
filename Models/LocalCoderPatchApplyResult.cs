@@ -8,6 +8,8 @@ public sealed class LocalCoderPatchApplyResult
 
     public string Message { get; set; } = string.Empty;
 
+    public string TechnicalDetails { get; set; } = string.Empty;
+
     public CommandRunResult GitApplyResult { get; set; } = new();
 
     public CommandRunResult GitDiffStatResult { get; set; } = new()

@@ -790,6 +790,7 @@
         catch (Exception ex)
         {
             Console.WriteLine("APPLY STEP 3: handler reached.");
+            Console.WriteLine(ex.ToString());
             error = ex.Message;
             if (!string.IsNullOrWhiteSpace(activePlanTaskId))
             {
@@ -800,7 +801,8 @@
             {
                 Applied = false,
                 VerificationPassed = false,
-                Message = ex.ToString(),
+                Message = ex.Message,
+                TechnicalDetails = ex.ToString(),
                 GitApplyResult = new CommandRunResult
                 {
                     Command = "git apply --whitespace=fix <patchfile> (not completed)",
