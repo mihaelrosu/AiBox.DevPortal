@@ -56,6 +56,7 @@ public sealed class AgentModeRunner(
             BuildPatchPreviewFileContextText(routedRequest.FileContexts),
             BuildPatchScopeText(routedRequest.AllowedPatchScope, routedRequest.AllowedPatchFolders),
             PatchIntentService.BuildPromptText(intent),
+            IsXmlDocumentationRequest(routedRequest.Task),
             profile);
 
         try
@@ -423,6 +424,18 @@ public sealed class AgentModeRunner(
             PatchScopeMode.AnyProjectFile => "Any Project File",
             _ => "Context Files Only"
         };
+    }
+
+    private static bool IsXmlDocumentationRequest(string task)
+    {
+        if (string.IsNullOrWhiteSpace(task))
+        {
+            return false;
+        }
+
+        return task.Contains("xml documentation", StringComparison.OrdinalIgnoreCase) ||
+               task.Contains("xml comments", StringComparison.OrdinalIgnoreCase) ||
+               task.Contains("documentation comments", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildActionPrompt(string actionKey, AgentModeProfile profile, string instruction, string context)

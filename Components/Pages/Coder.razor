@@ -32,17 +32,8 @@
                                       IsGeneratingPatch="@isGeneratingPatch"
                                       CanVerifyProject="@(!isRunningCommand && !isVerifying && !string.IsNullOrWhiteSpace(request.ProjectPath))"
                                       CanReviewDiff="@CanReviewSelectedPatch()"
-                                      PlanTasks="@planTasks"
-                                      SelectedPlanTaskId="@selectedPlanTaskId"
-                                      SelectedPlanTaskIdChanged="@OnSelectedPlanTaskChangedAsync"
-                                      CanExecuteSelectedTask="@CanExecuteSelectedPlanTask()"
-                                      CanExecuteNextTask="@CanExecuteNextPlanTask()"
-                                      PatchIntent="@patchIntent"
-                                      PatchIntentValidation="@patchIntentValidation"
                                       OnCreatePlan="@CreatePlanAsync"
                                       OnGeneratePatchPreview="@GeneratePatchPreviewAsync"
-                                      OnExecuteSelectedTask="@ExecuteSelectedTaskAsync"
-                                      OnExecuteNextTask="@ExecuteNextTaskAsync"
                                       OnVerifyProject="@VerifyProjectAsync"
                                       OnReviewDiff="@ReviewSelectedPatchAsync">
                         <ContextContent>
@@ -65,26 +56,77 @@
                         </ContextContent>
                     </CoderPromptPanel>
                 </CoderProjectSelector>
+            </RadzenStack>
+        </RadzenTabsItem>
 
-                @if (currentTask is not null)
+        <RadzenTabsItem Text="Plan" Icon="assignment">
+            <RadzenStack Gap="1rem">
+                <RadzenCard>
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Plan tasks and output" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="Review the generated plan, then execute one task at a time from here."
+                                    TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+
+                @if (currentTask is null)
                 {
                     <RadzenCard>
-                        <RadzenText Text="Plan" TextStyle="TextStyle.H5" />
-                        <pre class="coder-output">@currentTask.Plan</pre>
+                        <RadzenText Text="Create a plan from the Work tab to see tasks here." TextStyle="TextStyle.Body1" />
                     </RadzenCard>
                 }
-
-                @if (fileContexts.Count > 0)
+                else
                 {
                     <RadzenCard>
-                        <RadzenText Text="Loaded File Context" TextStyle="TextStyle.H5" />
-                        @foreach (var fileContext in fileContexts)
-                        {
-                            <details style="margin-bottom: 0.75rem;">
-                                <summary>@fileContext.RelativePath (@fileContext.CharacterCount chars)</summary>
-                                <pre class="coder-output">@fileContext.Content</pre>
-                            </details>
-                        }
+                        <RadzenStack Gap="0.75rem">
+                            <RadzenText Text="Plan" TextStyle="TextStyle.H5" />
+                            <pre class="coder-output">@currentTask.Plan</pre>
+                        </RadzenStack>
+                    </RadzenCard>
+
+                    <RadzenCard>
+                        <RadzenStack Gap="0.75rem">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                <RadzenText Text="Plan Tasks" TextStyle="TextStyle.H5" />
+                                <RadzenBadge Text="@($"{PendingPlanTaskCount()} pending")"
+                                             BadgeStyle="BadgeStyle.Info" />
+                            </RadzenStack>
+                            @foreach (var task in planTasks)
+                            {
+                                <RadzenCard Style="@PlanTaskCardStyle(task)">
+                                    <RadzenStack Gap="0.5rem">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                            <RadzenText Text="@PlanTaskTitle(task)" TextStyle="TextStyle.Body1" />
+                                            <RadzenBadge Text="@task.Status.ToString()" BadgeStyle="@PlanTaskStatusBadgeStyle(task.Status)" />
+                                        </RadzenStack>
+                                        @if (!string.IsNullOrWhiteSpace(task.Description))
+                                        {
+                                            <RadzenText Text="@task.Description" TextStyle="TextStyle.Body2" />
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(task.StatusMessage))
+                                        {
+                                            <RadzenText Text="@task.StatusMessage" TextStyle="TextStyle.Caption" />
+                                        }
+                                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                            <RadzenButton Text="Select" Icon="check" ButtonStyle="ButtonStyle.Light"
+                                                          Click="@(() => OnSelectedPlanTaskChangedAsync(task.Id))"
+                                                          Disabled="@isLoading" />
+                                        </RadzenStack>
+                                    </RadzenStack>
+                                </RadzenCard>
+                            }
+
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                <RadzenButton Text="Execute Selected Task" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
+                                              Click="@ExecuteSelectedTaskAsync"
+                                              Disabled="@(!CanExecuteSelectedPlanTask())" />
+                                <RadzenButton Text="Execute Next Task" Icon="skip_next" ButtonStyle="ButtonStyle.Secondary"
+                                              Click="@ExecuteNextTaskAsync"
+                                              Disabled="@(!CanExecuteNextPlanTask())" />
+                            </RadzenStack>
+                        </RadzenStack>
                     </RadzenCard>
                 }
             </RadzenStack>
@@ -1919,6 +1961,38 @@
         var task = planTasks.FirstOrDefault(item => item.Id == activePlanTaskId);
         return task is null ? null : BuildPlanTaskTaskText(task);
     }
+
+    private int PendingPlanTaskCount() => planTasks.Count(task => task.Status == LocalCoderPlanTaskStatus.Pending);
+
+    private static string PlanTaskTitle(LocalCoderPlanTask task)
+    {
+        return string.IsNullOrWhiteSpace(task.Title)
+            ? string.IsNullOrWhiteSpace(task.Description) ? "Untitled task" : task.Description
+            : task.Title;
+    }
+
+    private static string PlanTaskCardStyle(LocalCoderPlanTask task)
+    {
+        return task.Status switch
+        {
+            LocalCoderPlanTaskStatus.InProgress => "margin-top: 0.35rem; border: 1px solid var(--rz-warning);",
+            LocalCoderPlanTaskStatus.PatchGenerated or LocalCoderPlanTaskStatus.Applied or LocalCoderPlanTaskStatus.Verified =>
+                "margin-top: 0.35rem; border: 1px solid var(--rz-success);",
+            LocalCoderPlanTaskStatus.Failed => "margin-top: 0.35rem; border: 1px solid var(--rz-danger);",
+            _ => "margin-top: 0.35rem;"
+        };
+    }
+
+    private static BadgeStyle PlanTaskStatusBadgeStyle(LocalCoderPlanTaskStatus status) => status switch
+    {
+        LocalCoderPlanTaskStatus.Pending => BadgeStyle.Info,
+        LocalCoderPlanTaskStatus.InProgress => BadgeStyle.Warning,
+        LocalCoderPlanTaskStatus.PatchGenerated => BadgeStyle.Primary,
+        LocalCoderPlanTaskStatus.Applied or LocalCoderPlanTaskStatus.Verified => BadgeStyle.Success,
+        LocalCoderPlanTaskStatus.Failed => BadgeStyle.Danger,
+        LocalCoderPlanTaskStatus.Skipped => BadgeStyle.Secondary,
+        _ => BadgeStyle.Light
+    };
 
     private static LocalCoderRequest CloneRequest(LocalCoderRequest source, string taskText)
     {

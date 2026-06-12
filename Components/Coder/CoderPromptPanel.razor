@@ -10,64 +10,6 @@
                     Placeholder="Example: review AiBox.DevPortal and suggest the next safe Local Coder improvement" />
 </RadzenFormField>
 
-@if (PlanTasks.Count > 0)
-{
-    <RadzenCard Style="margin: 0.25rem 0 0 0;">
-        <RadzenStack Gap="0.75rem">
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                <RadzenText Text="@($"Plan Tasks ({PlanTasks.Count})")" TextStyle="TextStyle.H6" />
-                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
-                    <RadzenBadge Text="@($"{PendingTaskCount} Pending")" BadgeStyle="BadgeStyle.Info" />
-                    <RadzenBadge Text="@($"{PlanTasks.Count(task => task.Status == LocalCoderPlanTaskStatus.InProgress)} In Progress")"
-                                 BadgeStyle="BadgeStyle.Warning" />
-                </RadzenStack>
-            </RadzenStack>
-
-            @foreach (var task in PlanTasks.OrderBy(item => item.Order))
-            {
-                <RadzenCard Style="@PlanTaskCardStyle(task)">
-                    <RadzenStack Gap="0.35rem">
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                            <RadzenText Text="@($"{task.Order}. {PlanTaskTitle(task)}")" TextStyle="TextStyle.Body1" />
-                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
-                                <RadzenBadge Text="@task.Status.ToString()" BadgeStyle="@PlanTaskStatusBadgeStyle(task.Status)" />
-                                @if (SelectedPlanTaskId == task.Id)
-                                {
-                                    <RadzenBadge Text="Selected" BadgeStyle="BadgeStyle.Success" />
-                                }
-                            </RadzenStack>
-                        </RadzenStack>
-                        @if (!string.IsNullOrWhiteSpace(task.Description))
-                        {
-                            <RadzenText Text="@task.Description" TextStyle="TextStyle.Body2" />
-                        }
-                        @if (!string.IsNullOrWhiteSpace(task.StatusMessage))
-                        {
-                            <RadzenText Text="@task.StatusMessage" TextStyle="TextStyle.Caption" />
-                        }
-                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
-                            <RadzenButton Text="Select" Icon="check_circle" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
-                                          Click="@(() => SelectedPlanTaskIdChanged.InvokeAsync(task.Id))"
-                                          Disabled="@IsLoading" />
-                        </RadzenStack>
-                    </RadzenStack>
-                </RadzenCard>
-            }
-
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                <RadzenButton Text="Execute Selected Task" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
-                              Click="@OnExecuteSelectedTask"
-                              Disabled="@(!CanExecuteSelectedTask)" />
-                <RadzenButton Text="Execute Next Task" Icon="skip_next" ButtonStyle="ButtonStyle.Warning"
-                              Click="@OnExecuteNextTask"
-                              Disabled="@(!CanExecuteNextTask)" />
-            </RadzenStack>
-        </RadzenStack>
-    </RadzenCard>
-}
-
 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
     <RadzenButton Text="Create Plan" Icon="psychology" ButtonStyle="ButtonStyle.Primary"
                   Click="@OnCreatePlan"
@@ -84,47 +26,6 @@
                   Click="@OnReviewDiff" Disabled="@(!CanReviewDiff)" />
 </RadzenStack>
 
-@if (PatchIntent is not null)
-{
-    <RadzenCard Style="margin: 0.5rem 0 0 0;">
-        <RadzenStack Gap="0.75rem">
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                <RadzenText Text="Patch Intent" TextStyle="TextStyle.H6" />
-                <RadzenBadge Text="@ValidationStatusText(PatchIntentValidation?.Status)"
-                             BadgeStyle="@ValidationStatusBadgeStyle(PatchIntentValidation?.Status)" />
-            </RadzenStack>
-
-            <RadzenStack Gap="0.35rem">
-                <RadzenText Text="@($"Goal: {PatchIntent.Goal}")" TextStyle="TextStyle.Body2" />
-                <RadzenText Text="Allowed files/scope" TextStyle="TextStyle.Body2" />
-                @foreach (var item in PatchIntent.AllowedPaths)
-                {
-                    <RadzenBadge Text="@item" BadgeStyle="BadgeStyle.Light" />
-                }
-                <RadzenText Text="@($"Expected change type: {PatchIntent.ExpectedChangeType}")" TextStyle="TextStyle.Body2" />
-                <RadzenText Text="Must not change" TextStyle="TextStyle.Body2" />
-                @foreach (var item in PatchIntent.MustNotChange)
-                {
-                    <RadzenBadge Text="@item" BadgeStyle="BadgeStyle.Warning" />
-                }
-                <RadzenText Text="@($"Verification: {PatchIntent.VerificationCommand}")" TextStyle="TextStyle.Body2" />
-            </RadzenStack>
-
-            @if (PatchIntentValidation is not null)
-            {
-                @if (PatchIntentValidation.Reasons.Count > 0)
-                {
-                    <RadzenAlert AlertStyle="@(PatchIntentValidation.IsBlocking ? AlertStyle.Danger : AlertStyle.Warning)"
-                                 ShowIcon="true">
-                        @string.Join(" ", PatchIntentValidation.Reasons)
-                    </RadzenAlert>
-                }
-            }
-        </RadzenStack>
-    </RadzenCard>
-}
-
 <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
 
 @code {
@@ -134,70 +35,13 @@
     [Parameter] public EventCallback<string> ModelChanged { get; set; }
     [Parameter] public string Task { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> TaskChanged { get; set; }
-    [Parameter] public IReadOnlyList<LocalCoderPlanTask> PlanTasks { get; set; } = [];
-    [Parameter] public string? SelectedPlanTaskId { get; set; }
-    [Parameter] public EventCallback<string?> SelectedPlanTaskIdChanged { get; set; }
-    [Parameter] public bool CanExecuteSelectedTask { get; set; }
-    [Parameter] public bool CanExecuteNextTask { get; set; }
     [Parameter] public bool IsLoading { get; set; }
     [Parameter] public bool IsPlanning { get; set; }
     [Parameter] public bool IsGeneratingPatch { get; set; }
     [Parameter] public bool CanVerifyProject { get; set; }
     [Parameter] public bool CanReviewDiff { get; set; }
-    [Parameter] public PatchIntent? PatchIntent { get; set; }
-    [Parameter] public PatchIntentValidation? PatchIntentValidation { get; set; }
     [Parameter] public EventCallback OnCreatePlan { get; set; }
     [Parameter] public EventCallback OnGeneratePatchPreview { get; set; }
-    [Parameter] public EventCallback OnExecuteSelectedTask { get; set; }
-    [Parameter] public EventCallback OnExecuteNextTask { get; set; }
     [Parameter] public EventCallback OnVerifyProject { get; set; }
     [Parameter] public EventCallback OnReviewDiff { get; set; }
-
-    private int PendingTaskCount => PlanTasks.Count(task => task.Status == LocalCoderPlanTaskStatus.Pending);
-
-    private static string PlanTaskTitle(LocalCoderPlanTask task)
-    {
-        return string.IsNullOrWhiteSpace(task.Title)
-            ? string.IsNullOrWhiteSpace(task.Description) ? "Untitled task" : task.Description
-            : task.Title;
-    }
-
-    private static string PlanTaskCardStyle(LocalCoderPlanTask task)
-    {
-        return task.Status switch
-        {
-            LocalCoderPlanTaskStatus.InProgress => "margin-top: 0.35rem; border: 1px solid var(--rz-warning);",
-            LocalCoderPlanTaskStatus.PatchGenerated or LocalCoderPlanTaskStatus.Applied or LocalCoderPlanTaskStatus.Verified =>
-                "margin-top: 0.35rem; border: 1px solid var(--rz-success);",
-            LocalCoderPlanTaskStatus.Failed => "margin-top: 0.35rem; border: 1px solid var(--rz-danger);",
-            _ => "margin-top: 0.35rem;"
-        };
-    }
-
-    private static BadgeStyle PlanTaskStatusBadgeStyle(LocalCoderPlanTaskStatus status) => status switch
-    {
-        LocalCoderPlanTaskStatus.Pending => BadgeStyle.Info,
-        LocalCoderPlanTaskStatus.InProgress => BadgeStyle.Warning,
-        LocalCoderPlanTaskStatus.PatchGenerated => BadgeStyle.Primary,
-        LocalCoderPlanTaskStatus.Applied or LocalCoderPlanTaskStatus.Verified => BadgeStyle.Success,
-        LocalCoderPlanTaskStatus.Failed => BadgeStyle.Danger,
-        LocalCoderPlanTaskStatus.Skipped => BadgeStyle.Secondary,
-        _ => BadgeStyle.Light
-    };
-
-    private static string ValidationStatusText(PatchIntentMatchStatus? status) => status switch
-    {
-        PatchIntentMatchStatus.MatchesIntent => "Matches Intent",
-        PatchIntentMatchStatus.PartiallyMatches => "Partially Matches",
-        PatchIntentMatchStatus.DoesNotMatch => "Does Not Match",
-        _ => "Patch Intent"
-    };
-
-    private static BadgeStyle ValidationStatusBadgeStyle(PatchIntentMatchStatus? status) => status switch
-    {
-        PatchIntentMatchStatus.MatchesIntent => BadgeStyle.Success,
-        PatchIntentMatchStatus.PartiallyMatches => BadgeStyle.Warning,
-        PatchIntentMatchStatus.DoesNotMatch => BadgeStyle.Danger,
-        _ => BadgeStyle.Info
-    };
 }

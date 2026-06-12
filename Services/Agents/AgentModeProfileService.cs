@@ -102,7 +102,7 @@ public sealed class AgentModeProfileService(IWebHostEnvironment environment) : I
                 Mode = AgentMode.Planner,
                 Name = "Planner",
                 Model = "qwen2.5-coder:7b",
-                RulesSummary = "No tools. Produce a plan only."
+                RulesSummary = "No tools. Produce code-change tasks only."
             },
             new AgentModeProfile
             {

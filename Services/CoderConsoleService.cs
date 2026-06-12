@@ -150,6 +150,7 @@ public sealed class CoderConsoleService(
             .ToList();
         var intent = PatchIntentService.BuildIntent(request);
         var intentText = PatchIntentService.BuildPromptText(intent);
+        var xmlDocumentationMode = IsXmlDocumentationRequest(request.Task);
 
         if (TryParseExactRemovalTask(request.Task, out var removalText))
         {
@@ -219,7 +220,14 @@ public sealed class CoderConsoleService(
         var selectedFilePathsText = BuildSelectedFilePathsText(request.FileContexts);
         var scopeText = BuildPatchScopeText(request.AllowedPatchScope, request.AllowedPatchFolders);
 
-        var prompt = BuildGeneratePatchPreviewPrompt(request, selectedFilePathsText, fileContextText, scopeText, intentText, profile);
+        var prompt = BuildGeneratePatchPreviewPrompt(
+            request,
+            selectedFilePathsText,
+            fileContextText,
+            scopeText,
+            intentText,
+            xmlDocumentationMode,
+            profile);
 
         var ollamaRequest = new OllamaGenerateRequest
         {
@@ -240,6 +248,11 @@ public sealed class CoderConsoleService(
         PatchEditOperationResult editResult;
         try
         {
+            if (xmlDocumentationMode)
+            {
+                ValidateXmlDocumentationOperationModes(rawResponse);
+            }
+
             editResult = await patchEditOperationService.BuildAsync(
                 request.ProjectPath,
                 request.FileContexts,
@@ -998,17 +1011,26 @@ public sealed class CoderConsoleService(
         string fileContextText,
         string scopeText,
         string intentText,
+        bool xmlDocumentationMode = false,
         AgentModeProfile? profile = null)
     {
         var profileText = BuildAgentModeProfileText(profile);
-        return $$"""
-        You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
-
-        Return ONLY JSON.
-        Do not explain.
-        Do not use markdown fences.
-        Do not include git diff.
-        Output format:
+        var operationExample = xmlDocumentationMode
+            ? """
+        {
+          "operations": [
+            {
+              "filePath": "Components/Pages/Coder.razor",
+              "operation": "replace",
+              "anchor": "<summary>",
+              "oldText": "<summary>Old text</summary>",
+              "newText": "<summary>New text</summary>",
+              "summary": "Update XML documentation text"
+            }
+          ]
+        }
+        """
+            : """
         {
           "operations": [
             {
@@ -1029,8 +1051,27 @@ public sealed class CoderConsoleService(
             }
           ]
         }
+        """;
+        var xmlDocumentationInstructions = xmlDocumentationMode
+            ? """
+        XML documentation mode is active.
+        Generate replace operations only.
+        Do not use insert_before or insert_after.
+        Use exact text replacement for documentation comments and XML doc blocks.
+        """
+            : string.Empty;
+        return $$"""
+        You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
+
+        Return ONLY JSON.
+        Do not explain.
+        Do not use markdown fences.
+        Do not include git diff.
+        Output format:
+        {{operationExample}}
         Use only files from the selected file context.
         Use exact anchors, exact string replacements, and exact text removal.
+        {{xmlDocumentationInstructions}}
 
         {{profileText}}
 
@@ -1056,6 +1097,54 @@ public sealed class CoderConsoleService(
 
         Generate the smallest safe patch operation set possible.
         """;
+    }
+
+    internal static bool IsXmlDocumentationRequest(string task)
+    {
+        if (string.IsNullOrWhiteSpace(task))
+        {
+            return false;
+        }
+
+        return ContainsTaskPhrase(task, "xml documentation") ||
+               ContainsTaskPhrase(task, "xml comments") ||
+               ContainsTaskPhrase(task, "documentation comments");
+    }
+
+    private static bool ContainsTaskPhrase(string task, string phrase)
+    {
+        return task.Contains(phrase, StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static void ValidateXmlDocumentationOperationModes(string rawResponse)
+    {
+        if (string.IsNullOrWhiteSpace(rawResponse))
+        {
+            return;
+        }
+
+        using var document = JsonDocument.Parse(rawResponse);
+        if (!document.RootElement.TryGetProperty("operations", out var operations) ||
+            operations.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        var forbiddenOperations = operations
+            .EnumerateArray()
+            .Select(operation => operation.TryGetProperty("operation", out var operationName) ? operationName.GetString() ?? string.Empty : string.Empty)
+            .Where(operationName => !string.Equals(operationName, "replace", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (forbiddenOperations.Length > 0)
+        {
+            throw new PatchPreviewValidationException(
+                "XML documentation requests must use replace operations only.",
+                ["XML documentation mode detected. The patch preview used an unsupported operation. Use replace operations only."],
+                rawResponse,
+                string.Empty);
+        }
     }
 
     internal static string BuildAgentModeProfileText(AgentModeProfile? profile)

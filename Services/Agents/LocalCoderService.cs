@@ -180,7 +180,7 @@ public sealed class LocalCoderService(
             """;
     }
 
-    private static string BuildPlanningPrompt(
+    internal static string BuildPlanningPrompt(
         LocalCoderTask task,
         RepositoryScanResult repositoryScan,
         IReadOnlyList<RepositoryFileContent> selectedFileContext)
@@ -189,6 +189,8 @@ public sealed class LocalCoderService(
             You are a local coding planner for AiBox.DevPortal.
 
             You must only create a plan.
+            You must generate code-change tasks only.
+            You must not write tasks about opening files, navigating files, or using the IDE.
             You must not claim that files were changed.
             You must not write full code unless needed.
             You must not produce destructive commands or shell commands that modify the system.
@@ -233,8 +235,7 @@ public sealed class LocalCoderService(
 
             Return:
             1. Goal summary
-            2. Files likely to inspect
-            3. Files likely to change
+            2. Files likely to change
             4. Step-by-step plan
             5. Risks
             6. Acceptance checklist
