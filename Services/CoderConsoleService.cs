@@ -151,6 +151,38 @@ public sealed class CoderConsoleService(
         var intent = PatchIntentService.BuildIntent(request);
         var intentText = PatchIntentService.BuildPromptText(intent);
 
+        if (TryParseExactRemovalTask(request.Task, out var removalText))
+        {
+            var deterministicPatchText = BuildExactReplacementPatch(request.FileContexts, removalText, string.Empty);
+            var deterministicValidation = ValidatePatchPreview(deterministicPatchText, request.FileContexts, request.Task);
+            var deterministicScopePaths = FindExactReplacementTargetPaths(request.FileContexts, removalText);
+
+            if (!deterministicValidation.IsValid)
+            {
+                throw new InvalidOperationException($"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", deterministicValidation.Errors)}");
+            }
+
+            var preview = new LocalCoderPatchPreview
+            {
+                ProjectPath = request.ProjectPath,
+                Model = "deterministic-exact-removal",
+                Task = request.Task,
+                FileContexts = request.FileContexts.ToArray(),
+                AllowedPatchScope = request.AllowedPatchScope,
+                AllowedPatchFolders = request.AllowedPatchFolders.ToArray(),
+                ScopeAnalysis = PatchScopeGuard.Analyze(
+                    request.AllowedPatchScope,
+                    request.FileContexts.Select(context => context.RelativePath).ToArray(),
+                    request.AllowedPatchFolders,
+                    deterministicScopePaths),
+                Intent = intent,
+                PatchText = deterministicPatchText
+            };
+            preview.ContextCoverage = PatchContextCoverageAnalyzer.Analyze(preview.PatchText, preview.FileContexts);
+            preview.IntentValidation = PatchIntentService.Evaluate(intent, preview);
+            return preview;
+        }
+
         if (TryParseExactReplacementTask(request.Task, out var oldText, out var newText))
         {
             var deterministicPatchText = BuildExactReplacementPatch(request.FileContexts, oldText, newText);
@@ -986,11 +1018,19 @@ public sealed class CoderConsoleService(
               "oldText": "",
               "newText": "<RadzenAlert ...>...</RadzenAlert>",
               "summary": "Add patch approval info alert"
+            },
+            {
+              "filePath": "Components/Pages/Coder.razor",
+              "operation": "remove",
+              "anchor": "",
+              "oldText": "@* Documentation placeholder *@",
+              "newText": "",
+              "summary": "Remove placeholder comment"
             }
           ]
         }
         Use only files from the selected file context.
-        Use exact anchors and exact string replacements.
+        Use exact anchors, exact string replacements, and exact text removal.
 
         {{profileText}}
 
@@ -1290,6 +1330,23 @@ public sealed class CoderConsoleService(
         return true;
     }
 
+    private static bool TryParseExactRemovalTask(string task, out string oldText)
+    {
+        var match = Regex.Match(
+            task,
+            "remove\\s+this\\s+exact\\s+text:\\s*\"(?<old>.*?)\"",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+
+        if (!match.Success)
+        {
+            oldText = string.Empty;
+            return false;
+        }
+
+        oldText = match.Groups["old"].Value;
+        return true;
+    }
+
     private static string BuildExactReplacementPatch(
         IReadOnlyList<LocalCoderFileContext> fileContexts,
         string oldText,
@@ -1509,6 +1566,12 @@ public sealed class CoderConsoleService(
             errors.Add("Patch preview may break Razor markup by changing closing tag type.");
         }
 
+        var razorStructureValidation = RazorStructureGuard.Analyze(patchText, task);
+        if (!razorStructureValidation.IsValid)
+        {
+            errors.AddRange(razorStructureValidation.Errors);
+        }
+
         if (!PatchAppearsToImplementTask(task, lines))
         {
             errors.Add("Patch preview does not appear to implement the requested change.");
@@ -1537,9 +1600,14 @@ public sealed class CoderConsoleService(
         var addedLines = GetChangedContentLines(lines, '+');
         var removedLines = GetChangedContentLines(lines, '-');
         var quotedValues = ExtractQuotedTaskValues(task);
+        var isRemovalTask = ContainsWholeWord(task, "remove") || ContainsWholeWord(task, "delete");
 
         if (quotedValues.Count > 0 &&
-            !addedLines.Any(line => line.Contains(quotedValues[^1], StringComparison.Ordinal)))
+            (
+                isRemovalTask
+                    ? !removedLines.Any(line => line.Contains(quotedValues[^1], StringComparison.Ordinal))
+                    : !addedLines.Any(line => line.Contains(quotedValues[^1], StringComparison.Ordinal))
+            ))
         {
             return false;
         }

@@ -66,6 +66,16 @@ public static class PatchValidationGuidanceFactory
                 saferOperation);
         }
 
+        if (ContainsAny(error, "protected razor region"))
+        {
+            return new PatchValidationGuidance(
+                PatchValidationCategory.RazorMarkupRisk,
+                error,
+                "Target the visible page markup section instead.",
+                "modify protected Razor region",
+                "replace visible page markup section");
+        }
+
         if (ContainsAny(error, "closing tag", "html structure", "html markup"))
         {
             return new PatchValidationGuidance(

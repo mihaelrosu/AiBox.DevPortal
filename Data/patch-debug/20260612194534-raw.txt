@@ -1,0 +1,13 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Agents/LocalCoderHistory.razor",
+      "operation": "remove_lines",
+      "startLine": 7,
+      "endLine": 7,
+      "summary": "Remove documentation placeholder"
+    }
+  ]
+}
+```

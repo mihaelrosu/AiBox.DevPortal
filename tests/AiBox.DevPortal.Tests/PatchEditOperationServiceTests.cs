@@ -236,10 +236,131 @@ public sealed class PatchEditOperationServiceTests
         }
     }
 
+    [Fact]
+    public async Task BuildAsync_RemoveExactText_ProducesEmptyFile()
+    {
+        var result = await BuildSingleFileOperationAsync(
+            "Hello",
+            "Hello",
+            string.Empty,
+            "remove");
+
+        var change = Assert.Single(result.FileChanges);
+        Assert.Equal(string.Empty, change.NewContent);
+        Assert.Contains("Hello", change.OldContent, StringComparison.Ordinal);
+        Assert.Contains("diff --git a/Example.razor b/Example.razor", result.PatchText, StringComparison.Ordinal);
+        Assert.Contains("-Hello", result.PatchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RemoveRazorComment_PreservesLineEndings()
+    {
+        const string content = "Before\r\n@* Documentation placeholder *@\r\nAfter";
+        var result = await BuildSingleFileOperationAsync(
+            content,
+            "@* Documentation placeholder *@",
+            string.Empty,
+            "remove");
+
+        var change = Assert.Single(result.FileChanges);
+        Assert.Equal("Before\r\nAfter", change.NewContent);
+        Assert.Contains("-@* Documentation placeholder *@", result.PatchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RemoveOverSafetyLimit_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-remove-limit-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        var filePath = Path.Combine(projectRoot, relativePath);
+        var oldText = new string('A', 4097);
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, oldText);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = oldText }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "remove",
+                                anchor = string.Empty,
+                                oldText,
+                                newText = string.Empty
+                            }
+                        }
+                    })));
+
+            Assert.Contains("safety limit", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_RemoveWildcardPattern_IsRejected()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-remove-wildcard-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        var filePath = Path.Combine(projectRoot, relativePath);
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, "Hello");
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = "Hello" }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "remove",
+                                anchor = string.Empty,
+                                oldText = "He*lo",
+                                newText = string.Empty
+                            }
+                        }
+                    })));
+
+            Assert.Contains("wildcard matching", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
     private static async Task<PatchEditOperationResult> BuildSingleFileOperationAsync(
         string content,
         string anchor,
-        string newText)
+        string newText,
+        string operation = "insert_after")
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-directive-test-{Guid.NewGuid():N}");
         const string relativePath = "Example.razor";
@@ -257,8 +378,9 @@ public sealed class PatchEditOperationServiceTests
                     new
                     {
                         filePath = relativePath,
-                        operation = "insert_after",
+                        operation,
                         anchor,
+                        oldText = anchor,
                         newText
                     }
                 }

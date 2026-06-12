@@ -6,12 +6,14 @@ namespace AiBox.DevPortal.Services;
 
 public sealed class PatchEditOperationService(ILogger<PatchEditOperationService> logger) : IPatchEditOperationService
 {
+    private const int MaxRemovalCharacters = 4096;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> AllowedOperations = new(StringComparer.OrdinalIgnoreCase)
     {
         "insert_after",
         "insert_before",
-        "replace"
+        "replace",
+        "remove"
     };
     private static readonly string[] RazorDirectives = ["@page", "@using", "@inject", "@attribute", "@layout"];
 
@@ -139,6 +141,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         var anchor = operation.Anchor ?? string.Empty;
         var oldText = operation.OldText ?? string.Empty;
         var newText = operation.NewText ?? string.Empty;
+
+        if (normalizedOperation.Equals("remove", StringComparison.OrdinalIgnoreCase))
+        {
+            return RemoveText(filePath, currentContent, oldText, newText, validationErrors);
+        }
 
         if (string.IsNullOrWhiteSpace(newText))
         {
@@ -336,6 +343,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         return count;
     }
 
+    private static bool ContainsWildcardToken(string value)
+    {
+        return value.Contains('*') || value.Contains('?');
+    }
+
     private static string BuildDiagnosticSnippet(string content, int matchIndex, int maxLength)
     {
         if (matchIndex < 0 || string.IsNullOrEmpty(content))
@@ -369,6 +381,50 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         }
 
         return currentContent[..index] + newText + currentContent[(index + oldText.Length)..];
+    }
+
+    private static string? RemoveText(
+        string filePath,
+        string currentContent,
+        string oldText,
+        string newText,
+        List<string> validationErrors)
+    {
+        if (string.IsNullOrWhiteSpace(oldText))
+        {
+            validationErrors.Add($"Operation 'remove' for file '{filePath}' requires a non-empty oldText.");
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(newText))
+        {
+            validationErrors.Add($"Operation 'remove' for file '{filePath}' must include an empty newText.");
+            return null;
+        }
+
+        if (oldText.Length > MaxRemovalCharacters)
+        {
+            validationErrors.Add($"Remove operation for file '{filePath}' exceeds the {MaxRemovalCharacters / 1024} KB safety limit.");
+            return null;
+        }
+
+        var occurrenceCount = CountOccurrences(currentContent, oldText);
+        if (occurrenceCount == 0)
+        {
+            validationErrors.Add(
+                ContainsWildcardToken(oldText)
+                    ? $"Remove operation does not support wildcard matching in file '{filePath}': {oldText}"
+                    : $"Exact text not found for remove in file '{filePath}': {oldText}");
+            return null;
+        }
+
+        if (occurrenceCount > 1)
+        {
+            validationErrors.Add($"Text appears multiple times; make the remove task more specific in file '{filePath}': {oldText}");
+            return null;
+        }
+
+        return currentContent.Replace(oldText, string.Empty, StringComparison.Ordinal);
     }
 
     private async Task<string> BuildPatchTextAsync(

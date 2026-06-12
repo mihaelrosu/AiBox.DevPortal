@@ -1,0 +1,12 @@
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Agents/LocalCoderHistory.razor",
+      "operation": "remove",
+      "anchor": "",
+      "oldText": "@* Documentation placeholder *@",
+      "newText": "",
+      "summary": "Remove placeholder comment"
+    }
+  ]
+}

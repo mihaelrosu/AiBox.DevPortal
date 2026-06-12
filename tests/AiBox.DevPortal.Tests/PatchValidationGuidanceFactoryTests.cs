@@ -7,6 +7,7 @@ public sealed class PatchValidationGuidanceFactoryTests
 {
     [Theory]
     [InlineData("Patch preview may break Razor markup by changing closing tag type.", PatchValidationCategory.RazorMarkupRisk)]
+    [InlineData("Patch modifies protected Razor region: DocumentationRegion", PatchValidationCategory.RazorMarkupRisk)]
     [InlineData("Patch preview only changes closing tags.", PatchValidationCategory.HtmlStructureRisk)]
     [InlineData("Anchor not found for insert_after in file 'Example.razor': <p>Text</p>", PatchValidationCategory.MissingAnchor)]
     [InlineData("Anchor is ambiguous because it has multiple occurrences.", PatchValidationCategory.AmbiguousAnchor)]
@@ -39,6 +40,15 @@ public sealed class PatchValidationGuidanceFactoryTests
         Assert.Equal(PatchValidationCategory.RazorMarkupRisk, guidance.Category);
         Assert.Equal("insert_after <h1>", guidance.OriginalOperation);
         Assert.Equal("replace complete header block", guidance.SaferOperation);
+    }
+
+    [Fact]
+    public void Create_ProtectedRazorRegion_SuggestsVisibleMarkup()
+    {
+        var guidance = Assert.Single(PatchValidationGuidanceFactory.Create(["Patch modifies protected Razor region: DocumentationRegion"]));
+
+        Assert.Equal(PatchValidationCategory.RazorMarkupRisk, guidance.Category);
+        Assert.Contains("Target the visible page markup section instead.", guidance.SuggestedFix, StringComparison.Ordinal);
     }
 
     [Fact]
