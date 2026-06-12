@@ -18,6 +18,8 @@ public sealed class PatchValidationGuidanceFactoryTests
         Assert.Equal(expectedCategory, guidance.Category);
         Assert.Equal(error, guidance.Reason);
         Assert.False(string.IsNullOrWhiteSpace(guidance.SuggestedFix));
+        Assert.False(string.IsNullOrWhiteSpace(guidance.OriginalOperation));
+        Assert.False(string.IsNullOrWhiteSpace(guidance.SaferOperation));
     }
 
     [Fact]
@@ -27,6 +29,16 @@ public sealed class PatchValidationGuidanceFactoryTests
 
         Assert.Contains("insert_after \"</p>\"", guidance.SuggestedFix, StringComparison.Ordinal);
         Assert.Contains("replace the exact paragraph block", guidance.SuggestedFix, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Create_RazorMarkupRisk_SuggestsSaferReplacement()
+    {
+        var guidance = Assert.Single(PatchValidationGuidanceFactory.Create(["Patch preview may break Razor markup by changing closing tag type."]));
+
+        Assert.Equal(PatchValidationCategory.RazorMarkupRisk, guidance.Category);
+        Assert.Equal("insert_after <h1>", guidance.OriginalOperation);
+        Assert.Equal("replace complete header block", guidance.SaferOperation);
     }
 
     [Fact]

@@ -106,12 +106,16 @@ public sealed class CoderComponentSmokeTests : TestContext
                 new PatchValidationGuidance(
                     PatchValidationCategory.HtmlStructureRisk,
                     "Patch preview only changes closing tags.",
-                    "Use a complete HTML boundary.")
+                    "Use a complete HTML boundary.",
+                    "insert_after a partial HTML boundary",
+                    "replace the complete HTML block")
             ]));
 
-        Assert.Contains("Suggested Fix", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Safer Patch Suggestions", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("HtmlStructureRisk", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Use a complete HTML boundary.", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Original operation", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Safer operation", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]

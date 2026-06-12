@@ -1,0 +1,12 @@
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Agents/LocalCoderHistory.razor",
+      "operation": "replace",
+      "anchor": "<div class=\"page-header\">",
+      "oldText": "<h1>Local Coder History</h1>\n<p>Browse and inspect saved Local Coder sessions. This page does not execute Local Coder actions.</p>\n<RadzenAlert AlertStyle=\"AlertStyle.Info\" ShowIcon=\"true\"\n                         Text=\"This page displays previously executed Local Coder runs.\" />\n",
+      "newText": "<h1>Local Coder History</h1>\n\n<RadzenAlert AlertStyle=\"AlertStyle.Info\"\n                 ShowIcon=\"true\">\n        This page displays previously executed Local Coder runs.\n    </RadzenAlert>\n\n<p>\n        Browse and inspect saved Local Coder sessions.\n    </p>",
+      "summary": "Replace existing header section with new content"
+    }
+  ]
+}

@@ -22,28 +22,30 @@
 {
     <RadzenCard>
         <RadzenStack Gap="0.75rem">
-            <RadzenText Text="Patch Debug" TextStyle="TextStyle.H5" />
-            <div>
-                <RadzenText Text="Validation Errors" TextStyle="TextStyle.H6" />
-                <pre class="coder-error">@string.Join(Environment.NewLine, ValidationErrors.Select(errorText => $"- {errorText}"))</pre>
-            </div>
-            @if (ValidationGuidance.Count > 0)
-            {
-                <div>
-                    <RadzenText Text="Suggested Fix" TextStyle="TextStyle.H6" />
-                    <RadzenStack Gap="0.75rem">
-                        @foreach (var guidance in ValidationGuidance)
-                        {
-                            <RadzenCard>
-                                <RadzenStack Gap="0.5rem">
-                                    <RadzenBadge Text="@guidance.Category.ToString()"
-                                                 BadgeStyle="@CategoryBadgeStyle(guidance.Category)" />
-                                    <RadzenText Text="@guidance.Reason" TextStyle="TextStyle.Body2" />
-                                    <RadzenAlert AlertStyle="AlertStyle.Info" ShowIcon="true">
-                                        @guidance.SuggestedFix
-                                    </RadzenAlert>
-                                </RadzenStack>
-                            </RadzenCard>
+                    <RadzenText Text="Patch Debug" TextStyle="TextStyle.H5" />
+                    <div>
+                        <RadzenText Text="Validation Errors" TextStyle="TextStyle.H6" />
+                        <pre class="coder-error">@string.Join(Environment.NewLine, ValidationErrors.Select(errorText => $"- {errorText}"))</pre>
+                    </div>
+                    @if (ValidationGuidance.Count > 0)
+                    {
+                        <div>
+                            <RadzenText Text="Safer Patch Suggestions" TextStyle="TextStyle.H6" />
+                            <RadzenStack Gap="0.75rem">
+                                @foreach (var guidance in ValidationGuidance)
+                                {
+                                    <RadzenCard>
+                                        <RadzenStack Gap="0.5rem">
+                                            <RadzenBadge Text="@guidance.Category.ToString()"
+                                                         BadgeStyle="@CategoryBadgeStyle(guidance.Category)" />
+                                            <RadzenText Text="@($"Reason: {guidance.Reason}")" TextStyle="TextStyle.Body2" />
+                                            <RadzenText Text="@($"Original operation: {guidance.OriginalOperation}")" TextStyle="TextStyle.Body2" />
+                                            <RadzenText Text="@($"Safer operation: {guidance.SaferOperation}")" TextStyle="TextStyle.Body2" />
+                                            <RadzenAlert AlertStyle="AlertStyle.Info" ShowIcon="true">
+                                                @guidance.SuggestedFix
+                                            </RadzenAlert>
+                                        </RadzenStack>
+                                    </RadzenCard>
                         }
                     </RadzenStack>
                 </div>
