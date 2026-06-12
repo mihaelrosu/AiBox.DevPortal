@@ -4,9 +4,19 @@ using AiBox.DevPortal.Models;
 
 namespace AiBox.DevPortal.Services;
 
+/// <summary>
+/// Loads, previews, and restores Local Coder file context under project-root safety rules.
+/// </summary>
 public sealed class LocalCoderContextService : ILocalCoderContextService
 {
+    /// <summary>
+    /// Maximum allowed size for a single context file, in bytes.
+    /// </summary>
     internal const long MaxFileBytes = 200 * 1024;
+
+    /// <summary>
+    /// Maximum allowed size for the combined file context, in bytes.
+    /// </summary>
     internal const long MaxTotalBytes = 500 * 1024;
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -15,6 +25,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
 
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
 
+    /// <summary>
+    /// Builds a preview of the files that would be added by a context preset.
+    /// </summary>
     public async Task<LocalCoderPresetPreview> PreviewPresetAsync(
         string projectRoot,
         string currentPagePath,
@@ -79,6 +92,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         return new LocalCoderPresetPreview { Files = previewFiles };
     }
 
+    /// <summary>
+    /// Loads the selected file paths into in-memory context after validating project-root and size constraints.
+    /// </summary>
     public async Task<IReadOnlyList<LocalCoderFileContext>> LoadAsync(
         string projectRoot,
         IReadOnlyList<string> relativePaths)
@@ -134,6 +150,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         return contexts;
     }
 
+    /// <summary>
+    /// Restores a saved context snapshot by reloading the referenced files from disk.
+    /// </summary>
     public async Task<LocalCoderContextRestoreResult> RestoreAsync(
         string projectRoot,
         IReadOnlyList<LocalCoderHistoryContextFile> contextFiles)
@@ -208,6 +227,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         };
     }
 
+    /// <summary>
+    /// Maps restore exceptions to user-facing skip reasons.
+    /// </summary>
     private static string RestoreSkipReason(string message)
     {
         if (message.Contains("outside", StringComparison.OrdinalIgnoreCase)
@@ -235,6 +257,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         return "file could not be loaded";
     }
 
+    /// <summary>
+    /// Determines whether a path is in a generated or ignored folder.
+    /// </summary>
     private static bool IsGeneratedPath(string relativePath)
     {
         var normalizedPath = relativePath.Replace(Path.DirectorySeparatorChar, '/');
@@ -249,6 +274,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
                || normalizedPath.Contains("/wwwroot/lib/", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Enumerates repository-relative files that can be considered for preset previewing.
+    /// </summary>
     private static IEnumerable<string> EnumeratePresetCandidates(string rootPath)
     {
         var stack = new Stack<string>();
@@ -300,6 +328,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         }
     }
 
+    /// <summary>
+    /// Enumerates files in a directory while swallowing directory access errors.
+    /// </summary>
     private static IEnumerable<string> EnumerateFilesSafely(string directoryPath)
     {
         try
@@ -312,6 +343,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         }
     }
 
+    /// <summary>
+    /// Evaluates a preset candidate and assigns its preview status.
+    /// </summary>
     private static async Task<LocalCoderPresetPreviewFile> EvaluatePresetCandidateAsync(
         string rootPath,
         string relativePath,
@@ -375,21 +409,33 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         return new LocalCoderPresetPreviewFile { File = file, Status = LocalCoderPresetFileStatus.Add };
     }
 
+    /// <summary>
+    /// Creates a skipped preview entry for a file and reason.
+    /// </summary>
     private static LocalCoderPresetPreviewFile Skipped(FileSearchItem file, string reason) =>
         new() { File = file, Status = LocalCoderPresetFileStatus.Skipped, SkipReason = reason };
 
+    /// <summary>
+    /// Returns the file length for a path when it remains inside the project root.
+    /// </summary>
     private static long TryGetFileLength(string rootPath, string relativePath)
     {
         var fullPath = Path.GetFullPath(Path.Combine(rootPath, relativePath));
         return IsInsideRoot(rootPath, fullPath) && File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0;
     }
 
+    /// <summary>
+    /// Checks whether a resolved path stays under the selected project root.
+    /// </summary>
     private static bool IsInsideRoot(string rootPath, string fullPath)
     {
         var rootPrefix = rootPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         return fullPath.StartsWith(rootPrefix, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Validates a relative path and normalizes it against the project root.
+    /// </summary>
     private static string ValidateAndNormalizePath(string rootPath, string relativePath)
     {
         var trimmed = relativePath.Trim();
@@ -425,6 +471,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         return Path.GetRelativePath(rootPath, fullPath);
     }
 
+    /// <summary>
+    /// Rejects paths that traverse symbolic links or reparse points outside the project root.
+    /// </summary>
     private static void ValidateNoSymbolicLinks(string rootPath, string relativePath)
     {
         var currentPath = rootPath;
@@ -443,6 +492,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         }
     }
 
+    /// <summary>
+    /// Reads a file as bytes while enforcing the single-file context size limit.
+    /// </summary>
     private static async Task<byte[]> ReadFileAsync(string fullPath, string relativePath)
     {
         try
@@ -487,6 +539,9 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
         }
     }
 
+    /// <summary>
+    /// Decodes context bytes as UTF-8 text and rejects binary input.
+    /// </summary>
     private static string DecodeText(byte[] bytes, string relativePath)
     {
         if (bytes.Contains((byte)0))
