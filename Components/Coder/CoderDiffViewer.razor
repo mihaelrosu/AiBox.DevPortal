@@ -127,6 +127,18 @@
                                 @string.Join(" ", PatchPreview.IntentValidation.Reasons)
                             </RadzenAlert>
                         }
+                        @if (PatchPreview.IntentValidation is not null)
+                        {
+                            <div>
+                                <RadzenText Text="Debug output" TextStyle="TextStyle.Body2" />
+                                <pre class="coder-output">Scope mode: @PatchPreview.IntentValidation.ScopeMode
+Requested files: @(string.Join(", ", PatchPreview.IntentValidation.RequestedFiles))
+Modified files: @(string.Join(", ", PatchPreview.IntentValidation.ModifiedFiles))
+Context files: @(string.Join(", ", PatchPreview.IntentValidation.ContextFiles))
+Protected files: @(string.Join(", ", PatchPreview.IntentValidation.ProtectedFiles))
+Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
+                            </div>
+                        }
                     </RadzenStack>
                 </RadzenCard>
                 <RadzenCard>

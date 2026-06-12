@@ -21,6 +21,7 @@ public static class PatchIntentService
         {
             Goal = DeriveGoal(request.Task),
             AllowedPaths = allowedPaths,
+            ProtectedPaths = [],
             AllowedScope = scopeMode switch
             {
                 PatchScopeMode.ContextFilesOnly => "Context Files Only",
@@ -46,40 +47,105 @@ public static class PatchIntentService
 
         var reasons = new List<string>();
         var detectedChangeType = DetectChangeType(preview);
+        var requestedFiles = NormalizePaths(intent.AllowedPaths).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var modifiedFiles = NormalizePaths(preview.FileChanges.Select(change => change.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var contextFiles = NormalizePaths(preview.FileContexts.Select(context => context.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var scopeFiles = NormalizePaths(preview.ScopeAnalysis.Files
+                .Where(file => file.Status == PatchScopeStatus.InScope)
+                .Select(file => file.RelativePath))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var explicitAllowedFiles = new HashSet<string>(requestedFiles, StringComparer.OrdinalIgnoreCase);
+        var explicitProtectedFiles = new HashSet<string>(NormalizePaths(intent.ProtectedPaths), StringComparer.OrdinalIgnoreCase);
+
+        var fileEvaluations = modifiedFiles.Select(path =>
+        {
+            var inContext = contextFiles.Contains(path);
+            var inScope = scopeFiles.Contains(path);
+            var matchesRequestedFile = IsUnderAnyRequestedPath(path, requestedFiles);
+            var explicitlyAllowed = explicitAllowedFiles.Contains(path) || matchesRequestedFile;
+            var explicitlyProtected = explicitProtectedFiles.Contains(path) || IsProtectedPath(path);
+            var protectedFile = !inContext && !inScope && !explicitlyAllowed && explicitlyProtected;
+
+            return new PatchIntentFileEvaluation
+            {
+                RelativePath = path,
+                InContext = inContext,
+                InScope = inScope,
+                MatchesRequestedFile = matchesRequestedFile,
+                ExplicitlyAllowed = explicitlyAllowed,
+                ExplicitlyProtected = explicitlyProtected,
+                Protected = protectedFile
+            };
+        }).ToArray();
+
+        var protectedFiles = fileEvaluations
+            .Where(evaluation => evaluation.Protected)
+            .Select(evaluation => evaluation.RelativePath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var requestedModifiedFiles = requestedFiles.Length == 0
+            ? []
+            : modifiedFiles.Where(path => IsUnderAnyRequestedPath(path, requestedFiles)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var unexpectedModifiedFiles = preview.AllowedPatchScope == PatchScopeMode.AnyProjectFile
+            ? []
+            : modifiedFiles
+                .Where(path => !IsUnderAnyRequestedPath(path, requestedFiles))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
         if (preview.ScopeAnalysis.HasOutOfScopeFiles)
         {
             reasons.Add("Patch modifies files outside the allowed scope.");
         }
 
-        var protectedPaths = preview.FileChanges
-            .Select(change => change.RelativePath)
-            .Where(IsProtectedPath)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        if (protectedPaths.Length > 0)
+        if (protectedFiles.Length > 0)
         {
-            reasons.Add($"Patch touches protected files: {string.Join(", ", protectedPaths)}.");
+            reasons.Add($"Patch touches protected files: {string.Join(", ", protectedFiles)}.");
         }
 
-        var status = reasons.Count > 0
+        var scopePassed = !preview.ScopeAnalysis.IsBlocking;
+        var requestedFilesSatisfied = preview.AllowedPatchScope == PatchScopeMode.AnyProjectFile
+            ? modifiedFiles.Length > 0
+            : requestedFiles.Length == 0 || requestedModifiedFiles.Length > 0;
+        var changeTypeMatches = intent.ExpectedChangeType == PatchIntentChangeType.Unknown || intent.ExpectedChangeType == detectedChangeType;
+        var hasProtectedFiles = protectedFiles.Length > 0;
+
+        var status = hasProtectedFiles || !scopePassed
             ? PatchIntentMatchStatus.DoesNotMatch
-            : intent.ExpectedChangeType == PatchIntentChangeType.Unknown || intent.ExpectedChangeType == detectedChangeType
+            : !requestedFilesSatisfied
+                ? PatchIntentMatchStatus.DoesNotMatch
+                : changeTypeMatches && unexpectedModifiedFiles.Length == 0
                 ? PatchIntentMatchStatus.MatchesIntent
                 : PatchIntentMatchStatus.PartiallyMatches;
 
-        if (status == PatchIntentMatchStatus.PartiallyMatches)
+        if (status == PatchIntentMatchStatus.PartiallyMatches && !changeTypeMatches)
         {
             reasons.Add(intent.ExpectedChangeType == PatchIntentChangeType.Unknown
                 ? "Expected change type could not be derived confidently from the task."
                 : $"Expected {intent.ExpectedChangeType} but detected {detectedChangeType}.");
         }
 
+        if (status == PatchIntentMatchStatus.PartiallyMatches && requestedFiles.Length > 0 && requestedModifiedFiles.Length == 0)
+        {
+            reasons.Add("Modified files do not match the requested files in the intent contract.");
+        }
+
+        if (status == PatchIntentMatchStatus.PartiallyMatches && unexpectedModifiedFiles.Length > 0)
+        {
+            reasons.Add($"Patch modifies additional files beyond the requested intent files: {string.Join(", ", unexpectedModifiedFiles)}.");
+        }
+
         return new PatchIntentValidation
         {
             Status = status,
             DetectedChangeType = detectedChangeType.ToString(),
+            ScopeMode = preview.AllowedPatchScope.ToString(),
+            RequestedFiles = requestedFiles,
+            ModifiedFiles = modifiedFiles,
+            ContextFiles = contextFiles.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray(),
+            ProtectedFiles = protectedFiles,
+            FileEvaluations = fileEvaluations,
             Reasons = reasons
         };
     }
@@ -213,14 +279,60 @@ public static class PatchIntentService
     private static bool IsProtectedPath(string relativePath)
     {
         var normalized = (relativePath ?? string.Empty).Replace('\\', '/');
-        return normalized.Contains("PatchApply", StringComparison.OrdinalIgnoreCase)
-               || normalized.Contains("PatchPackage", StringComparison.OrdinalIgnoreCase)
-               || normalized.Contains("PatchApprovalGate", StringComparison.OrdinalIgnoreCase)
-               || normalized.Contains("History", StringComparison.OrdinalIgnoreCase)
-               || normalized.Contains("AgentActionProfiles", StringComparison.OrdinalIgnoreCase)
-               || normalized.Contains("AgentModeRunner", StringComparison.OrdinalIgnoreCase)
-               || normalized.Contains("AgentModeProfile", StringComparison.OrdinalIgnoreCase)
-               || normalized.Contains("AgentProfile", StringComparison.OrdinalIgnoreCase)
-               || normalized.Equals("Program.cs", StringComparison.OrdinalIgnoreCase);
+        return normalized.Equals("Program.cs", StringComparison.OrdinalIgnoreCase)
+               || Path.GetFileName(normalized).StartsWith("appsettings", StringComparison.OrdinalIgnoreCase)
+               || ContainsSecurityTerms(normalized);
+    }
+
+    private static bool ContainsSecurityTerms(string normalizedPath)
+    {
+        var lower = normalizedPath.ToLowerInvariant();
+        return lower.Contains("/auth/")
+               || lower.Contains("/authentication/")
+               || lower.Contains("/security/")
+               || lower.Contains("/identity/")
+               || lower.Contains("/jwt/")
+               || lower.Contains("authservice")
+               || lower.Contains("authmanager")
+               || lower.Contains("sign-in")
+               || lower.Contains("sign-out")
+               || lower.Contains("signin")
+               || lower.Contains("signout")
+               || lower.Contains("token")
+               || lower.Contains("secret");
+    }
+
+    private static bool IsUnderAnyRequestedPath(string relativePath, IReadOnlyList<string> requestedFiles)
+    {
+        return requestedFiles.Any(requestedPath => IsUnderRequestedPath(relativePath, requestedPath));
+    }
+
+    private static bool IsUnderRequestedPath(string relativePath, string requestedPath)
+    {
+        var normalizedPath = NormalizePath(relativePath);
+        var normalizedRequestedPath = NormalizePath(requestedPath);
+
+        if (string.IsNullOrWhiteSpace(normalizedRequestedPath))
+        {
+            return false;
+        }
+
+        if (normalizedPath.Equals(normalizedRequestedPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return normalizedPath.StartsWith(normalizedRequestedPath.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> NormalizePaths(IEnumerable<string> paths)
+    {
+        return paths.Select(NormalizePath)
+            .Where(path => !string.IsNullOrWhiteSpace(path));
+    }
+
+    private static string NormalizePath(string? relativePath)
+    {
+        return (relativePath ?? string.Empty).Replace('\\', '/').Trim();
     }
 }

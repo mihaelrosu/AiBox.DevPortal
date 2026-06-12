@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Components/Coder/CoderHistoryPanel.razor",
+      "operation": "insert_after",
+      "anchor": "<h3>Agent Run History</h3>",
+      "oldText": "",
+      "newText": "<RadzenAlert AlertStyle=\"AlertStyle.Info\" ShowIcon=\"true\">This page displays previously executed Local Coder runs.</RadzenAlert>",
+      "summary": "Add patch approval info alert"
+    }
+  ]
+}
+```
