@@ -1,9 +1,11 @@
 @page "/coder"
 @rendermode InteractiveServer
+@using System.Security.Cryptography
+@using System.Text
 <PageTitle>Local Coder</PageTitle>
 <RadzenStack Gap="1rem">
 <RadzenText Text="Local Coder" TextStyle="TextStyle.H4" />
-<RadzenTabs Style="width: 100%;">
+<RadzenTabs Style="width: 100%;" @bind-SelectedIndex="@selectedTabIndex">
     <Tabs>
         <RadzenTabsItem Text="Work" Icon="edit_note">
             <RadzenStack Gap="1rem">
@@ -30,37 +32,36 @@
                                       IsGeneratingPatch="@isGeneratingPatch"
                                       CanVerifyProject="@(!isRunningCommand && !isVerifying && !string.IsNullOrWhiteSpace(request.ProjectPath))"
                                       CanReviewDiff="@CanReviewSelectedPatch()"
+                                      PlanTasks="@planTasks"
+                                      SelectedPlanTaskId="@selectedPlanTaskId"
+                                      SelectedPlanTaskIdChanged="@OnSelectedPlanTaskChangedAsync"
+                                      CanExecuteSelectedTask="@CanExecuteSelectedPlanTask()"
+                                      CanExecuteNextTask="@CanExecuteNextPlanTask()"
+                                      PatchIntent="@patchIntent"
+                                      PatchIntentValidation="@patchIntentValidation"
                                       OnCreatePlan="@CreatePlanAsync"
                                       OnGeneratePatchPreview="@GeneratePatchPreviewAsync"
+                                      OnExecuteSelectedTask="@ExecuteSelectedTaskAsync"
+                                      OnExecuteNextTask="@ExecuteNextTaskAsync"
                                       OnVerifyProject="@VerifyProjectAsync"
                                       OnReviewDiff="@ReviewSelectedPatchAsync">
                         <ContextContent>
-                            <RadzenCard>
-                                <RadzenStack Gap="0.75rem">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                                 JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
-                                        <div>
-                                            <RadzenText Text="File Context" TextStyle="TextStyle.H5" />
-                                            <RadzenText Text="@GetProjectFilesStatusText()" TextStyle="TextStyle.Body2" />
-                                        </div>
-                                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                            <RadzenButton Text="Preview Context" Icon="description" ButtonStyle="ButtonStyle.Primary"
-                                                          Click="@PreviewContextAsync"
-                                                          Disabled="@(isLoading || string.IsNullOrWhiteSpace(request.ProjectPath) || !selectedFilePaths.Any())" />
-                                            <RadzenButton Text="Clear Selected" Icon="remove_circle_outline"
-                                                          ButtonStyle="ButtonStyle.Light" Click="@ClearSelectedFilesAsync"
-                                                          Disabled="@(isLoading || !selectedFilePaths.Any())" />
-                                            <RadzenButton Text="Clear Context" Icon="clear" ButtonStyle="ButtonStyle.Light"
-                                                          Click="@ClearContextAsync" Disabled="@(isLoading || fileContexts.Count == 0)" />
-                                        </RadzenStack>
-                                    </RadzenStack>
-                                    <RadzenText Text="@($"Loaded context files: {fileContexts.Count}")" TextStyle="TextStyle.Body2" />
-                                    <FileAutoComplete RootDirectory="@request.ProjectPath"
-                                                      Placeholder="Search by relative path or file name, e.g. Coder.razor, service, Program.cs"
-                                                      ShowSelectedInfo="true" SelectedFiles="@selectedFiles"
-                                                      SelectedFilesChanged="@OnSelectedFilesChanged" FileSelected="@OnFileSelected" />
-                                </RadzenStack>
-                            </RadzenCard>
+                            <CoderFileContextPanel ProjectPath="@request.ProjectPath"
+                                                   StatusText="@GetProjectFilesStatusText()"
+                                                   SelectedFiles="@selectedFiles"
+                                                   FileContexts="@fileContexts"
+                                                   IsLoading="@(isLoading || isLoadingContext)"
+                                                   IsLocked="@isContextLocked"
+                                                   AllowedPatchScope="@request.AllowedPatchScope"
+                                                   AllowedPatchScopeChanged="@(value => request.AllowedPatchScope = value)"
+                                                   AllowedPatchFolders="@request.AllowedPatchFolders"
+                                                   AllowedPatchFoldersChanged="@(value => request.AllowedPatchFolders = value.ToList())"
+                                                   SelectedFilesChanged="@OnSelectedFilesChanged"
+                                                   OnLoadPreset="@LoadPresetAsync"
+                                                   OnClearAll="@ClearSelectedFilesAsync"
+                                                   OnClearContext="@ClearContextAsync"
+                                                   OnLockContext="@LockContextAsync"
+                                                   OnUnlockContext="@UnlockContextAsync" />
                         </ContextContent>
                     </CoderPromptPanel>
                 </CoderProjectSelector>
@@ -186,7 +187,9 @@
                                    IsClearingHistory="@isClearingHistory"
                                    OnClearHistory="@ClearHistoryAsync"
                                    OnViewHistoryEntry="@ViewHistoryEntryAsync"
-                                   OnUseHistoryEntryAsContext="@UseHistoryEntryAsContextAsync" />
+                                   OnUseHistoryEntryAsContext="@UseHistoryEntryAsContextAsync"
+                                   OnRestoreContext="@RestoreHistoryContextAsync"
+                                   ContextRestoreResult="@contextRestoreResult" />
             </RadzenStack>
         </RadzenTabsItem>
     </Tabs>
@@ -204,6 +207,7 @@
     [Inject] private IPatchApplyService PatchApplyService { get; set; } = default!;
     [Inject] private IPatchRollbackService PatchRollbackService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
+    [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
     [Inject] private Radzen.NotificationService NotificationService { get; set; } = default!;
 
@@ -225,22 +229,33 @@
     private List<LocalCoderFileContext> fileContexts = [];
     private List<string> selectedFilePaths = [];
     private List<FileSearchItem> selectedFiles = [];
+    private readonly HashSet<string> confirmedGeneratedFilePaths = new(StringComparer.OrdinalIgnoreCase);
+    private int contextLoadVersion;
+    private readonly List<LocalCoderPlanTask> planTasks = [];
 
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
     private LocalCoderPatchPreview? patchPreview;
+    private PatchIntent? patchIntent;
+    private PatchIntentValidation? patchIntentValidation;
     private LocalCoderPatchApplyResult? applyResult;
     private LocalCoderPatchRollbackResult? rollbackResult;
     private CommandRunResult? lastCommand;
     private LocalCoderHistoryEntry? selectedHistoryEntry;
+    private LocalCoderContextRestoreResult? contextRestoreResult;
     private AgentRunRecord? selectedAgentRun;
     private PatchPackage? selectedPatchPackage;
     private string commitMessage = string.Empty;
+    private string? selectedPlanTaskId;
+    private string? activePlanTaskId;
     private string LastPatchRawResponse { get; set; } = string.Empty;
     private string LastPatchNormalizedDiff { get; set; } = string.Empty;
     private IReadOnlyList<string> LastPatchValidationErrors { get; set; } = [];
     private IReadOnlyList<PatchValidationGuidance> LastPatchValidationGuidance { get; set; } = [];
+    private int selectedTabIndex;
 
     private bool isLoading;
+    private bool isLoadingContext;
+    private bool isContextLocked;
     private bool isPlanning;
     private bool isGeneratingPatch;
     private bool isApplyingPatch;
@@ -317,6 +332,7 @@
         request.ProjectPath = value?.ToString() ?? string.Empty;
         ClearSelectedFiles();
         currentTask = null;
+        ClearPlanTasks();
         patchPreview = null;
         ClearPatchDebug();
         lastCommand = null;
@@ -332,30 +348,13 @@
         return Task.CompletedTask;
     }
 
-    private async Task PreviewContextAsync()
-    {
-        error = null;
-
-        try
-        {
-            if (!await EnsureFileContextLoadedAsync())
-            {
-                return;
-            }
-        }
-        catch (Exception exception)
-        {
-            error = exception.Message;
-
-            NotificationService.Notify(
-                NotificationSeverity.Error,
-                "Preview context failed",
-                exception.Message);
-        }
-    }
-
     private Task ClearSelectedFilesAsync()
     {
+        if (isContextLocked)
+        {
+            return Task.CompletedTask;
+        }
+
         ClearSelectedFiles();
 
         NotificationService.Notify(
@@ -368,20 +367,39 @@
 
     private Task ClearContextAsync()
     {
-        ClearLoadedContext();
+        if (isContextLocked)
+        {
+            return Task.CompletedTask;
+        }
+
+        ClearSelectedFiles();
 
         NotificationService.Notify(
             NotificationSeverity.Info,
             "Context cleared",
-            "Loaded file context was cleared.");
+            "All selected file context was cleared.");
 
+        return Task.CompletedTask;
+    }
+
+    private Task LockContextAsync()
+    {
+        isContextLocked = true;
+        return Task.CompletedTask;
+    }
+
+    private Task UnlockContextAsync()
+    {
+        isContextLocked = false;
         return Task.CompletedTask;
     }
 
     private void ClearSelectedFiles()
     {
+        confirmedGeneratedFilePaths.Clear();
         selectedFilePaths = [];
         selectedFiles = [];
+        ClearPlanTasks();
         ClearLoadedContext();
         patchPreview = null;
         ClearPatchDebug();
@@ -389,9 +407,12 @@
 
     private void ClearLoadedContext()
     {
+        contextLoadVersion++;
+        isLoadingContext = false;
         fileContexts = [];
         request.FileContexts = [];
         patchPreview = null;
+        ClearPlanTasks();
         applyResult = null;
         rollbackResult = null;
         ClearPatchDebug();
@@ -403,9 +424,11 @@
 
     private async Task CreatePlanAsync()
     {
+        IReadOnlyList<LocalCoderHistoryContextFile> contextSnapshot = [];
         isPlanning = true;
         error = null;
         currentTask = null;
+        ClearPlanTasks();
         lastCommand = null;
 
         try
@@ -420,13 +443,17 @@
                 return;
             }
 
+            contextSnapshot = CreateContextSnapshot(LocalCoderHistoryActionType.CreatePlan);
             currentTask = await AgentModeRunner.CreatePlanAsync(request, profile);
+            InitializePlanTasks(currentTask!.Plan);
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.CreatePlan,
                 success: true,
                 "Plan created.",
                 planText: currentTask!.Plan,
-                model: profile.Model);
+                model: profile.Model,
+                contextSnapshot: contextSnapshot,
+                planTasksSnapshot: GetPlanTasksSnapshot());
 
             NotificationService.Notify(
                 NotificationSeverity.Success,
@@ -439,7 +466,9 @@
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.CreatePlan,
                 success: false,
-                exception.Message);
+                exception.Message,
+                contextSnapshot: contextSnapshot,
+                planTasksSnapshot: GetPlanTasksSnapshot());
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
@@ -453,33 +482,115 @@
         }
     }
 
-    private async Task GeneratePatchPreviewAsync()
+    private Task GeneratePatchPreviewAsync()
     {
+        activePlanTaskId = null;
+        return GeneratePatchPreviewCoreAsync(request.Task, null);
+    }
+
+    private Task ExecuteSelectedTaskAsync()
+    {
+        var selectedTask = planTasks.FirstOrDefault(task => task.Id == selectedPlanTaskId)
+            ?? planTasks.FirstOrDefault(task => task.Status == LocalCoderPlanTaskStatus.Pending);
+
+        if (selectedTask is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No task selected",
+                "Select a plan task before executing it.");
+            return Task.CompletedTask;
+        }
+
+        return ExecutePlanTaskAsync(selectedTask);
+    }
+
+    private Task ExecuteNextTaskAsync()
+    {
+        var nextTask = planTasks.FirstOrDefault(task => task.Status == LocalCoderPlanTaskStatus.Pending);
+        if (nextTask is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Info,
+                "No pending tasks",
+                "There are no pending plan tasks to execute.");
+            return Task.CompletedTask;
+        }
+
+        return ExecutePlanTaskAsync(nextTask);
+    }
+
+    private async Task ExecutePlanTaskAsync(LocalCoderPlanTask planTask)
+    {
+        if (!await EnsureFileContextLoadedAsync())
+        {
+            await SaveHistoryEntryAsync(
+                LocalCoderHistoryActionType.GeneratePatchPreview,
+                success: false,
+                "Select files before generating a patch preview.",
+                planTasksSnapshot: GetPlanTasksSnapshot());
+            return;
+        }
+
+        selectedPlanTaskId = planTask.Id;
+        activePlanTaskId = planTask.Id;
+        UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.InProgress, "Generating patch preview for the selected task.");
+        selectedTabIndex = 2;
+
+        await GeneratePatchPreviewCoreAsync(BuildPlanTaskTaskText(planTask), planTask);
+    }
+
+    private async Task GeneratePatchPreviewCoreAsync(string taskText, LocalCoderPlanTask? planTask)
+    {
+        IReadOnlyList<LocalCoderHistoryContextFile> contextSnapshot = [];
+        isContextLocked = true;
         isGeneratingPatch = true;
         error = null;
         currentTask = null;
         patchPreview = null;
+        patchIntent = null;
+        patchIntentValidation = null;
         applyResult = null;
         rollbackResult = null;
         ClearPatchDebug();
 
+        var previewRequest = CloneRequest(request, taskText);
         try
         {
             var profile = GetRequiredProfile(AgentActionProfiles.ForGeneratePatchPreview());
             if (!await EnsureFileContextLoadedAsync())
             {
+                if (planTask is not null)
+                {
+                    UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.Failed, "Select files before generating a patch preview.");
+                }
+
                 await SaveHistoryEntryAsync(
                     LocalCoderHistoryActionType.GeneratePatchPreview,
                     success: false,
-                    "Select files before generating a patch preview.");
+                    "Select files before generating a patch preview.",
+                    taskTextOverride: taskText,
+                    planTasksSnapshot: GetPlanTasksSnapshot());
                 return;
             }
 
-            patchPreview = await AgentModeRunner.GeneratePatchPreviewAsync(request, profile);
+            previewRequest.FileContexts = request.FileContexts.ToList();
+            previewRequest.Task = taskText;
+            patchIntent = PatchIntentService.BuildIntent(previewRequest);
+            contextSnapshot = CreateContextSnapshot(LocalCoderHistoryActionType.GeneratePatchPreview);
+            patchPreview = await AgentModeRunner.GeneratePatchPreviewAsync(previewRequest, profile);
+            patchPreview.Intent = patchIntent;
+            patchPreview.IntentValidation = PatchIntentService.Evaluate(patchIntent!, patchPreview);
+            patchIntentValidation = patchPreview.IntentValidation;
             ClearPatchDebug();
+            if (planTask is not null)
+            {
+                UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.PatchGenerated, "Patch preview generated.");
+            }
+
             try
             {
-                selectedPatchPackage = await PatchPackageService.CreateFromPreviewAsync(patchPreview!, request.Task);
+                selectedPatchPackage = await PatchPackageService.CreateFromPreviewAsync(patchPreview!, taskText);
                 await LoadPatchQueueAsync();
             }
             catch (Exception packageException)
@@ -489,16 +600,21 @@
                     "Patch queue save failed",
                     packageException.Message);
             }
+
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: true,
                 "Patch preview created.",
                 patchPreviewText: patchPreview!.PatchText,
-                model: profile.Model);
+                model: profile.Model,
+                taskTextOverride: taskText,
+                contextSnapshot: contextSnapshot,
+                planTasksSnapshot: GetPlanTasksSnapshot());
             NotificationService.Notify(
                 NotificationSeverity.Success,
                 "Patch preview created",
                 "Local coder generated a patch preview for the selected context.");
+            selectedTabIndex = 2;
         }
         catch (PatchPreviewValidationException exception)
         {
@@ -508,10 +624,19 @@
             LastPatchValidationErrors = exception.ValidationErrors.ToArray();
             LastPatchValidationGuidance = exception.Guidance.ToArray();
 
+            if (planTask is not null)
+            {
+                UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.Failed, exception.Message);
+                activePlanTaskId = null;
+            }
+
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: false,
-                exception.Message);
+                exception.Message,
+                taskTextOverride: taskText,
+                contextSnapshot: contextSnapshot,
+                planTasksSnapshot: GetPlanTasksSnapshot());
 
             NotificationService.Notify(
                 NotificationSeverity.Warning,
@@ -522,10 +647,19 @@
         {
             error = exception.Message;
             ClearPatchDebug();
+            if (planTask is not null)
+            {
+                UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.Failed, exception.Message);
+                activePlanTaskId = null;
+            }
+
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: false,
-                exception.Message);
+                exception.Message,
+                taskTextOverride: taskText,
+                contextSnapshot: contextSnapshot,
+                planTasksSnapshot: GetPlanTasksSnapshot());
 
             NotificationService.Notify(
                 NotificationSeverity.Warning,
@@ -536,10 +670,19 @@
         {
             error = exception.Message;
             ClearPatchDebug();
+            if (planTask is not null)
+            {
+                UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.Failed, exception.Message);
+                activePlanTaskId = null;
+            }
+
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: false,
-                exception.Message);
+                exception.Message,
+                taskTextOverride: taskText,
+                contextSnapshot: contextSnapshot,
+                planTasksSnapshot: GetPlanTasksSnapshot());
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
@@ -599,12 +742,18 @@
             Console.WriteLine("APPLY STEP 2: calling ApplyPatchPreviewAsync.");
 
             applyResult = await AgentModeRunner.ApplyPatchPreviewAsync(patchPreview, profile);
+            if (applyResult.Applied && !string.IsNullOrWhiteSpace(activePlanTaskId))
+            {
+                UpdatePlanTaskStatus(activePlanTaskId, LocalCoderPlanTaskStatus.Applied, "Patch applied successfully.");
+            }
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.ApplyPatch,
                 success: applyResult.Applied && applyResult.VerificationPassed,
                 applyResult.Message,
                 applyResult: applyResult,
-                model: profile.Model);
+                model: profile.Model,
+                taskTextOverride: GetActivePlanTaskText() ?? request.Task,
+                planTasksSnapshot: GetPlanTasksSnapshot());
 
             Console.WriteLine("APPLY STEP 3: service returned.");
             Console.WriteLine($"APPLIED: {applyResult.Applied}");
@@ -642,6 +791,10 @@
         {
             Console.WriteLine("APPLY STEP 3: handler reached.");
             error = ex.Message;
+            if (!string.IsNullOrWhiteSpace(activePlanTaskId))
+            {
+                UpdatePlanTaskStatus(activePlanTaskId, LocalCoderPlanTaskStatus.Failed, ex.Message);
+            }
             var failedAt = DateTimeOffset.UtcNow;
             applyResult = new LocalCoderPatchApplyResult
             {
@@ -662,7 +815,9 @@
                 LocalCoderHistoryActionType.ApplyPatch,
                 success: false,
                 ex.Message,
-                applyResult: applyResult);
+                applyResult: applyResult,
+                taskTextOverride: GetActivePlanTaskText() ?? request.Task,
+                planTasksSnapshot: GetPlanTasksSnapshot());
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
@@ -680,7 +835,8 @@
     {
         return !isApplyingPatch &&
                patchPreview is not null &&
-               !patchPreview.PatchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.Ordinal);
+               !patchPreview.PatchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.Ordinal) &&
+               (patchPreview.ScopeAnalysis is null || !patchPreview.ScopeAnalysis.IsBlocking);
     }
 
     private bool CanRollbackPatch()
@@ -808,6 +964,7 @@
 
     private async Task VerifyProjectAsync()
     {
+        var contextSnapshot = CreateContextSnapshot(LocalCoderHistoryActionType.VerifyProject);
         isVerifying = true;
         error = null;
         verifyResults = [];
@@ -816,11 +973,17 @@
         {
             var profile = GetRequiredProfile(AgentActionProfiles.ForVerifyProject());
             verifyResults = await AgentModeRunner.VerifyProjectAsync(request.ProjectPath, profile);
+            var activeTaskText = GetActivePlanTaskText();
 
             var failed = verifyResults.FirstOrDefault(x => x.ExitCode != 0);
 
             if (failed is null)
             {
+                if (!string.IsNullOrWhiteSpace(activePlanTaskId))
+                {
+                    UpdatePlanTaskStatus(activePlanTaskId, LocalCoderPlanTaskStatus.Verified, "Verification passed.");
+                    activePlanTaskId = null;
+                }
                 NotificationService.Notify(
                     NotificationSeverity.Success,
                     "Verification passed",
@@ -828,6 +991,10 @@
             }
             else
             {
+                if (!string.IsNullOrWhiteSpace(activePlanTaskId))
+                {
+                    UpdatePlanTaskStatus(activePlanTaskId, LocalCoderPlanTaskStatus.Failed, $"{failed.Command}: exit {failed.ExitCode}");
+                }
                 NotificationService.Notify(
                     NotificationSeverity.Warning,
                     "Verification failed",
@@ -839,16 +1006,26 @@
                 success: failed is null,
                 failed is null ? "Verification passed." : $"{failed.Command}: exit {failed.ExitCode}",
                 verificationResults: verifyResults,
-                model: profile.Model);
+                model: profile.Model,
+                contextSnapshot: contextSnapshot,
+                taskTextOverride: activeTaskText ?? request.Task,
+                planTasksSnapshot: GetPlanTasksSnapshot());
         }
         catch (Exception exception)
         {
             error = exception.Message;
+            if (!string.IsNullOrWhiteSpace(activePlanTaskId))
+            {
+                UpdatePlanTaskStatus(activePlanTaskId, LocalCoderPlanTaskStatus.Failed, exception.Message);
+            }
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.VerifyProject,
                 success: false,
                 exception.Message,
-                verificationResults: verifyResults);
+                verificationResults: verifyResults,
+                contextSnapshot: contextSnapshot,
+                taskTextOverride: GetActivePlanTaskText() ?? request.Task,
+                planTasksSnapshot: GetPlanTasksSnapshot());
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
@@ -1008,32 +1185,126 @@
 
     #region Project actions
 
-    private Task OnSelectedFilesChanged(IReadOnlyList<FileSearchItem> files)
+    private async Task OnSelectedFilesChanged(IReadOnlyList<FileSearchItem> files)
     {
+        if (isContextLocked)
+        {
+            return;
+        }
+
         selectedFiles = files.ToList();
         selectedFilePaths = selectedFiles
             .Select(file => file.RelativePath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        ClearLoadedContext();
         error = null;
-        return Task.CompletedTask;
+        await LoadSelectedFileContextsAsync();
     }
 
-    private Task OnFileSelected(FileSearchItem? file)
+    private Task LoadPresetAsync(IReadOnlyList<FileSearchItem> files)
     {
-        if (file is not null && !selectedFilePaths.Contains(file.RelativePath, StringComparer.OrdinalIgnoreCase))
+        if (isContextLocked)
         {
-            selectedFilePaths.Add(file.RelativePath);
-            ClearLoadedContext();
+            return Task.CompletedTask;
         }
 
-        return Task.CompletedTask;
+        var mergedFiles = selectedFiles
+            .Concat(files)
+            .DistinctBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return OnSelectedFilesChanged(mergedFiles);
+    }
+
+    private async Task<bool> LoadSelectedFileContextsAsync()
+    {
+        ClearLoadedContext();
+        var loadVersion = contextLoadVersion;
+
+        if (selectedFilePaths.Count == 0 || string.IsNullOrWhiteSpace(request.ProjectPath))
+        {
+            return false;
+        }
+
+        isLoadingContext = true;
+
+        try
+        {
+            var loadedContexts = (await CoderConsoleService.ReadFileContextsAsync(
+                    request.ProjectPath,
+                    selectedFilePaths.ToArray()))
+                .ToList();
+
+            if (loadVersion == contextLoadVersion)
+            {
+                var unconfirmedGeneratedFiles = loadedContexts
+                    .Where(context => context.IsGeneratedFile
+                                      && !confirmedGeneratedFilePaths.Contains(context.RelativePath))
+                    .ToArray();
+
+                if (unconfirmedGeneratedFiles.Length > 0)
+                {
+                    var confirmed = await DialogService.Confirm(
+                        $"Include generated or ignored files in model context?{Environment.NewLine}{string.Join(Environment.NewLine, unconfirmedGeneratedFiles.Select(context => $"- {context.RelativePath}"))}",
+                        "Confirm Generated File Context",
+                        new ConfirmOptions { OkButtonText = "Include Files", CancelButtonText = "Exclude Files" });
+
+                    if (confirmed == true)
+                    {
+                        foreach (var context in unconfirmedGeneratedFiles)
+                        {
+                            confirmedGeneratedFilePaths.Add(context.RelativePath);
+                        }
+                    }
+                    else
+                    {
+                        var excludedPaths = unconfirmedGeneratedFiles
+                            .Select(context => context.RelativePath)
+                            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                        loadedContexts.RemoveAll(context => excludedPaths.Contains(context.RelativePath));
+                        selectedFiles = selectedFiles
+                            .Where(file => !excludedPaths.Contains(file.RelativePath))
+                            .ToList();
+                        selectedFilePaths = selectedFilePaths
+                            .Where(path => !excludedPaths.Contains(path))
+                            .ToList();
+                    }
+                }
+
+                if (loadVersion != contextLoadVersion)
+                {
+                    return false;
+                }
+
+                fileContexts = loadedContexts;
+                request.FileContexts = fileContexts.ToList();
+            }
+
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (loadVersion == contextLoadVersion)
+            {
+                error = exception.Message;
+                ClearSelectedFiles();
+                NotificationService.Notify(NotificationSeverity.Error, "File context failed", exception.Message);
+            }
+
+            return false;
+        }
+        finally
+        {
+            if (loadVersion == contextLoadVersion)
+            {
+                isLoadingContext = false;
+            }
+        }
     }
 
     private async Task<bool> EnsureFileContextLoadedAsync()
     {
-        if (fileContexts.Count > 0)
+        if (fileContexts.Count == selectedFilePaths.Count && fileContexts.Count > 0)
         {
             request.FileContexts = fileContexts.ToList();
             return true;
@@ -1049,12 +1320,10 @@
             return false;
         }
 
-        fileContexts = (await CoderConsoleService.ReadFileContextsAsync(
-                request.ProjectPath,
-                selectedFilePaths.ToArray()))
-            .ToList();
-
-        request.FileContexts = fileContexts.ToList();
+        if (!await LoadSelectedFileContextsAsync())
+        {
+            return false;
+        }
 
         NotificationService.Notify(
             NotificationSeverity.Info,
@@ -1348,6 +1617,68 @@
     private async Task ViewHistoryEntryAsync(string id)
     {
         selectedHistoryEntry = await LocalCoderHistoryService.GetEntryAsync(id);
+        contextRestoreResult = null;
+    }
+
+    private async Task RestoreHistoryContextAsync()
+    {
+        if (selectedHistoryEntry is null)
+        {
+            return;
+        }
+
+        if (selectedHistoryEntry.ContextFiles.Count == 0)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Info,
+                "No context snapshot",
+                "This history entry has no saved context snapshot.");
+            return;
+        }
+
+        if (isContextLocked)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Context locked", "Unlock context before restoring history.");
+            return;
+        }
+
+        if (selectedFilePaths.Count > 0 || fileContexts.Count > 0)
+        {
+            var confirmed = await DialogService.Confirm(
+                "Replace the current file context with the saved history context?",
+                "Restore Context",
+                new ConfirmOptions { OkButtonText = "Restore Context", CancelButtonText = "Cancel" });
+
+            if (confirmed != true)
+            {
+                return;
+            }
+        }
+
+        request.ProjectPath = selectedHistoryEntry.ProjectPath;
+        contextRestoreResult = await LocalCoderContextService.RestoreAsync(
+            request.ProjectPath,
+            selectedHistoryEntry.ContextFiles);
+
+        ClearLoadedContext();
+        fileContexts = contextRestoreResult.RestoredContexts.ToList();
+        request.FileContexts = fileContexts.ToList();
+        selectedFilePaths = fileContexts.Select(file => file.RelativePath).ToList();
+        selectedFiles = fileContexts
+            .Select(file => new FileSearchItem
+            {
+                FileName = Path.GetFileName(file.RelativePath),
+                FullPath = file.FullPath,
+                RelativePath = file.RelativePath,
+                Extension = Path.GetExtension(file.RelativePath),
+                SizeBytes = new System.IO.FileInfo(file.FullPath).Length
+            })
+            .ToList();
+
+        NotificationService.Notify(
+            NotificationSeverity.Success,
+            "Context restore complete",
+            $"{fileContexts.Count} file(s) restored from history.");
     }
 
     private async Task UseHistoryEntryAsContextAsync()
@@ -1364,7 +1695,15 @@
         }
 
         selectedFilePaths = selectedHistoryEntry.SelectedFiles.ToList();
-        selectedFiles = [];
+        selectedFiles = selectedFilePaths
+            .Select(relativePath => new FileSearchItem
+            {
+                FileName = Path.GetFileName(relativePath),
+                FullPath = Path.Combine(request.ProjectPath, relativePath),
+                RelativePath = relativePath,
+                Extension = Path.GetExtension(relativePath)
+            })
+            .ToList();
         ClearLoadedContext();
 
         await EnsureFileContextLoadedAsync();
@@ -1429,17 +1768,22 @@
         LocalCoderPatchApplyResult? applyResult = null,
         LocalCoderPatchRollbackResult? rollbackResult = null,
         IReadOnlyList<CommandRunResult>? verificationResults = null,
-        string? model = null)
+        string? model = null,
+        IReadOnlyList<LocalCoderHistoryContextFile>? contextSnapshot = null,
+        string? taskTextOverride = null,
+        IReadOnlyList<LocalCoderPlanTask>? planTasksSnapshot = null)
     {
         try
         {
+            contextSnapshot ??= CreateContextSnapshot(actionType);
+
             await LocalCoderHistoryService.AddEntryAsync(new LocalCoderHistoryEntry
             {
                 ActionType = actionType,
                 CreatedAt = DateTimeOffset.UtcNow,
                 ProjectPath = request.ProjectPath,
                 Model = model ?? request.Model,
-                Task = request.Task,
+                Task = taskTextOverride ?? request.Task,
                 SelectedFiles = selectedFilePaths.ToArray(),
                 LoadedContextFiles = request.FileContexts
                     .Select(fileContext => new LocalCoderHistoryFileSummary
@@ -1448,6 +1792,11 @@
                         CharacterCount = fileContext.CharacterCount
                     })
                     .ToArray(),
+                ContextFileCount = contextSnapshot.Count,
+                ContextTotalCharacters = contextSnapshot.Sum(file => file.CharacterCount),
+                ContextEstimatedTokens = contextSnapshot.Sum(file => file.EstimatedTokens),
+                ContextFiles = contextSnapshot,
+                PlanTasks = (planTasksSnapshot ?? GetPlanTasksSnapshot()).ToArray(),
                 PlanText = planText ?? string.Empty,
                 PatchPreviewText = patchPreviewText ?? string.Empty,
                 ApplyResult = applyResult,
@@ -1462,7 +1811,181 @@
         catch (Exception exception)
         {
             Console.WriteLine($"History save failed: {exception}");
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "History save failed",
+                "Local Coder could not save history right now. The current run continues, but this entry was not persisted.");
         }
+    }
+
+    private IReadOnlyList<LocalCoderHistoryContextFile> CreateContextSnapshot(LocalCoderHistoryActionType actionType)
+    {
+        if (request.FileContexts.Count == 0
+            || actionType is not (LocalCoderHistoryActionType.CreatePlan
+                or LocalCoderHistoryActionType.GeneratePatchPreview
+                or LocalCoderHistoryActionType.VerifyProject))
+        {
+            return [];
+        }
+
+        return request.FileContexts
+            .Select(file => new LocalCoderHistoryContextFile
+            {
+                RelativePath = file.RelativePath,
+                CharacterCount = file.CharacterCount,
+                EstimatedTokens = file.EstimatedTokens,
+                ContentHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(file.Content)))
+                    .ToLowerInvariant()
+            })
+            .ToArray();
+    }
+
+    private void ClearPlanTasks()
+    {
+        planTasks.Clear();
+        selectedPlanTaskId = null;
+        activePlanTaskId = null;
+    }
+
+    private void InitializePlanTasks(string planText)
+    {
+        planTasks.Clear();
+        planTasks.AddRange(BuildPlanTasks(planText));
+        selectedPlanTaskId = planTasks.FirstOrDefault()?.Id;
+        activePlanTaskId = null;
+    }
+
+    private Task OnSelectedPlanTaskChangedAsync(string? planTaskId)
+    {
+        selectedPlanTaskId = planTaskId;
+        return Task.CompletedTask;
+    }
+
+    private bool CanExecuteSelectedPlanTask()
+    {
+        return !isGeneratingPatch &&
+               !isApplyingPatch &&
+               planTasks.Count > 0 &&
+               !string.IsNullOrWhiteSpace(selectedPlanTaskId) &&
+               planTasks.Any(task => task.Id == selectedPlanTaskId);
+    }
+
+    private bool CanExecuteNextPlanTask()
+    {
+        return !isGeneratingPatch &&
+               !isApplyingPatch &&
+               planTasks.Any(task => task.Status == LocalCoderPlanTaskStatus.Pending);
+    }
+
+    private IReadOnlyList<LocalCoderPlanTask> GetPlanTasksSnapshot()
+    {
+        return planTasks
+            .OrderBy(task => task.Order)
+            .Select(task => new LocalCoderPlanTask
+            {
+                Id = task.Id,
+                Order = task.Order,
+                Title = task.Title,
+                Description = task.Description,
+                Status = task.Status,
+                StatusMessage = task.StatusMessage,
+                UpdatedAt = task.UpdatedAt
+            })
+            .ToArray();
+    }
+
+    private void UpdatePlanTaskStatus(string planTaskId, LocalCoderPlanTaskStatus status, string? statusMessage = null)
+    {
+        var task = planTasks.FirstOrDefault(item => item.Id == planTaskId);
+        if (task is null)
+        {
+            return;
+        }
+
+        task.Status = status;
+        task.StatusMessage = statusMessage ?? string.Empty;
+        task.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private string? GetActivePlanTaskText()
+    {
+        if (string.IsNullOrWhiteSpace(activePlanTaskId))
+        {
+            return null;
+        }
+
+        var task = planTasks.FirstOrDefault(item => item.Id == activePlanTaskId);
+        return task is null ? null : BuildPlanTaskTaskText(task);
+    }
+
+    private static LocalCoderRequest CloneRequest(LocalCoderRequest source, string taskText)
+    {
+        return new LocalCoderRequest
+        {
+            ProjectPath = source.ProjectPath,
+            Model = source.Model,
+            Task = taskText,
+            FileContexts = source.FileContexts.Select(file => new LocalCoderFileContext
+            {
+                RelativePath = file.RelativePath,
+                FullPath = file.FullPath,
+                Content = file.Content,
+                IsGeneratedFile = file.IsGeneratedFile
+            }).ToList(),
+            AllowedPatchScope = source.AllowedPatchScope,
+            AllowedPatchFolders = source.AllowedPatchFolders.ToList()
+        };
+    }
+
+    private static List<LocalCoderPlanTask> BuildPlanTasks(string planText)
+    {
+        var tasks = new List<LocalCoderPlanTask>();
+        var lines = (planText ?? string.Empty)
+            .ReplaceLineEndings("\n")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var order = 1;
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            var match = System.Text.RegularExpressions.Regex.Match(trimmed, @"^(?:[-*]\s+|\d+[.)]\s+)(.+)$");
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            var description = match.Groups[1].Value.Trim();
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                continue;
+            }
+
+            tasks.Add(new LocalCoderPlanTask
+            {
+                Order = order++,
+                Title = $"Task {order - 1}",
+                Description = description,
+                Status = LocalCoderPlanTaskStatus.Pending
+            });
+        }
+
+        if (tasks.Count == 0 && !string.IsNullOrWhiteSpace(planText))
+        {
+            tasks.Add(new LocalCoderPlanTask
+            {
+                Order = 1,
+                Title = "Task 1",
+                Description = planText.Trim(),
+                Status = LocalCoderPlanTaskStatus.Pending
+            });
+        }
+
+        return tasks;
+    }
+
+    private static string BuildPlanTaskTaskText(LocalCoderPlanTask task)
+    {
+        return string.IsNullOrWhiteSpace(task.Description) ? task.Title : task.Description;
     }
 
     #endregion

@@ -9,5 +9,11 @@ public sealed class LocalCoderPatchPreview
     public string Task { get; set; } = string.Empty;
     public IReadOnlyList<LocalCoderFileContext> FileContexts { get; set; } = [];
     public IReadOnlyList<PatchFileChange> FileChanges { get; set; } = [];
+    public PatchScopeMode AllowedPatchScope { get; set; } = PatchScopeMode.ContextFilesOnly;
+    public IReadOnlyList<string> AllowedPatchFolders { get; set; } = [];
+    public PatchScopeAnalysis ScopeAnalysis { get; set; } = new();
+    public PatchIntent? Intent { get; set; }
+    public PatchIntentValidation? IntentValidation { get; set; }
+    public PatchContextCoverage ContextCoverage { get; set; } = new();
     public string PatchText { get; set; } = string.Empty;
 }

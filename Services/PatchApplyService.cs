@@ -16,6 +16,9 @@ public sealed class PatchApplyService(
         var package = await patchPackageService.GetByIdAsync(patchPackageId, cancellationToken)
             ?? throw new InvalidOperationException($"Patch package not found: {patchPackageId}");
 
+        PatchScopeGuard.ThrowIfBlocking(package);
+        PatchIntentGuard.ThrowIfBlocking(package);
+
         if (package.Status != PatchPackageStatus.Approved)
         {
             throw new InvalidOperationException("Only approved patches can be applied.");

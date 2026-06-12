@@ -1,0 +1,432 @@
+@inject ILocalCoderContextService LocalCoderContextService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="File Context" TextStyle="TextStyle.H5" />
+                <RadzenText Text="@StatusText" TextStyle="TextStyle.Body2" />
+            </div>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                @if (IsLocked)
+                {
+                    <RadzenButton Text="Unlock Context" Icon="lock_open" ButtonStyle="ButtonStyle.Warning"
+                                  Click="@OnUnlockContext" Disabled="@IsLoading" />
+                }
+                else
+                {
+                    <RadzenButton Text="Lock Context" Icon="lock" ButtonStyle="ButtonStyle.Light"
+                                  Click="@OnLockContext" Disabled="@IsLoading" />
+                }
+                <RadzenButton Text="Preview Context" Icon="description" ButtonStyle="ButtonStyle.Primary"
+                              Click="@TogglePreview"
+                              Disabled="@(IsLoading || string.IsNullOrWhiteSpace(ProjectPath) || SelectedFiles.Count == 0)" />
+                <RadzenButton Text="Clear All" Icon="remove_circle_outline" ButtonStyle="ButtonStyle.Light"
+                              Click="@OnClearAll" Disabled="@(IsLoading || IsLocked || SelectedFiles.Count == 0)" />
+                <RadzenButton Text="Clear Context" Icon="clear" ButtonStyle="ButtonStyle.Light"
+                              Click="@OnClearContext" Disabled="@(IsLoading || IsLocked || SelectedFiles.Count == 0)" />
+            </RadzenStack>
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenBadge Text="@($"{SelectedFiles.Count} files")" BadgeStyle="BadgeStyle.Info" />
+            <RadzenBadge Text="@($"{TotalCharacters:N0} characters")" BadgeStyle="BadgeStyle.Light" />
+            <RadzenBadge Text="@($"~{EstimatedTokens:N0} tokens")" BadgeStyle="BadgeStyle.Light" />
+            <RadzenBadge Text="@(IsLocked ? "Context Locked" : "Context Editable")"
+                         BadgeStyle="@(IsLocked ? BadgeStyle.Warning : BadgeStyle.Success)" />
+            @if (IsVeryLargeContext)
+            {
+                <RadzenBadge Text="Very Large Context" BadgeStyle="BadgeStyle.Warning" />
+            }
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenFormField Text="Context Preset" Style="min-width: 16rem; flex: 1;">
+                <RadzenDropDown TValue="LocalCoderContextPreset"
+                                Value="@selectedPreset"
+                                Change="@OnPresetChangedAsync"
+                                Data="@presetOptions"
+                                TextProperty="Label"
+                                ValueProperty="Value"
+                                Style="width: 100%;" />
+            </RadzenFormField>
+            <RadzenButton Text="Preview Preset" Icon="preview" ButtonStyle="ButtonStyle.Secondary"
+                          Click="@PreviewPresetAsync"
+                          Disabled="@(IsLoading || isResolvingPreset)" />
+        </RadzenStack>
+
+        <RadzenStack Gap="0.5rem">
+            <RadzenFormField Text="Allowed Patch Scope" Style="min-width: 16rem;">
+                <RadzenDropDown TValue="PatchScopeMode"
+                                Value="@AllowedPatchScope"
+                                Change="@OnAllowedPatchScopeChangedAsync"
+                                Data="@scopeOptions"
+                                TextProperty="Label"
+                                ValueProperty="Value"
+                                Style="width: 100%;" />
+            </RadzenFormField>
+
+            @if (AllowedPatchScope == PatchScopeMode.SelectedFolders)
+            {
+                <RadzenStack Gap="0.5rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End"
+                                 Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <RadzenTextBox @bind-Value="allowedFolderInput"
+                                       Placeholder="Components/Coder/"
+                                       Style="min-width: 16rem; flex: 1;" />
+                        <RadzenButton Text="Add Folder" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                                      Click="@AddAllowedFolderAsync"
+                                      Disabled="@(string.IsNullOrWhiteSpace(allowedFolderInput))" />
+                    </RadzenStack>
+
+                    @if (AllowedPatchFolders.Count == 0)
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                            Add at least one allowed folder before approving or applying a patch.
+                        </RadzenAlert>
+                    }
+                    else
+                    {
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                            @foreach (var folder in AllowedPatchFolders)
+                            {
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                             Gap="0.25rem"
+                                             Style="padding: 0.2rem 0.45rem; border: 1px solid var(--rz-base-300); border-radius: 999px;">
+                                    <RadzenText Text="@folder" TextStyle="TextStyle.Body2" />
+                                    <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                                  Click="@(() => RemoveAllowedFolderAsync(folder))" />
+                                </RadzenStack>
+                            }
+                        </RadzenStack>
+                    }
+                </RadzenStack>
+            }
+            else if (AllowedPatchScope == PatchScopeMode.AnyProjectFile)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                    Patch may modify any file in the project.
+                </RadzenAlert>
+            }
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(presetError))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">@presetError</RadzenAlert>
+        }
+        else if (presetPreview is not null)
+        {
+            <RadzenCard Style="margin: 0;">
+                <RadzenStack Gap="0.75rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                 JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <RadzenText Text="Preset Preview" TextStyle="TextStyle.H6" />
+                        <RadzenButton Text="Apply Preset" Icon="playlist_add" ButtonStyle="ButtonStyle.Primary"
+                                      Click="@ApplyPresetAsync"
+                                      Disabled="@(IsLoading || IsLocked || PresetFilesToAdd.Count == 0)" />
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                        <RadzenBadge Text="@($"{PresetFilesToAdd.Count} Add")" BadgeStyle="BadgeStyle.Success" />
+                        <RadzenBadge Text="@($"{AlreadySelectedFiles.Count} Already selected")" BadgeStyle="BadgeStyle.Info" />
+                        <RadzenBadge Text="@($"{SkippedFiles.Count} Skipped")" BadgeStyle="BadgeStyle.Warning" />
+                    </RadzenStack>
+                    @foreach (var item in presetPreview.Files)
+                    {
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem"
+                                     Style="padding: 0.3rem 0.5rem; border: 1px solid var(--rz-base-300); border-radius: 0.35rem;">
+                            <RadzenText Text="@item.File.RelativePath" TextStyle="TextStyle.Body2" />
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                <RadzenBadge Text="@PresetStatusText(item)" BadgeStyle="@StatusBadgeStyle(item)" />
+                                @if (!string.IsNullOrWhiteSpace(item.SkipReason))
+                                {
+                                    <RadzenBadge Text="@item.SkipReason" BadgeStyle="BadgeStyle.Warning" />
+                                }
+                            </RadzenStack>
+                        </RadzenStack>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+        }
+
+        <FileAutoComplete RootDirectory="@ProjectPath"
+                          Placeholder="Search by relative path or file name, e.g. Coder.razor, service, Program.cs"
+                          ShowSelectedInfo="false" SelectedFiles="@SelectedFiles"
+                          SelectedFilesChanged="@SelectedFilesChanged"
+                          Disabled="@IsLocked" />
+
+        @if (SelectedFiles.Count == 0)
+        {
+            <RadzenText Text="No files selected yet." TextStyle="TextStyle.Body2" />
+        }
+        else
+        {
+            @foreach (var file in SelectedFiles)
+            {
+                var context = GetFileContext(file.RelativePath);
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                             JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem"
+                             Style="padding: 0.35rem 0.5rem; border: 1px solid var(--rz-base-300); border-radius: 0.35rem;">
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="@($"{file.RelativePath} ({context?.CharacterCount ?? 0:N0} chars)")"
+                                    TextStyle="TextStyle.Body2" />
+                        @if (context is not null)
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                @foreach (var warning in GetWarnings(context))
+                                {
+                                    <RadzenBadge Text="@warning" BadgeStyle="BadgeStyle.Warning" />
+                                }
+                            </RadzenStack>
+                        }
+                    </RadzenStack>
+                    <RadzenButton Text="Remove" Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                  Disabled="@(IsLoading || IsLocked)" Click="@(() => RemoveAsync(file))" />
+                </RadzenStack>
+            }
+        }
+
+        @if (showPreview)
+        {
+            <RadzenCard Style="margin-top: 0.5rem;">
+                <RadzenStack Gap="0.75rem">
+                    <RadzenText Text="Context Preview" TextStyle="TextStyle.H6" />
+                    <RadzenText Text="@($"{FileContexts.Count} files, {TotalCharacters:N0} characters, ~{EstimatedTokens:N0} tokens")"
+                                TextStyle="TextStyle.Body2" />
+                    @foreach (var context in FileContexts)
+                    {
+                        <details>
+                            <summary>@context.RelativePath</summary>
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap"
+                                         Style="margin: 0.5rem 0;">
+                                @foreach (var warning in GetWarnings(context))
+                                {
+                                    <RadzenBadge Text="@warning" BadgeStyle="BadgeStyle.Warning" />
+                                }
+                            </RadzenStack>
+                            <pre class="coder-output">@GetPreview(context)</pre>
+                        </details>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public string ProjectPath { get; set; } = string.Empty;
+    [Parameter] public string StatusText { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyList<FileSearchItem> SelectedFiles { get; set; } = [];
+    [Parameter] public IReadOnlyList<LocalCoderFileContext> FileContexts { get; set; } = [];
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool IsLocked { get; set; }
+    [Parameter] public PatchScopeMode AllowedPatchScope { get; set; } = PatchScopeMode.ContextFilesOnly;
+    [Parameter] public EventCallback<PatchScopeMode> AllowedPatchScopeChanged { get; set; }
+    [Parameter] public IReadOnlyList<string> AllowedPatchFolders { get; set; } = [];
+    [Parameter] public EventCallback<IReadOnlyList<string>> AllowedPatchFoldersChanged { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<FileSearchItem>> SelectedFilesChanged { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<FileSearchItem>> OnLoadPreset { get; set; }
+    [Parameter] public EventCallback OnClearAll { get; set; }
+    [Parameter] public EventCallback OnClearContext { get; set; }
+    [Parameter] public EventCallback OnLockContext { get; set; }
+    [Parameter] public EventCallback OnUnlockContext { get; set; }
+
+    private bool showPreview;
+    private bool isResolvingPreset;
+    private string? presetError;
+    private string allowedFolderInput = string.Empty;
+    private LocalCoderContextPreset selectedPreset = LocalCoderContextPreset.CurrentPage;
+    private LocalCoderPresetPreview? presetPreview;
+    private readonly IReadOnlyList<ContextPresetOption> presetOptions =
+    [
+        new(LocalCoderContextPreset.CurrentPage, "Current Page"),
+        new(LocalCoderContextPreset.PageAndComponents, "Page + Components"),
+        new(LocalCoderContextPreset.PageAndServices, "Page + Services"),
+        new(LocalCoderContextPreset.FullFeatureContext, "Full Feature Context")
+    ];
+    private readonly IReadOnlyList<ScopeOption> scopeOptions =
+    [
+        new(PatchScopeMode.ContextFilesOnly, "Context Files Only"),
+        new(PatchScopeMode.SelectedFolders, "Selected Folders"),
+        new(PatchScopeMode.AnyProjectFile, "Any Project File")
+    ];
+    private int TotalCharacters => FileContexts.Sum(context => context.CharacterCount);
+    private int EstimatedTokens => FileContexts.Sum(context => context.EstimatedTokens);
+    private bool IsVeryLargeContext => TotalCharacters >= 400 * 1024;
+    private IReadOnlyList<LocalCoderPresetPreviewFile> PresetFilesToAdd =>
+        presetPreview?.Files.Where(file => file.Status == LocalCoderPresetFileStatus.Add).ToArray() ?? [];
+    private IReadOnlyList<LocalCoderPresetPreviewFile> AlreadySelectedFiles =>
+        presetPreview?.Files.Where(file => file.Status == LocalCoderPresetFileStatus.AlreadySelected).ToArray() ?? [];
+    private IReadOnlyList<LocalCoderPresetPreviewFile> SkippedFiles =>
+        presetPreview?.Files.Where(file => file.Status == LocalCoderPresetFileStatus.Skipped).ToArray() ?? [];
+
+    private LocalCoderFileContext? GetFileContext(string relativePath) =>
+        FileContexts.FirstOrDefault(context =>
+            context.RelativePath.Equals(relativePath, StringComparison.OrdinalIgnoreCase));
+
+    private Task RemoveAsync(FileSearchItem file) =>
+        SelectedFilesChanged.InvokeAsync(SelectedFiles
+            .Where(selected => !selected.FullPath.Equals(file.FullPath, StringComparison.OrdinalIgnoreCase))
+            .ToArray());
+
+    private void TogglePreview() => showPreview = !showPreview;
+
+    private static string GetPreview(LocalCoderFileContext context) =>
+        context.Content.Length <= 500 ? context.Content : $"{context.Content[..500]}...";
+
+    private static IEnumerable<string> GetWarnings(LocalCoderFileContext context)
+    {
+        if (context.IsLargeFile) yield return "Large File";
+        if (context.IsEmptyFile) yield return "Empty File";
+        if (context.IsGeneratedFile) yield return "Generated File";
+    }
+
+    private async Task OnPresetChangedAsync(object? value)
+    {
+        if (value is LocalCoderContextPreset preset)
+        {
+            selectedPreset = preset;
+        }
+
+        presetPreview = null;
+        presetError = null;
+        await Task.CompletedTask;
+    }
+
+    private async Task OnAllowedPatchScopeChangedAsync(object? value)
+    {
+        if (value is PatchScopeMode scopeMode)
+        {
+            AllowedPatchScope = scopeMode;
+            await AllowedPatchScopeChanged.InvokeAsync(scopeMode);
+        }
+    }
+
+    private async Task AddAllowedFolderAsync()
+    {
+        var normalizedFolder = NormalizeFolderInput(allowedFolderInput);
+        if (string.IsNullOrWhiteSpace(normalizedFolder))
+        {
+            return;
+        }
+
+        if (AllowedPatchFolders.Any(folder => folder.Equals(normalizedFolder, StringComparison.OrdinalIgnoreCase)))
+        {
+            allowedFolderInput = string.Empty;
+            return;
+        }
+
+        var updatedFolders = AllowedPatchFolders.Concat([normalizedFolder]).OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase).ToArray();
+        await AllowedPatchFoldersChanged.InvokeAsync(updatedFolders);
+        allowedFolderInput = string.Empty;
+    }
+
+    private async Task RemoveAllowedFolderAsync(string folder)
+    {
+        var updatedFolders = AllowedPatchFolders
+            .Where(item => !item.Equals(folder, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        await AllowedPatchFoldersChanged.InvokeAsync(updatedFolders);
+    }
+
+    private async Task PreviewPresetAsync()
+    {
+        presetError = null;
+        presetPreview = null;
+        var currentPage = SelectedFiles.LastOrDefault(file => IsPageRazorFile(file.RelativePath))
+            ?? SelectedFiles.LastOrDefault(file => IsRazorFile(file.RelativePath));
+
+        if (currentPage is null)
+        {
+            presetError = "Select a Razor page before loading a context preset.";
+            return;
+        }
+
+        isResolvingPreset = true;
+
+        try
+        {
+            presetPreview = await LocalCoderContextService.PreviewPresetAsync(
+                ProjectPath,
+                currentPage.RelativePath,
+                selectedPreset,
+                SelectedFiles.Select(file => file.RelativePath).ToArray());
+        }
+        catch (Exception exception)
+        {
+            presetError = exception.Message;
+        }
+        finally
+        {
+            isResolvingPreset = false;
+        }
+    }
+
+    private async Task ApplyPresetAsync()
+    {
+        if (PresetFilesToAdd.Count == 0)
+        {
+            return;
+        }
+
+        await OnLoadPreset.InvokeAsync(PresetFilesToAdd.Select(item => item.File).ToArray());
+        presetPreview = null;
+    }
+
+    private static bool IsRazorFile(string relativePath) =>
+        Path.GetExtension(relativePath).Equals(".razor", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPageRazorFile(string relativePath)
+    {
+        var normalizedPath = relativePath.Replace(Path.DirectorySeparatorChar, '/');
+        return IsRazorFile(normalizedPath)
+               && (normalizedPath.StartsWith("Pages/", StringComparison.OrdinalIgnoreCase)
+                   || normalizedPath.Contains("/Pages/", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NormalizeFolderInput(string folder)
+    {
+        var normalized = (folder ?? string.Empty).Replace('\\', '/').Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        if (Path.IsPathRooted(normalized) || normalized.Contains(':', StringComparison.Ordinal) || normalized.Contains("..", StringComparison.Ordinal))
+        {
+            return string.Empty;
+        }
+
+        if (normalized.StartsWith("./", StringComparison.Ordinal))
+        {
+            normalized = normalized[2..];
+        }
+
+        if (normalized.StartsWith("/", StringComparison.Ordinal))
+        {
+            normalized = normalized[1..];
+        }
+
+        return normalized.EndsWith("/", StringComparison.Ordinal)
+            ? normalized
+            : $"{normalized}/";
+    }
+
+    private sealed record ContextPresetOption(LocalCoderContextPreset Value, string Label);
+    private sealed record ScopeOption(PatchScopeMode Value, string Label);
+
+    private static string PresetStatusText(LocalCoderPresetPreviewFile item) => item.Status switch
+    {
+        LocalCoderPresetFileStatus.Add => "Add",
+        LocalCoderPresetFileStatus.AlreadySelected => "Already selected",
+        _ => "Skipped"
+    };
+
+    private static BadgeStyle StatusBadgeStyle(LocalCoderPresetPreviewFile item) => item.Status switch
+    {
+        LocalCoderPresetFileStatus.Add => BadgeStyle.Success,
+        LocalCoderPresetFileStatus.AlreadySelected => BadgeStyle.Info,
+        _ => BadgeStyle.Warning
+    };
+}

@@ -77,7 +77,12 @@ public sealed class PatchPackageService(
                 userRequest,
                 preview.Model,
                 preview.PatchText,
-                BuildFileChanges(preview));
+                BuildFileChanges(preview),
+                preview.AllowedPatchScope,
+                preview.AllowedPatchFolders,
+                preview.FileContexts.Select(context => context.RelativePath).ToArray(),
+                preview.Intent,
+                preview.IntentValidation);
             await SaveInternalAsync(package, cancellationToken);
             return Clone(package);
         }
@@ -105,7 +110,17 @@ public sealed class PatchPackageService(
 
         try
         {
-            var package = BuildPackage(projectPath, userRequest, model, patchText, fileChanges);
+            var package = BuildPackage(
+                projectPath,
+                userRequest,
+                model,
+                patchText,
+                fileChanges,
+                null,
+                [],
+                [],
+                null,
+                null);
             await SaveInternalAsync(package, cancellationToken);
             return Clone(package);
         }
@@ -258,7 +273,12 @@ public sealed class PatchPackageService(
         string userRequest,
         string model,
         string patchText,
-        IReadOnlyList<PatchFileChange> fileChanges)
+        IReadOnlyList<PatchFileChange> fileChanges,
+        PatchScopeMode? allowedPatchScope,
+        IReadOnlyList<string> allowedPatchFolders,
+        IReadOnlyList<string> contextFilePaths,
+        PatchIntent? intent,
+        PatchIntentValidation? intentValidation)
     {
         return new PatchPackage
         {
@@ -269,6 +289,11 @@ public sealed class PatchPackageService(
             UserRequest = userRequest ?? string.Empty,
             Model = model,
             PatchText = patchText,
+            AllowedPatchScope = allowedPatchScope,
+            AllowedPatchFolders = allowedPatchFolders.Select(NormalizePath).ToArray(),
+            ContextFilePaths = contextFilePaths.Select(NormalizePath).ToArray(),
+            Intent = intent,
+            IntentValidation = intentValidation,
             Status = PatchPackageStatus.Draft,
             StatusMessage = "Draft patch package created from preview.",
             FileChanges = fileChanges.Select(Clone).ToArray()
@@ -432,7 +457,13 @@ public sealed class PatchPackageService(
 
     private static string NormalizePath(string path)
     {
-        return path.Replace('\\', '/').Trim();
+        var normalized = (path ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/');
+        if (normalized.StartsWith("a/", StringComparison.Ordinal) || normalized.StartsWith("b/", StringComparison.Ordinal))
+        {
+            normalized = normalized[2..];
+        }
+
+        return normalized;
     }
 
     private static PatchPackage Clone(PatchPackage package)
@@ -446,6 +477,11 @@ public sealed class PatchPackageService(
             UserRequest = package.UserRequest,
             Model = package.Model,
             PatchText = package.PatchText,
+            AllowedPatchScope = package.AllowedPatchScope,
+            AllowedPatchFolders = (package.AllowedPatchFolders ?? []).Select(NormalizePath).ToArray(),
+            ContextFilePaths = (package.ContextFilePaths ?? []).Select(NormalizePath).ToArray(),
+            Intent = package.Intent,
+            IntentValidation = package.IntentValidation,
             Status = package.Status,
             StatusMessage = package.StatusMessage,
             ApprovalGateResults = (package.ApprovalGateResults ?? []).Select(result => new PatchApprovalGateResult
@@ -481,4 +517,5 @@ public sealed class PatchPackageService(
             NewContent = change.NewContent
         };
     }
+
 }

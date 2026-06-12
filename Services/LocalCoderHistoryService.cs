@@ -152,6 +152,30 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             Task = entry.Task,
             SelectedFiles = [.. entry.SelectedFiles ?? []],
             LoadedContextFiles = [.. entry.LoadedContextFiles ?? []],
+            ContextFileCount = entry.ContextFileCount,
+            ContextTotalCharacters = entry.ContextTotalCharacters,
+            ContextEstimatedTokens = entry.ContextEstimatedTokens,
+            ContextFiles = (entry.ContextFiles ?? [])
+                .Select(file => new LocalCoderHistoryContextFile
+                {
+                    RelativePath = file.RelativePath,
+                    CharacterCount = file.CharacterCount,
+                    EstimatedTokens = file.EstimatedTokens,
+                    ContentHash = file.ContentHash
+                })
+                .ToArray(),
+            PlanTasks = (entry.PlanTasks ?? [])
+                .Select(task => new LocalCoderPlanTask
+                {
+                    Id = task.Id,
+                    Order = task.Order,
+                    Title = task.Title,
+                    Description = task.Description,
+                    Status = task.Status,
+                    StatusMessage = task.StatusMessage,
+                    UpdatedAt = task.UpdatedAt
+                })
+                .ToArray(),
             PlanText = entry.PlanText,
             PatchPreviewText = entry.PatchPreviewText,
             ApplyResult = CloneApplyResult(entry.ApplyResult),

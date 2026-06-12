@@ -114,7 +114,7 @@ public sealed class PatchEditOperationServiceTests
                 ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
             })
             .Build();
-        var service = new CoderConsoleService(null!, configuration, null!, null!);
+        var service = new CoderConsoleService(null!, configuration, null!, null!, new LocalCoderContextService());
 
         var contexts = await service.ReadFileContextsAsync(projectRoot, ["Components/Coder/CoderPatchQueuePanel.razor"]);
 

@@ -74,6 +74,102 @@
                                   Click="@OnApplyPatch" Disabled="@(!CanApplyPatch)" />
                 </RadzenStack>
                 <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
+                <RadzenCard>
+                    <RadzenStack Gap="0.75rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenText Text="Context Coverage" TextStyle="TextStyle.H6" />
+                            <RadzenBadge Text="@($"Patch Risk: {PatchPreview.ContextCoverage.RiskScore}")"
+                                         BadgeStyle="@RiskBadgeStyle(PatchPreview.ContextCoverage.RiskScore)" />
+                        </RadzenStack>
+                        @if (PatchPreview.ContextCoverage.HasFilesOutsideContext)
+                        {
+                            <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                                This patch modifies files that were not provided to the model.
+                            </RadzenAlert>
+                        }
+                        @foreach (var file in PatchPreview.ContextCoverage.Files)
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                <RadzenText Text="@file.RelativePath" TextStyle="TextStyle.Body2" />
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                    <RadzenBadge Text="@CoverageBadgeText(file.Category)"
+                                                 BadgeStyle="@CoverageBadgeStyle(file.Category)" />
+                                    @foreach (var reason in file.RiskReasons)
+                                    {
+                                        <RadzenBadge Text="@reason" BadgeStyle="BadgeStyle.Warning" />
+                                    }
+                                </RadzenStack>
+                            </RadzenStack>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+                <RadzenCard>
+                    <RadzenStack Gap="0.75rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenText Text="Patch Intent" TextStyle="TextStyle.H6" />
+                            <RadzenBadge Text="@ValidationStatusText(PatchPreview.IntentValidation?.Status)"
+                                         BadgeStyle="@ValidationStatusBadgeStyle(PatchPreview.IntentValidation?.Status)" />
+                        </RadzenStack>
+                        @if (PatchPreview.Intent is not null)
+                        {
+                            <RadzenText Text="@($"Goal: {PatchPreview.Intent.Goal}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Allowed scope: {PatchPreview.Intent.AllowedScope}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Expected change type: {PatchPreview.Intent.ExpectedChangeType}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Verification: {PatchPreview.Intent.VerificationCommand}")" TextStyle="TextStyle.Body2" />
+                        }
+                        @if (PatchPreview.IntentValidation is not null && PatchPreview.IntentValidation.Reasons.Count > 0)
+                        {
+                            <RadzenAlert AlertStyle="@(PatchPreview.IntentValidation.IsBlocking ? AlertStyle.Danger : AlertStyle.Warning)"
+                                         ShowIcon="true">
+                                @string.Join(" ", PatchPreview.IntentValidation.Reasons)
+                            </RadzenAlert>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+                <RadzenCard>
+                    <RadzenStack Gap="0.75rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenText Text="Patch Scope" TextStyle="TextStyle.H6" />
+                            <RadzenBadge Text="@ScopeModeText(PatchPreview.AllowedPatchScope)"
+                                         BadgeStyle="@ScopeModeBadgeStyle(PatchPreview.AllowedPatchScope)" />
+                        </RadzenStack>
+                        @if (!string.IsNullOrWhiteSpace(PatchPreview.ScopeAnalysis.WarningMessage))
+                        {
+                            <RadzenAlert AlertStyle="@(PatchPreview.ScopeAnalysis.IsBlocking ? AlertStyle.Danger : AlertStyle.Warning)"
+                                         ShowIcon="true">
+                                @PatchPreview.ScopeAnalysis.WarningMessage
+                            </RadzenAlert>
+                        }
+                        @if (PatchPreview.ScopeAnalysis.AllowedFolders.Count > 0)
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                @foreach (var folder in PatchPreview.ScopeAnalysis.AllowedFolders)
+                                {
+                                    <RadzenBadge Text="@folder" BadgeStyle="BadgeStyle.Light" />
+                                }
+                            </RadzenStack>
+                        }
+                        @foreach (var file in PatchPreview.ScopeAnalysis.Files)
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                <RadzenText Text="@file.RelativePath" TextStyle="TextStyle.Body2" />
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                    <RadzenBadge Text="@ScopeStatusText(file.Status)"
+                                                 BadgeStyle="@ScopeStatusBadgeStyle(file.Status)" />
+                                    @if (!string.IsNullOrWhiteSpace(file.Reason))
+                                    {
+                                        <RadzenBadge Text="@file.Reason" BadgeStyle="BadgeStyle.Warning" />
+                                    }
+                                </RadzenStack>
+                            </RadzenStack>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
                 <pre class="coder-output">@PatchPreview.PatchText</pre>
                 @if (ApplyResult is not null)
                 {
@@ -172,6 +268,71 @@
         PatchValidationCategory.AmbiguousAnchor => BadgeStyle.Warning,
         PatchValidationCategory.UnsafeFileOperation => BadgeStyle.Danger,
         _ => BadgeStyle.Secondary
+    };
+
+    private static string CoverageBadgeText(PatchContextCoverageCategory category) => category switch
+    {
+        PatchContextCoverageCategory.ContextFile => "✓ In Context",
+        PatchContextCoverageCategory.RelatedFile => "⚠ Related",
+        _ => "❌ Not In Context"
+    };
+
+    private static BadgeStyle CoverageBadgeStyle(PatchContextCoverageCategory category) => category switch
+    {
+        PatchContextCoverageCategory.ContextFile => BadgeStyle.Success,
+        PatchContextCoverageCategory.RelatedFile => BadgeStyle.Warning,
+        _ => BadgeStyle.Danger
+    };
+
+    private static string ScopeModeText(PatchScopeMode scopeMode) => scopeMode switch
+    {
+        PatchScopeMode.ContextFilesOnly => "Context Files Only",
+        PatchScopeMode.SelectedFolders => "Selected Folders",
+        PatchScopeMode.AnyProjectFile => "Any Project File",
+        _ => "Context Files Only"
+    };
+
+    private static BadgeStyle ScopeModeBadgeStyle(PatchScopeMode scopeMode) => scopeMode switch
+    {
+        PatchScopeMode.ContextFilesOnly => BadgeStyle.Info,
+        PatchScopeMode.SelectedFolders => BadgeStyle.Warning,
+        PatchScopeMode.AnyProjectFile => BadgeStyle.Danger,
+        _ => BadgeStyle.Info
+    };
+
+    private static string ScopeStatusText(PatchScopeStatus status) => status switch
+    {
+        PatchScopeStatus.InScope => "In Scope",
+        _ => "Out of Scope"
+    };
+
+    private static BadgeStyle ScopeStatusBadgeStyle(PatchScopeStatus status) => status switch
+    {
+        PatchScopeStatus.InScope => BadgeStyle.Success,
+        _ => BadgeStyle.Danger
+    };
+
+    private static string ValidationStatusText(PatchIntentMatchStatus? status) => status switch
+    {
+        PatchIntentMatchStatus.MatchesIntent => "Matches Intent",
+        PatchIntentMatchStatus.PartiallyMatches => "Partially Matches",
+        PatchIntentMatchStatus.DoesNotMatch => "Does Not Match",
+        _ => "Patch Intent"
+    };
+
+    private static BadgeStyle ValidationStatusBadgeStyle(PatchIntentMatchStatus? status) => status switch
+    {
+        PatchIntentMatchStatus.MatchesIntent => BadgeStyle.Success,
+        PatchIntentMatchStatus.PartiallyMatches => BadgeStyle.Warning,
+        PatchIntentMatchStatus.DoesNotMatch => BadgeStyle.Danger,
+        _ => BadgeStyle.Info
+    };
+
+    private static BadgeStyle RiskBadgeStyle(int riskScore) => riskScore switch
+    {
+        0 => BadgeStyle.Success,
+        <= 2 => BadgeStyle.Warning,
+        _ => BadgeStyle.Danger
     };
 
     private RenderFragment ResultCard(CommandRunResult Result, bool ShowHeadings = false) => @<RadzenCard>

@@ -16,7 +16,8 @@
                         SelectedItemChanged="@OnSelectedItemChangedAsync"
                         MinLength="1"
                         FilterDelay="200"
-                        OpenOnFocus="true" />
+                        OpenOnFocus="true"
+                        Disabled="@Disabled" />
 
     @if (ShowSelectedInfo)
     {
@@ -82,6 +83,8 @@
     [Parameter] public string Style { get; set; } = "width:100%;";
 
     [Parameter] public bool ShowSelectedInfo { get; set; } = true;
+
+    [Parameter] public bool Disabled { get; set; }
 
     [Parameter] public FileSearchItem? SelectedFile { get; set; }
 

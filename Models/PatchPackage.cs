@@ -13,6 +13,11 @@ public sealed class PatchPackage
     public string UserRequest { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string PatchText { get; set; } = string.Empty;
+    public PatchScopeMode? AllowedPatchScope { get; set; }
+    public IReadOnlyList<string> AllowedPatchFolders { get; set; } = [];
+    public IReadOnlyList<string> ContextFilePaths { get; set; } = [];
+    public PatchIntent? Intent { get; set; }
+    public PatchIntentValidation? IntentValidation { get; set; }
     public PatchPackageStatus Status { get; set; } = PatchPackageStatus.Draft;
     public string StatusMessage { get; set; } = string.Empty;
     public IReadOnlyList<PatchApprovalGateResult> ApprovalGateResults { get; set; } = [];

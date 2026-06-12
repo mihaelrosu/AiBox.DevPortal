@@ -39,6 +39,7 @@ builder.Services.AddScoped<IPatchPackageService, PatchPackageService>();
 builder.Services.AddScoped<IPatchApplyService, PatchApplyService>();
 builder.Services.AddScoped<IPatchRollbackService, PatchRollbackService>();
 builder.Services.AddScoped<ICoderConsoleService, CoderConsoleService>();
+builder.Services.AddScoped<ILocalCoderContextService, LocalCoderContextService>();
 builder.Services.AddScoped<AiBox.DevPortal.Services.ILocalCoderHistoryService, AiBox.DevPortal.Services.LocalCoderHistoryService>();
 builder.Services.AddScoped<AiBox.DevPortal.Services.Agents.ILocalCoderHistoryService, AiBox.DevPortal.Services.Agents.LocalCoderHistoryService>();
 builder.Services.AddScoped<ILocalCoderMarkdownService, LocalCoderMarkdownService>();

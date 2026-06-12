@@ -76,6 +76,11 @@
                                 <RadzenText Text="@($"{entry.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC")" TextStyle="TextStyle.Body1" />
                                 <RadzenText Text="@($"{entry.ActionType} | {GetStatusText(entry.Success)} | {GetMessageSummary(entry.Message)}")"
                                             TextStyle="TextStyle.Body2" />
+                                @if (entry.ContextFileCount > 0)
+                                {
+                                    <RadzenText Text="@($"Context: {entry.ContextFileCount} files | ~{entry.ContextEstimatedTokens:N0} tokens")"
+                                                TextStyle="TextStyle.Caption" />
+                                }
                             </div>
                             <RadzenButton Text="View" Icon="open_in_new" ButtonStyle="ButtonStyle.Primary"
                                           Click="@(() => OnViewHistoryEntry.InvokeAsync(entry.Id))" />
@@ -104,6 +109,8 @@
     [Parameter] public EventCallback OnClearHistory { get; set; }
     [Parameter] public EventCallback<string> OnViewHistoryEntry { get; set; }
     [Parameter] public EventCallback OnUseHistoryEntryAsContext { get; set; }
+    [Parameter] public EventCallback OnRestoreContext { get; set; }
+    [Parameter] public LocalCoderContextRestoreResult? ContextRestoreResult { get; set; }
 
     private static string GetStatusText(bool success) => success ? "Success" : "Failed";
 
@@ -122,7 +129,10 @@
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                          JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
                 <div><RadzenText Text="History Detail" TextStyle="TextStyle.H5" /><RadzenText Text="@entry.Message" TextStyle="TextStyle.Body2" /></div>
-                <RadzenButton Text="Use as Context" Icon="call_split" ButtonStyle="ButtonStyle.Primary" Click="@OnUseHistoryEntryAsContext" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Use as Context" Icon="call_split" ButtonStyle="ButtonStyle.Primary" Click="@OnUseHistoryEntryAsContext" />
+                    <RadzenButton Text="Restore Context" Icon="restore" ButtonStyle="ButtonStyle.Secondary" Click="@OnRestoreContext" />
+                </RadzenStack>
             </RadzenStack>
             <RadzenText Text="@($"Action: {entry.ActionType}")" TextStyle="TextStyle.Body1" />
             <RadzenText Text="@($"Created: {entry.CreatedAt:O}")" TextStyle="TextStyle.Body1" />
@@ -134,7 +144,83 @@
             @foreach (var file in entry.SelectedFiles) { <RadzenText Text="@file" TextStyle="TextStyle.Body2" /> }
             <RadzenText Text="Loaded Context Files" TextStyle="TextStyle.H6" />
             @foreach (var file in entry.LoadedContextFiles) { <RadzenText Text="@($"{file.RelativePath} ({file.CharacterCount} chars)")" TextStyle="TextStyle.Body2" /> }
+            @if (entry.ContextFiles.Count > 0)
+            {
+                <details>
+                    <summary>Context Snapshot: @entry.ContextFileCount files, @entry.ContextTotalCharacters.ToString("N0") chars, ~@entry.ContextEstimatedTokens.ToString("N0") tokens</summary>
+                    @foreach (var file in entry.ContextFiles)
+                    {
+                        <RadzenCard Style="margin-top: 0.5rem;">
+                            <RadzenText Text="@($"{file.RelativePath} | {file.CharacterCount:N0} chars | ~{file.EstimatedTokens:N0} tokens")"
+                                        TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"SHA-256: {file.ContentHash}")" TextStyle="TextStyle.Caption" />
+                        </RadzenCard>
+                    }
+                </details>
+            }
+            else
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Info" ShowIcon="true">
+                    This history entry has no saved context snapshot.
+                </RadzenAlert>
+            }
+            @if (ContextRestoreResult is not null)
+            {
+                <RadzenCard Style="margin-top: 0.5rem;">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Context Restore Result" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="@($"{ContextRestoreResult.Files.Count(file => file.Restored)} restored, {ContextRestoreResult.Files.Count(file => !file.Restored)} skipped")"
+                                    TextStyle="TextStyle.Body2" />
+                        @foreach (var file in ContextRestoreResult.Files)
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem"
+                                         Style="padding: 0.3rem 0.5rem; border: 1px solid var(--rz-base-300); border-radius: 0.35rem;">
+                                <RadzenText Text="@file.RelativePath" TextStyle="TextStyle.Body2" />
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                    <RadzenBadge Text="@(file.Restored ? "Restored" : "Skipped")"
+                                                 BadgeStyle="@(file.Restored ? BadgeStyle.Success : BadgeStyle.Warning)" />
+                                    @if (file.ModifiedSinceRun)
+                                    {
+                                        <RadzenBadge Text="Modified Since Run" BadgeStyle="BadgeStyle.Warning" />
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(file.SkipReason))
+                                    {
+                                        <RadzenBadge Text="@file.SkipReason" BadgeStyle="BadgeStyle.Warning" />
+                                    }
+                                </RadzenStack>
+                            </RadzenStack>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
             @if (!string.IsNullOrWhiteSpace(entry.PlanText)) { <details><summary>Plan</summary><pre class="coder-output">@entry.PlanText</pre></details> }
+            @if (entry.PlanTasks.Count > 0)
+            {
+                <details>
+                    <summary>Plan Tasks (@entry.PlanTasks.Count)</summary>
+                    @foreach (var task in entry.PlanTasks.OrderBy(item => item.Order))
+                    {
+                        <RadzenCard Style="margin-top: 0.5rem;">
+                            <RadzenStack Gap="0.25rem">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                             JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                    <RadzenText Text="@($"{task.Order}. {task.Title}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenBadge Text="@task.Status.ToString()" BadgeStyle="@PlanTaskStatusBadgeStyle(task.Status)" />
+                                </RadzenStack>
+                                @if (!string.IsNullOrWhiteSpace(task.Description))
+                                {
+                                    <RadzenText Text="@task.Description" TextStyle="TextStyle.Caption" />
+                                }
+                                @if (!string.IsNullOrWhiteSpace(task.StatusMessage))
+                                {
+                                    <RadzenText Text="@task.StatusMessage" TextStyle="TextStyle.Caption" />
+                                }
+                            </RadzenStack>
+                        </RadzenCard>
+                    }
+                </details>
+            }
             @if (!string.IsNullOrWhiteSpace(entry.PatchPreviewText)) { <details><summary>Patch Preview</summary><pre class="coder-output">@entry.PatchPreviewText</pre></details> }
             @if (entry.ApplyResult is not null) { @ApplyDetail(entry.ApplyResult) }
             @if (entry.RollbackResult is not null) { @RollbackDetail(entry.RollbackResult) }
@@ -167,4 +253,15 @@
             <RadzenCard Style="margin-top: 0.5rem;"><RadzenText Text="@($"{result.Command} — exit {result.ExitCode}")" TextStyle="TextStyle.Body1" /><pre class="coder-output">@result.Output</pre><pre class="coder-error">@result.Error</pre></RadzenCard>
         }
     </text>;
+
+    private static BadgeStyle PlanTaskStatusBadgeStyle(LocalCoderPlanTaskStatus status) => status switch
+    {
+        LocalCoderPlanTaskStatus.Pending => BadgeStyle.Info,
+        LocalCoderPlanTaskStatus.InProgress => BadgeStyle.Warning,
+        LocalCoderPlanTaskStatus.PatchGenerated => BadgeStyle.Primary,
+        LocalCoderPlanTaskStatus.Applied or LocalCoderPlanTaskStatus.Verified => BadgeStyle.Success,
+        LocalCoderPlanTaskStatus.Failed => BadgeStyle.Danger,
+        LocalCoderPlanTaskStatus.Skipped => BadgeStyle.Secondary,
+        _ => BadgeStyle.Light
+    };
 }

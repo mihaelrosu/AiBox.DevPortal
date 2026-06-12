@@ -49,10 +49,13 @@ public sealed class AgentModeRunner(
     {
         EnsureMode(profile, AgentActionProfiles.ForGeneratePatchPreview(), "Generate Patch Preview");
         var routedRequest = WithProfileModel(request, profile);
+        var intent = PatchIntentService.BuildIntent(routedRequest);
         var prompt = CoderConsoleService.BuildGeneratePatchPreviewPrompt(
             routedRequest,
             BuildSelectedFilePathsText(routedRequest.FileContexts),
             BuildPatchPreviewFileContextText(routedRequest.FileContexts),
+            BuildPatchScopeText(routedRequest.AllowedPatchScope, routedRequest.AllowedPatchFolders),
+            PatchIntentService.BuildPromptText(intent),
             profile);
 
         try
@@ -361,7 +364,7 @@ public sealed class AgentModeRunner(
 
         var builder = new StringBuilder();
 
-        foreach (var fileContext in fileContexts.Take(12))
+        foreach (var fileContext in fileContexts)
         {
             builder.AppendLine($"FILE: {fileContext.RelativePath}");
             builder.AppendLine("```text");
@@ -382,7 +385,7 @@ public sealed class AgentModeRunner(
 
         var builder = new StringBuilder();
 
-        foreach (var fileContext in fileContexts.Take(12))
+        foreach (var fileContext in fileContexts)
         {
             builder.AppendLine($"FILE: {fileContext.RelativePath}");
             builder.AppendLine("```text");
@@ -402,6 +405,24 @@ public sealed class AgentModeRunner(
         }
 
         return string.Join(Environment.NewLine, fileContexts.Select(fileContext => $"- {fileContext.RelativePath}"));
+    }
+
+    private static string BuildPatchScopeText(PatchScopeMode scopeMode, IReadOnlyList<string> allowedFolders)
+    {
+        return scopeMode switch
+        {
+            PatchScopeMode.ContextFilesOnly => "Context Files Only",
+            PatchScopeMode.SelectedFolders when allowedFolders.Count > 0 => string.Join(
+                Environment.NewLine,
+                [
+                    "Selected Folders",
+                    "Allowed folders:",
+                    string.Join(Environment.NewLine, allowedFolders.Select(folder => $"- {folder}"))
+                ]),
+            PatchScopeMode.SelectedFolders => "Selected Folders (no folders configured)",
+            PatchScopeMode.AnyProjectFile => "Any Project File",
+            _ => "Context Files Only"
+        };
     }
 
     private static string BuildActionPrompt(string actionKey, AgentModeProfile profile, string instruction, string context)

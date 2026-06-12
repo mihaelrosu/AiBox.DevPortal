@@ -11,6 +11,7 @@
 @using Radzen
 @using Radzen.Blazor
 @using static Microsoft.AspNetCore.Components.Web.RenderMode
+@using AgentLocalCoderHistoryService = AiBox.DevPortal.Services.Agents.ILocalCoderHistoryService
 
 <PageTitle>Local Coder History</PageTitle>
 
@@ -155,7 +156,7 @@
 }
 
 @code {
-    [Inject] private ILocalCoderHistoryService HistoryService { get; set; } = default!;
+    [Inject] private AgentLocalCoderHistoryService HistoryService { get; set; } = default!;
     [Inject] private ILocalCoderMarkdownService MarkdownService { get; set; } = default!;
     [Inject] private DialogService DialogService { get; set; } = default!;
     [Inject] private NotificationService NotificationService { get; set; } = default!;

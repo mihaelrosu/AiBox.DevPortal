@@ -18,6 +18,16 @@ public sealed class LocalCoderHistoryEntry
 
     public IReadOnlyList<LocalCoderHistoryFileSummary> LoadedContextFiles { get; set; } = [];
 
+    public int ContextFileCount { get; set; }
+
+    public int ContextTotalCharacters { get; set; }
+
+    public int ContextEstimatedTokens { get; set; }
+
+    public IReadOnlyList<LocalCoderHistoryContextFile> ContextFiles { get; set; } = [];
+
+    public IReadOnlyList<LocalCoderPlanTask> PlanTasks { get; set; } = [];
+
     public string PlanText { get; set; } = string.Empty;
 
     public string PatchPreviewText { get; set; } = string.Empty;

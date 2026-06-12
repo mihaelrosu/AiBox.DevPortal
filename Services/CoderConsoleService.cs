@@ -13,10 +13,10 @@ public sealed class CoderConsoleService(
     HttpClient httpClient,
     IConfiguration configuration,
     IWebHostEnvironment environment,
-    IPatchEditOperationService patchEditOperationService) : ICoderConsoleService
+    IPatchEditOperationService patchEditOperationService,
+    ILocalCoderContextService localCoderContextService) : ICoderConsoleService
 {
     private const long MaxProjectFileSizeBytes = 200 * 1024;
-    private const int MaxSelectedFileCount = 12;
     private const int MaxPromptFileCharacters = 12_000;
     private const string CreatedFileBackupSuffix = ".aibox-created";
 
@@ -87,28 +87,7 @@ public sealed class CoderConsoleService(
     public async Task<IReadOnlyList<LocalCoderFileContext>> ReadFileContextsAsync(string projectPath, IReadOnlyList<string> relativePaths)
     {
         var rootPath = GetValidatedProjectRoot(projectPath);
-        ArgumentNullException.ThrowIfNull(relativePaths);
-
-        var contexts = new List<LocalCoderFileContext>();
-
-        foreach (var relativePath in relativePaths
-                     .Where(path => !string.IsNullOrWhiteSpace(path))
-                     .Distinct(StringComparer.OrdinalIgnoreCase)
-                     .Take(MaxSelectedFileCount))
-        {
-            var normalizedRelativePath = ValidateAndNormalizeSelectedPath(rootPath, relativePath);
-            var fullPath = Path.Combine(rootPath, normalizedRelativePath);
-            var content = await ReadTextFileAsync(fullPath);
-
-            contexts.Add(new LocalCoderFileContext
-            {
-                RelativePath = normalizedRelativePath.Replace(Path.DirectorySeparatorChar, '/'),
-                CharacterCount = content.Length,
-                Content = content
-            });
-        }
-
-        return contexts;
+        return await localCoderContextService.LoadAsync(rootPath, relativePaths);
     }
 
     public async Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile? profile = null)
@@ -121,7 +100,6 @@ public sealed class CoderConsoleService(
         }
 
         request.FileContexts = (request.FileContexts ?? [])
-            .Take(MaxSelectedFileCount)
             .ToList();
 
         var fileContextText = BuildFileContextText(request.FileContexts);
@@ -169,33 +147,47 @@ public sealed class CoderConsoleService(
         }
 
         request.FileContexts = (request.FileContexts ?? [])
-            .Take(MaxSelectedFileCount)
             .ToList();
+        var intent = PatchIntentService.BuildIntent(request);
+        var intentText = PatchIntentService.BuildPromptText(intent);
 
         if (TryParseExactReplacementTask(request.Task, out var oldText, out var newText))
         {
             var deterministicPatchText = BuildExactReplacementPatch(request.FileContexts, oldText, newText);
             var deterministicValidation = ValidatePatchPreview(deterministicPatchText, request.FileContexts, request.Task);
+            var deterministicScopePaths = FindExactReplacementTargetPaths(request.FileContexts, oldText);
 
             if (!deterministicValidation.IsValid)
             {
                 throw new InvalidOperationException($"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", deterministicValidation.Errors)}");
             }
 
-            return new LocalCoderPatchPreview
+            var preview = new LocalCoderPatchPreview
             {
                 ProjectPath = request.ProjectPath,
                 Model = "deterministic-exact-replacement",
                 Task = request.Task,
                 FileContexts = request.FileContexts.ToArray(),
+                AllowedPatchScope = request.AllowedPatchScope,
+                AllowedPatchFolders = request.AllowedPatchFolders.ToArray(),
+                ScopeAnalysis = PatchScopeGuard.Analyze(
+                    request.AllowedPatchScope,
+                    request.FileContexts.Select(context => context.RelativePath).ToArray(),
+                    request.AllowedPatchFolders,
+                    deterministicScopePaths),
+                Intent = intent,
                 PatchText = deterministicPatchText
             };
+            preview.ContextCoverage = PatchContextCoverageAnalyzer.Analyze(preview.PatchText, preview.FileContexts);
+            preview.IntentValidation = PatchIntentService.Evaluate(intent, preview);
+            return preview;
         }
 
         var fileContextText = BuildPatchPreviewFileContextText(request.FileContexts);
         var selectedFilePathsText = BuildSelectedFilePathsText(request.FileContexts);
+        var scopeText = BuildPatchScopeText(request.AllowedPatchScope, request.AllowedPatchFolders);
 
-        var prompt = BuildGeneratePatchPreviewPrompt(request, selectedFilePathsText, fileContextText, profile);
+        var prompt = BuildGeneratePatchPreviewPrompt(request, selectedFilePathsText, fileContextText, scopeText, intentText, profile);
 
         var ollamaRequest = new OllamaGenerateRequest
         {
@@ -242,15 +234,26 @@ public sealed class CoderConsoleService(
             throw CreatePatchPreviewValidationException(validation, rawResponse, patchText);
         }
 
-        return new LocalCoderPatchPreview
+        var patchPreview = new LocalCoderPatchPreview
         {
             ProjectPath = request.ProjectPath,
             Model = ollamaRequest.Model,
             Task = request.Task,
             FileContexts = request.FileContexts.ToArray(),
             FileChanges = editResult.FileChanges,
+            AllowedPatchScope = request.AllowedPatchScope,
+            AllowedPatchFolders = request.AllowedPatchFolders.ToArray(),
+            ScopeAnalysis = PatchScopeGuard.Analyze(
+                request.AllowedPatchScope,
+                request.FileContexts.Select(context => context.RelativePath).ToArray(),
+                request.AllowedPatchFolders,
+                editResult.FileChanges.Select(change => change.RelativePath).ToArray()),
+            Intent = intent,
             PatchText = patchText
         };
+        patchPreview.ContextCoverage = PatchContextCoverageAnalyzer.Analyze(patchPreview.PatchText, patchPreview.FileContexts);
+        patchPreview.IntentValidation = PatchIntentService.Evaluate(intent, patchPreview);
+        return patchPreview;
     }
 
     public async Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview)
@@ -258,6 +261,8 @@ public sealed class CoderConsoleService(
         ArgumentNullException.ThrowIfNull(patchPreview);
 
         var rootPath = GetValidatedProjectRoot(patchPreview.ProjectPath);
+        PatchScopeGuard.ThrowIfBlocking(patchPreview);
+        PatchIntentGuard.ThrowIfBlocking(patchPreview);
         var patchText = NormalizePatchPreviewText(patchPreview.PatchText);
 
         if (patchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.Ordinal))
@@ -959,6 +964,8 @@ public sealed class CoderConsoleService(
         LocalCoderRequest request,
         string selectedFilePathsText,
         string fileContextText,
+        string scopeText,
+        string intentText,
         AgentModeProfile? profile = null)
     {
         var profileText = BuildAgentModeProfileText(profile);
@@ -997,6 +1004,12 @@ public sealed class CoderConsoleService(
 
         Selected file paths:
         {{selectedFilePathsText}}
+
+        Allowed patch scope:
+        {{scopeText}}
+
+        Patch intent:
+        {{intentText}}
 
         Selected file context:
         {{fileContextText}}
@@ -1158,53 +1171,6 @@ public sealed class CoderConsoleService(
         return AllowedProjectFileExtensions.Contains(Path.GetExtension(filePath));
     }
 
-    private static string ValidateAndNormalizeSelectedPath(string rootPath, string relativePath)
-    {
-        var trimmed = relativePath.Trim();
-
-        if (Path.IsPathRooted(trimmed))
-        {
-            throw new InvalidOperationException("Selected file paths must be repository-relative.");
-        }
-
-        if (trimmed.Contains(':', StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"Selected file path '{trimmed}' must not contain a drive separator.");
-        }
-
-        if (trimmed.Contains("..", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"Selected file path '{trimmed}' cannot contain '..'.");
-        }
-
-        var fullPath = Path.GetFullPath(Path.Combine(rootPath, trimmed));
-        var rootPrefix = rootPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-
-        if (!fullPath.StartsWith(rootPrefix, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"Selected file path '{trimmed}' is outside the project root.");
-        }
-
-        if (!File.Exists(fullPath))
-        {
-            throw new InvalidOperationException($"Selected file path '{trimmed}' does not exist.");
-        }
-
-        if (!IsAllowedProjectFile(fullPath))
-        {
-            throw new InvalidOperationException($"Selected file path '{trimmed}' is not an allowed source file.");
-        }
-
-        var fileInfo = new FileInfo(fullPath);
-
-        if (fileInfo.Length > MaxProjectFileSizeBytes)
-        {
-            throw new InvalidOperationException($"Selected file path '{trimmed}' exceeds the {MaxProjectFileSizeBytes / 1024} KB limit.");
-        }
-
-        return Path.GetRelativePath(rootPath, fullPath);
-    }
-
     private static string ValidateAndNormalizePatchTargetPath(string rootPath, string relativePath)
     {
         var trimmed = relativePath.Trim();
@@ -1235,14 +1201,6 @@ public sealed class CoderConsoleService(
         return Path.GetRelativePath(rootPath, fullPath);
     }
 
-    private static async Task<string> ReadTextFileAsync(string fullPath)
-    {
-        await using var stream = File.OpenRead(fullPath);
-        using var reader = new StreamReader(stream, detectEncodingFromByteOrderMarks: true);
-        var content = await reader.ReadToEndAsync();
-        return content;
-    }
-
     private static string BuildFileContextText(IReadOnlyList<LocalCoderFileContext> fileContexts)
     {
         if (fileContexts.Count == 0)
@@ -1252,7 +1210,7 @@ public sealed class CoderConsoleService(
 
         var builder = new System.Text.StringBuilder();
 
-        foreach (var fileContext in fileContexts.Take(MaxSelectedFileCount))
+        foreach (var fileContext in fileContexts)
         {
             builder.AppendLine($"FILE: {fileContext.RelativePath}");
             builder.AppendLine("```text");
@@ -1273,7 +1231,7 @@ public sealed class CoderConsoleService(
 
         var builder = new System.Text.StringBuilder();
 
-        foreach (var fileContext in fileContexts.Take(MaxSelectedFileCount))
+        foreach (var fileContext in fileContexts)
         {
             builder.AppendLine($"FILE: {fileContext.RelativePath}");
             builder.AppendLine("```text");
@@ -1293,6 +1251,24 @@ public sealed class CoderConsoleService(
         }
 
         return string.Join(Environment.NewLine, fileContexts.Select(fileContext => $"- {fileContext.RelativePath}"));
+    }
+
+    private static string BuildPatchScopeText(PatchScopeMode scopeMode, IReadOnlyList<string> allowedFolders)
+    {
+        return scopeMode switch
+        {
+            PatchScopeMode.ContextFilesOnly => "Context Files Only",
+            PatchScopeMode.SelectedFolders when allowedFolders.Count > 0 => string.Join(
+                Environment.NewLine,
+                [
+                    "Selected Folders",
+                    "Allowed folders:",
+                    string.Join(Environment.NewLine, allowedFolders.Select(folder => $"- {folder}"))
+                ]),
+            PatchScopeMode.SelectedFolders => "Selected Folders (no folders configured)",
+            PatchScopeMode.AnyProjectFile => "Any Project File",
+            _ => "Context Files Only"
+        };
     }
 
     private static bool TryParseExactReplacementTask(string task, out string oldText, out string newText)
@@ -1406,6 +1382,23 @@ public sealed class CoderConsoleService(
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static IReadOnlyList<string> FindExactReplacementTargetPaths(
+        IReadOnlyList<LocalCoderFileContext> fileContexts,
+        string oldText)
+    {
+        if (string.IsNullOrEmpty(oldText))
+        {
+            return [];
+        }
+
+        var matches = fileContexts
+            .Where(fileContext => CountExactOccurrences(fileContext.Content, oldText) > 0)
+            .Select(fileContext => NormalizePreviewPath(fileContext.RelativePath))
+            .ToArray();
+
+        return matches.Length == 1 ? matches : [];
     }
 
     private static int CountExactOccurrences(string content, string value)

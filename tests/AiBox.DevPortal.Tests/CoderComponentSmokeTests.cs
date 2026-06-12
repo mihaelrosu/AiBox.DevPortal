@@ -28,6 +28,11 @@ public sealed class CoderComponentSmokeTests : TestContext
         var cut = RenderComponent<Coder>();
 
         Assert.Contains("Local Coder", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("File Context", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("0 files", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("0 characters", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("~0 tokens", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Clear All", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,6 +165,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(Substitute.For<IPatchRollbackService>());
         Services.AddSingleton(historyService);
         Services.AddSingleton(fileSearchService);
+        Services.AddSingleton<ILocalCoderContextService, LocalCoderContextService>();
         Services.AddSingleton(Substitute.For<IClipboardService>());
     }
 

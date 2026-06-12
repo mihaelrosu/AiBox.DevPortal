@@ -10,6 +10,53 @@ public sealed class PatchApprovalGateService : IPatchApprovalGateService
 
         var results = new List<PatchApprovalGateResult>();
         var rootPath = GetValidatedProjectRoot(package.ProjectPath);
+        var scopeAnalysis = PatchScopeGuard.Analyze(package);
+        var intentValidation = package.IntentValidation ?? (package.Intent is null ? null : PatchIntentService.Evaluate(package.Intent, package));
+
+        if (scopeAnalysis.WarningMessage.Length > 0)
+        {
+            results.Add(new PatchApprovalGateResult
+            {
+                GateKey = "patch-scope-warning",
+                Message = scopeAnalysis.WarningMessage,
+                FilePath = string.Empty,
+                Passed = true,
+                Blocking = false,
+                Warning = true
+            });
+        }
+
+        if (scopeAnalysis.IsBlocking)
+        {
+            results.Add(Fail(
+                scopeAnalysis.Mode == PatchScopeMode.ContextFilesOnly
+                    ? "patch-scope-context-files-only"
+                    : "patch-scope-selected-folders",
+                PatchScopeGuard.BuildBlockingMessage(scopeAnalysis),
+                blocking: true));
+        }
+
+        if (intentValidation is not null)
+        {
+            var gate = intentValidation.Status switch
+            {
+                PatchIntentMatchStatus.MatchesIntent => Pass("patch-intent-match", "Patch matches the intent contract."),
+                PatchIntentMatchStatus.PartiallyMatches => new PatchApprovalGateResult
+                {
+                    GateKey = "patch-intent-partial",
+                    Message = intentValidation.Reasons.Count > 0
+                        ? string.Join(" ", intentValidation.Reasons)
+                        : "Patch partially matches the intent contract.",
+                    FilePath = string.Empty,
+                    Passed = true,
+                    Blocking = false,
+                    Warning = true
+                },
+                _ => Fail("patch-intent-mismatch", PatchIntentGuard.BuildBlockingMessage(intentValidation), blocking: true)
+            };
+
+            results.Add(gate);
+        }
 
         if (package.FileChanges is null || package.FileChanges.Count == 0)
         {
