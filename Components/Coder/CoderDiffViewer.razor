@@ -23,6 +23,39 @@
     <RadzenCard>
         <RadzenStack Gap="0.75rem">
                     <RadzenText Text="Patch Debug" TextStyle="TextStyle.H5" />
+                    @if (RepairSummary is not null)
+                    {
+                        <div>
+                            <RadzenText Text="Patch Repair" TextStyle="TextStyle.H6" />
+                            <RadzenCard>
+                                <RadzenStack Gap="0.35rem">
+                                    <RadzenText Text="@($"Original Operation: {RepairSummary.OriginalOperation}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Repair Attempt: {RepairSummary.RepairAttempt}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Repair Result: {RepairSummary.RepairResult}")" TextStyle="TextStyle.Body2" />
+                                    @if (!string.IsNullOrWhiteSpace(RepairSummary.ValidationError))
+                                    {
+                                        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                                            @RepairSummary.ValidationError
+                                        </RadzenAlert>
+                                    }
+                                </RadzenStack>
+                            </RadzenCard>
+                        </div>
+                    }
+                    @if (PatchPreviewMetrics is not null)
+                    {
+                        <div>
+                            <RadzenText Text="Patch Preview Metrics" TextStyle="TextStyle.H6" />
+                            <RadzenCard>
+                                <RadzenStack Gap="0.35rem">
+                                    <RadzenText Text="@($"Patch preview attempts: {PatchPreviewMetrics.Attempts}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Successful previews: {PatchPreviewMetrics.SuccessfulPreviews}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Failed previews: {PatchPreviewMetrics.FailedPreviews}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Repaired previews: {PatchPreviewMetrics.RepairedPreviews}")" TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        </div>
+                    }
                     @if (OperationGrammarErrors.Count > 0)
                     {
                         <div>
@@ -148,6 +181,31 @@
                 <RadzenText Text="Normalized Diff" TextStyle="TextStyle.H6" />
                 <pre class="coder-output">@NormalizedDiff</pre>
             </div>
+            @if (PatchPreviewMetrics is not null)
+            {
+                <div>
+                    <RadzenText Text="Patch Preview Metrics" TextStyle="TextStyle.H6" />
+                    <RadzenCard>
+                        <RadzenStack Gap="0.35rem">
+                            <RadzenText Text="@($"Patch preview attempts: {PatchPreviewMetrics.Attempts}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Successful previews: {PatchPreviewMetrics.SuccessfulPreviews}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Failed previews: {PatchPreviewMetrics.FailedPreviews}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Repaired previews: {PatchPreviewMetrics.RepairedPreviews}")" TextStyle="TextStyle.Body2" />
+                        </RadzenStack>
+                    </RadzenCard>
+                </div>
+            }
+            @if (RepairSummary is not null)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="0.35rem">
+                        <RadzenText Text="Patch Repair" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="@($"Original Operation: {RepairSummary.OriginalOperation}")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="@($"Repair Attempt: {RepairSummary.RepairAttempt}")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="@($"Repair Result: {RepairSummary.RepairResult}")" TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+            }
         </RadzenStack>
     </RadzenCard>
 }
@@ -208,6 +266,7 @@
                         @if (PatchPreview.Intent is not null)
                         {
                             <RadzenText Text="@($"Goal: {PatchPreview.Intent.Goal}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Primary Intent: {PrimaryIntentText(PatchPreview.Intent.PrimaryIntent)}")" TextStyle="TextStyle.Body2" />
                             <RadzenText Text="@($"Allowed scope: {PatchPreview.Intent.AllowedScope}")" TextStyle="TextStyle.Body2" />
                             <RadzenText Text="@($"Expected change type: {PatchPreview.Intent.ExpectedChangeType}")" TextStyle="TextStyle.Body2" />
                             <RadzenText Text="@($"Verification: {PatchPreview.Intent.VerificationCommand}")" TextStyle="TextStyle.Body2" />
@@ -423,6 +482,8 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
     [Parameter] public IReadOnlyList<PatchSuggestedTargetDiagnostic> SuggestedTargetDiagnostics { get; set; } = [];
     [Parameter] public PatchSuggestedTargetSelection? SelectedSuggestedTarget { get; set; }
     [Parameter] public IReadOnlyList<PatchValidationGuidance> ValidationGuidance { get; set; } = [];
+    [Parameter] public PatchPreviewRepairSummary? RepairSummary { get; set; }
+    [Parameter] public PatchPreviewMetricsSnapshot? PatchPreviewMetrics { get; set; }
     [Parameter] public string RawResponse { get; set; } = string.Empty;
     [Parameter] public string NormalizedResponse { get; set; } = string.Empty;
     [Parameter] public string NormalizedDiff { get; set; } = string.Empty;
@@ -498,6 +559,13 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
         PatchIntentMatchStatus.PartiallyMatches => "Partially Matches",
         PatchIntentMatchStatus.DoesNotMatch => "Does Not Match",
         _ => "Patch Intent"
+    };
+
+    private static string PrimaryIntentText(PatchPrimaryIntent primaryIntent) => primaryIntent switch
+    {
+        PatchPrimaryIntent.Modify => "Modify",
+        PatchPrimaryIntent.ReadOnly => "ReadOnly",
+        _ => "Unknown"
     };
 
     private static BadgeStyle ValidationStatusBadgeStyle(PatchIntentMatchStatus? status) => status switch

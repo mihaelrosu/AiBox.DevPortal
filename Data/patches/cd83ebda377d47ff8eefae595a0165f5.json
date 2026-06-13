@@ -1,0 +1,123 @@
+{
+  "id": "cd83ebda377d47ff8eefae595a0165f5",
+  "createdAt": "2026-06-13T13:02:42.8793646+00:00",
+  "updatedAt": "2026-06-13T13:03:15.0418851+00:00",
+  "backupFolder": "",
+  "appliedAt": null,
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Read the selected file.\n\nAdd a new XML summary comment above the first public class.\n\nUse an insert_before operation.\n\nUse exact text copied from the selected file as the anchor.\n\nDo not create files.\nDo not modify any other files.\nReturn only valid patch operations JSON.",
+  "model": "qwen2.5-coder:7b",
+  "patchText": "diff --git a/Models/LocalCoderHistoryEntry.cs b/Models/LocalCoderHistoryEntry.cs\nindex 0223af1..309c85a 100644\n--- a/Models/LocalCoderHistoryEntry.cs\n\u002B\u002B\u002B b/Models/LocalCoderHistoryEntry.cs\n@@ -1,6 \u002B1,9 @@\n namespace AiBox.DevPortal.Models;\n \n-public sealed class LocalCoderHistoryEntry\n\u002B\n\u002B/// \u003Csummary\u003E\n\u002B/// Represents a local coder history entry.\n\u002B/// \u003C/summary\u003Epublic sealed class LocalCoderHistoryEntry\n {\n     public string Id { get; set; } = Guid.NewGuid().ToString(\u0022N\u0022);",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "contextFilePaths": [
+    "Models/LocalCoderHistoryEntry.cs"
+  ],
+  "intent": {
+    "goal": "Read the selected file",
+    "allowedPaths": [
+      "Any project file"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Any Project File",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet build"
+  },
+  "intentValidation": {
+    "status": "doesNotMatch",
+    "detectedChangeType": "Update",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Any project file"
+    ],
+    "modifiedFiles": [
+      "Models/LocalCoderHistoryEntry.cs"
+    ],
+    "contextFiles": [
+      "Models/LocalCoderHistoryEntry.cs"
+    ],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Models/LocalCoderHistoryEntry.cs",
+        "inContext": true,
+        "inScope": true,
+        "matchesRequestedFile": false,
+        "explicitlyAllowed": false,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [],
+    "isBlocking": true
+  },
+  "status": "reviewed",
+  "statusMessage": "Approval gates failed with 1 blocking issue(s).",
+  "approvalGateResults": [
+    {
+      "gateKey": "patch-intent-mismatch",
+      "message": "Patch intent validation failed.",
+      "filePath": "",
+      "passed": false,
+      "blocking": true,
+      "warning": false
+    },
+    {
+      "gateKey": "patch-has-files",
+      "message": "Patch contains 1 file change(s).",
+      "filePath": "",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "file-path-not-empty",
+      "message": "File path provided: Models/LocalCoderHistoryEntry.cs.",
+      "filePath": "Models/LocalCoderHistoryEntry.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "target-file-inside-project-root",
+      "message": "Models/LocalCoderHistoryEntry.cs resolves to /opt/ai-box/dev/projects/AiBox.DevPortal/Models/LocalCoderHistoryEntry.cs.",
+      "filePath": "Models/LocalCoderHistoryEntry.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "restricted-path",
+      "message": "Models/LocalCoderHistoryEntry.cs is not inside a restricted folder.",
+      "filePath": "Models/LocalCoderHistoryEntry.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "original-content-match",
+      "message": "Models/LocalCoderHistoryEntry.cs matches the current file content.",
+      "filePath": "Models/LocalCoderHistoryEntry.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    }
+  ],
+  "approvalGatesPassed": false,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Models/LocalCoderHistoryEntry.cs",
+      "oldContent": "namespace AiBox.DevPortal.Models;\n\npublic sealed class LocalCoderHistoryEntry\n{\n    public string Id { get; set; } = Guid.NewGuid().ToString(\u0022N\u0022);\n\n    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;\n\n    public LocalCoderHistoryActionType ActionType { get; set; }\n\n    public string ProjectPath { get; set; } = string.Empty;\n\n    public string Model { get; set; } = string.Empty;\n\n    public string Task { get; set; } = string.Empty;\n\n    public IReadOnlyList\u003Cstring\u003E SelectedFiles { get; set; } = [];\n\n    public IReadOnlyList\u003CLocalCoderHistoryFileSummary\u003E LoadedContextFiles { get; set; } = [];\n\n    public int ContextFileCount { get; set; }\n\n    public int ContextTotalCharacters { get; set; }\n\n    public int ContextEstimatedTokens { get; set; }\n\n    public IReadOnlyList\u003CLocalCoderHistoryContextFile\u003E ContextFiles { get; set; } = [];\n\n    public IReadOnlyList\u003CLocalCoderPlanTask\u003E PlanTasks { get; set; } = [];\n\n    public string PlanText { get; set; } = string.Empty;\n\n    public string PatchPreviewText { get; set; } = string.Empty;\n\n    public PatchScopeAnalysis? ScopeAnalysis { get; set; }\n\n    public PatchIntent? Intent { get; set; }\n\n    public PatchIntentValidation? IntentValidation { get; set; }\n\n    public PatchContextCoverage? ContextCoverage { get; set; }\n\n    public IReadOnlyList\u003Cstring\u003E ValidationErrors { get; set; } = [];\n\n    public IReadOnlyList\u003Cstring\u003E OperationGrammarErrors { get; set; } = [];\n\n    public IReadOnlyList\u003CPatchValidationGuidance\u003E ValidationGuidance { get; set; } = [];\n\n    public IReadOnlyList\u003CPatchReplaceDiagnostic\u003E ReplaceDiagnostics { get; set; } = [];\n\n    public IReadOnlyList\u003CPatchSuggestedTargetDiagnostic\u003E SuggestedTargetDiagnostics { get; set; } = [];\n\n    public LocalCoderPatchApplyResult? ApplyResult { get; set; }\n\n    public LocalCoderPatchRollbackResult? RollbackResult { get; set; }\n\n    public IReadOnlyList\u003CCommandRunResult\u003E VerificationResults { get; set; } = [];\n\n    public bool Success { get; set; }\n\n    public string Message { get; set; } = string.Empty;\n}\n",
+      "newContent": "namespace AiBox.DevPortal.Models;\n\n\n/// \u003Csummary\u003E\n/// Represents a local coder history entry.\n/// \u003C/summary\u003Epublic sealed class LocalCoderHistoryEntry\n{\n    public string Id { get; set; } = Guid.NewGuid().ToString(\u0022N\u0022);\n\n    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;\n\n    public LocalCoderHistoryActionType ActionType { get; set; }\n\n    public string ProjectPath { get; set; } = string.Empty;\n\n    public string Model { get; set; } = string.Empty;\n\n    public string Task { get; set; } = string.Empty;\n\n    public IReadOnlyList\u003Cstring\u003E SelectedFiles { get; set; } = [];\n\n    public IReadOnlyList\u003CLocalCoderHistoryFileSummary\u003E LoadedContextFiles { get; set; } = [];\n\n    public int ContextFileCount { get; set; }\n\n    public int ContextTotalCharacters { get; set; }\n\n    public int ContextEstimatedTokens { get; set; }\n\n    public IReadOnlyList\u003CLocalCoderHistoryContextFile\u003E ContextFiles { get; set; } = [];\n\n    public IReadOnlyList\u003CLocalCoderPlanTask\u003E PlanTasks { get; set; } = [];\n\n    public string PlanText { get; set; } = string.Empty;\n\n    public string PatchPreviewText { get; set; } = string.Empty;\n\n    public PatchScopeAnalysis? ScopeAnalysis { get; set; }\n\n    public PatchIntent? Intent { get; set; }\n\n    public PatchIntentValidation? IntentValidation { get; set; }\n\n    public PatchContextCoverage? ContextCoverage { get; set; }\n\n    public IReadOnlyList\u003Cstring\u003E ValidationErrors { get; set; } = [];\n\n    public IReadOnlyList\u003Cstring\u003E OperationGrammarErrors { get; set; } = [];\n\n    public IReadOnlyList\u003CPatchValidationGuidance\u003E ValidationGuidance { get; set; } = [];\n\n    public IReadOnlyList\u003CPatchReplaceDiagnostic\u003E ReplaceDiagnostics { get; set; } = [];\n\n    public IReadOnlyList\u003CPatchSuggestedTargetDiagnostic\u003E SuggestedTargetDiagnostics { get; set; } = [];\n\n    public LocalCoderPatchApplyResult? ApplyResult { get; set; }\n\n    public LocalCoderPatchRollbackResult? RollbackResult { get; set; }\n\n    public IReadOnlyList\u003CCommandRunResult\u003E VerificationResults { get; set; } = [];\n\n    public bool Success { get; set; }\n\n    public string Message { get; set; } = string.Empty;\n}\n"
+    }
+  ]
+}

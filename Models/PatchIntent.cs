@@ -10,6 +10,13 @@ public enum PatchIntentChangeType
     Refactor
 }
 
+public enum PatchPrimaryIntent
+{
+    Unknown,
+    ReadOnly,
+    Modify
+}
+
 public enum PatchIntentMatchStatus
 {
     MatchesIntent,
@@ -23,6 +30,7 @@ public sealed class PatchIntent
     public IReadOnlyList<string> AllowedPaths { get; set; } = [];
     public IReadOnlyList<string> ProtectedPaths { get; set; } = [];
     public string AllowedScope { get; set; } = string.Empty;
+    public PatchPrimaryIntent PrimaryIntent { get; set; } = PatchPrimaryIntent.Unknown;
     public PatchIntentChangeType ExpectedChangeType { get; set; } = PatchIntentChangeType.Unknown;
     public IReadOnlyList<string> MustNotChange { get; set; } = [];
     public string VerificationCommand { get; set; } = "dotnet build";

@@ -159,8 +159,10 @@
                                  OperationGrammarErrors="@LastPatchOperationGrammarErrors"
                                  ReplaceDiagnostics="@LastPatchReplaceDiagnostics"
                                  SuggestedTargetDiagnostics="@LastPatchSuggestedTargetDiagnostics"
-                                 SelectedSuggestedTarget="@selectedSuggestedTarget"
-                                 ValidationGuidance="@LastPatchValidationGuidance"
+                                  SelectedSuggestedTarget="@selectedSuggestedTarget"
+                                  ValidationGuidance="@LastPatchValidationGuidance"
+                                  RepairSummary="@(patchPreview?.RepairSummary ?? LastPatchRepairSummary)"
+                                 PatchPreviewMetrics="@CoderConsoleService.GetPatchPreviewMetrics()"
                                  RawResponse="@LastPatchRawResponse"
                                  NormalizedResponse="@LastPatchNormalizedResponse"
                                  NormalizedDiff="@LastPatchNormalizedDiff"
@@ -313,6 +315,7 @@
     private IReadOnlyList<PatchReplaceDiagnostic> LastPatchReplaceDiagnostics { get; set; } = [];
     private IReadOnlyList<PatchSuggestedTargetDiagnostic> LastPatchSuggestedTargetDiagnostics { get; set; } = [];
     private IReadOnlyList<PatchValidationGuidance> LastPatchValidationGuidance { get; set; } = [];
+    private PatchPreviewRepairSummary? LastPatchRepairSummary { get; set; }
     private PatchSuggestedTargetSelection? selectedSuggestedTarget;
     private LocalCoderPlanTask? lastPatchPlanTask;
     private int selectedTabIndex;
@@ -719,6 +722,7 @@
             patchPreview.IntentValidation = PatchIntentService.Evaluate(patchIntent!, patchPreview);
             patchIntentValidation = patchPreview.IntentValidation;
             ClearPatchDebug();
+            LastPatchRepairSummary = patchPreview.RepairSummary;
             if (planTask is not null)
             {
                 UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.PatchGenerated, "Patch preview generated.");
@@ -757,6 +761,7 @@
         catch (PatchPreviewValidationException exception)
         {
             error = exception.Message;
+            LastPatchRepairSummary = exception.RepairSummary;
             if (!preserveFailedPreviewOnError || repairContext is null)
             {
                 LastPatchRawResponse = exception.RawModelResponse;
@@ -855,6 +860,7 @@
         LastPatchReplaceDiagnostics = [];
         LastPatchSuggestedTargetDiagnostics = [];
         LastPatchValidationGuidance = [];
+        LastPatchRepairSummary = null;
     }
 
     #endregion

@@ -29,6 +29,7 @@ public static class PatchIntentService
                 PatchScopeMode.AnyProjectFile => "Any Project File",
                 _ => "Context Files Only"
             },
+            PrimaryIntent = DerivePrimaryIntent(request.Task),
             ExpectedChangeType = DeriveExpectedChangeType(request.Task),
             MustNotChange =
             [
@@ -344,4 +345,50 @@ public static class PatchIntentService
     {
         return (relativePath ?? string.Empty).Replace('\\', '/').Trim();
     }
+
+    private static PatchPrimaryIntent DerivePrimaryIntent(string task)
+    {
+        var value = (task ?? string.Empty).ToLowerInvariant();
+
+        if (ContainsAnyVerb(value, ModificationVerbs))
+        {
+            return PatchPrimaryIntent.Modify;
+        }
+
+        if (ContainsAnyVerb(value, ReadOnlyVerbs))
+        {
+            return PatchPrimaryIntent.ReadOnly;
+        }
+
+        return PatchPrimaryIntent.Unknown;
+    }
+
+    private static bool ContainsAnyVerb(string value, IReadOnlyList<string> verbs)
+    {
+        return verbs.Any(verb => value.Contains(verb, StringComparison.Ordinal));
+    }
+
+    private static readonly IReadOnlyList<string> ReadOnlyVerbs =
+    [
+        "inspect",
+        "analyze",
+        "analyse",
+        "review",
+        "explain",
+        "summarize",
+        "summarise"
+    ];
+
+    private static readonly IReadOnlyList<string> ModificationVerbs =
+    [
+        "add",
+        "create",
+        "update",
+        "replace",
+        "remove",
+        "delete",
+        "rename",
+        "move",
+        "refactor"
+    ];
 }

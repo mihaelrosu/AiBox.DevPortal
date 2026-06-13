@@ -40,6 +40,10 @@ public sealed class CoderConsoleService(
     };
 
     private static readonly SemaphoreSlim FileLock = new(1, 1);
+    private long patchPreviewAttempts;
+    private long patchPreviewSuccessfulPreviews;
+    private long patchPreviewFailedPreviews;
+    private long patchPreviewRepairedPreviews;
 
     public Task<IReadOnlyList<string>> GetWorkspaceRootsAsync()
     {
@@ -148,6 +152,7 @@ public sealed class CoderConsoleService(
 
         request.FileContexts = (request.FileContexts ?? [])
             .ToList();
+        RecordPatchPreviewAttempt();
         var intent = PatchIntentService.BuildIntent(request);
         var intentText = PatchIntentService.BuildPromptText(intent);
         var xmlDocumentationMode = IsXmlDocumentationRequest(request.Task);
@@ -181,6 +186,7 @@ public sealed class CoderConsoleService(
             };
             preview.ContextCoverage = PatchContextCoverageAnalyzer.Analyze(preview.PatchText, preview.FileContexts);
             preview.IntentValidation = PatchIntentService.Evaluate(intent, preview);
+            RecordPatchPreviewSuccess();
             return preview;
         }
 
@@ -213,6 +219,7 @@ public sealed class CoderConsoleService(
             };
             preview.ContextCoverage = PatchContextCoverageAnalyzer.Analyze(preview.PatchText, preview.FileContexts);
             preview.IntentValidation = PatchIntentService.Evaluate(intent, preview);
+            RecordPatchPreviewSuccess();
             return preview;
         }
 
@@ -245,27 +252,65 @@ public sealed class CoderConsoleService(
         var result = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
         var rawResponse = result?.Response ?? string.Empty;
         var normalizedResponse = NormalizePatchPreviewModelResponse(rawResponse);
-        await SavePatchDebugRawResponseAsync(rawResponse);
+        var finalRawResponse = rawResponse;
+        var finalNormalizedResponse = normalizedResponse;
+        PatchPreviewRepairSummary? repairSummary = null;
+        PatchPreviewValidationException? originalValidationException = null;
 
         PatchEditOperationResult editResult;
         try
         {
             if (xmlDocumentationMode)
             {
-                ValidateXmlDocumentationOperationModes(normalizedResponse);
+                ValidateXmlDocumentationOperationModes(finalNormalizedResponse);
             }
 
             editResult = await patchEditOperationService.BuildAsync(
                 request.ProjectPath,
                 request.FileContexts,
-                normalizedResponse);
+                finalNormalizedResponse);
         }
-        catch (PatchPreviewValidationException)
+        catch (PatchPreviewValidationException exception)
         {
-            throw;
+            originalValidationException = exception;
+            if (!TryGetPatchPreviewRepairPlan(exception, out var repairPlan))
+            {
+                RecordPatchPreviewFailure();
+                throw;
+            }
+
+            var repairOutcome = await TryRepairPatchPreviewAsync(
+                request,
+                profile,
+                intentText,
+                selectedFilePathsText,
+                fileContextText,
+                scopeText,
+                xmlDocumentationMode,
+                repairPlan,
+                exception);
+
+            if (repairOutcome is null)
+            {
+                exception.RepairSummary = new PatchPreviewRepairSummary
+                {
+                    OriginalOperation = repairPlan.OriginalOperation,
+                    RepairAttempt = repairPlan.RepairAttempt,
+                    RepairResult = "Failed",
+                    ValidationError = exception.Message
+                };
+                RecordPatchPreviewFailure();
+                throw;
+            }
+
+            editResult = repairOutcome.EditResult;
+            repairSummary = repairOutcome.RepairSummary;
+            finalRawResponse = repairOutcome.RawResponse;
+            finalNormalizedResponse = repairOutcome.NormalizedResponse;
         }
         catch (Exception exception)
         {
+            RecordPatchPreviewFailure();
             throw new PatchPreviewValidationException(
                 $"Patch preview validation failed:{Environment.NewLine}- {exception.Message}",
                 [exception.Message],
@@ -274,12 +319,24 @@ public sealed class CoderConsoleService(
                 normalizedResponse);
         }
 
+        await SavePatchDebugRawResponseAsync(finalRawResponse);
+
         var patchText = editResult.PatchText;
         var validation = ValidatePatchPreview(patchText, request.FileContexts, request.Task);
 
         if (!validation.IsValid)
         {
-            throw CreatePatchPreviewValidationException(validation, rawResponse, patchText, normalizedResponse);
+            if (originalValidationException is not null && repairSummary is not null)
+            {
+                repairSummary.RepairResult = "Failed";
+                repairSummary.ValidationError = originalValidationException.Message;
+                originalValidationException.RepairSummary = repairSummary;
+                RecordPatchPreviewFailure();
+                throw originalValidationException;
+            }
+
+            RecordPatchPreviewFailure();
+            throw CreatePatchPreviewValidationException(validation, finalRawResponse, patchText, finalNormalizedResponse);
         }
 
         var patchPreview = new LocalCoderPatchPreview
@@ -297,11 +354,28 @@ public sealed class CoderConsoleService(
                 request.AllowedPatchFolders,
                 editResult.FileChanges),
             Intent = intent,
-            PatchText = patchText
+            PatchText = patchText,
+            RepairSummary = repairSummary
         };
         patchPreview.ContextCoverage = PatchContextCoverageAnalyzer.Analyze(patchPreview.PatchText, patchPreview.FileContexts);
         patchPreview.IntentValidation = PatchIntentService.Evaluate(intent, patchPreview);
+        RecordPatchPreviewSuccess();
+        if (repairSummary is not null)
+        {
+            RecordPatchPreviewRepaired();
+        }
         return patchPreview;
+    }
+
+    public PatchPreviewMetricsSnapshot GetPatchPreviewMetrics()
+    {
+        return new PatchPreviewMetricsSnapshot
+        {
+            Attempts = Interlocked.Read(ref patchPreviewAttempts),
+            SuccessfulPreviews = Interlocked.Read(ref patchPreviewSuccessfulPreviews),
+            FailedPreviews = Interlocked.Read(ref patchPreviewFailedPreviews),
+            RepairedPreviews = Interlocked.Read(ref patchPreviewRepairedPreviews)
+        };
     }
 
     public async Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview)
@@ -1165,6 +1239,7 @@ public sealed class CoderConsoleService(
     private static string BuildRepairInstructionsText(PatchPreviewRepairContext repairContext)
     {
         var validationErrors = string.Join(Environment.NewLine, repairContext.ValidationErrors.Select(error => $"- {error}"));
+        var repairInstructions = BuildRepairCaseInstructionsText(repairContext);
         var replaceDiagnostics = repairContext.ReplaceDiagnostics.Count == 0
             ? "- None"
             : string.Join(
@@ -1215,6 +1290,7 @@ public sealed class CoderConsoleService(
         Repair mode is active.
         Repair the failed patch preview using the current selected file context and the exact validation feedback below.
         Return corrected patch JSON only.
+        {repairInstructions}
         Original user task:
         {repairContext.OriginalTask}
 
@@ -1261,6 +1337,241 @@ public sealed class CoderConsoleService(
         Use the closest exact match when repairing oldText or anchor.
         """;
     }
+
+    private static bool HasMalformedReplaceValidationError(IReadOnlyList<string> validationErrors)
+    {
+        return validationErrors.Any(error =>
+            error.Contains("replace", StringComparison.OrdinalIgnoreCase) &&
+            error.Contains("requires a non-empty oldText", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasMalformedRemoveValidationError(IReadOnlyList<string> validationErrors)
+    {
+        return validationErrors.Any(error =>
+            error.Contains("remove", StringComparison.OrdinalIgnoreCase) &&
+            error.Contains("requires a non-empty oldText", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasMalformedInsertAnchorValidationError(PatchPreviewValidationException exception)
+    {
+        return HasMalformedInsertAnchorValidationError(exception.ValidationErrors, exception.SuggestedTargetDiagnostics);
+    }
+
+    private static bool HasMalformedInsertAnchorValidationError(
+        IReadOnlyList<string> validationErrors,
+        IReadOnlyList<PatchSuggestedTargetDiagnostic> suggestedTargetDiagnostics)
+    {
+        if (validationErrors.Any(error =>
+                (error.Contains("insert_before", StringComparison.OrdinalIgnoreCase) ||
+                 error.Contains("insert_after", StringComparison.OrdinalIgnoreCase)) &&
+                error.Contains("requires a non-empty anchor", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return validationErrors.Any(error =>
+            error.Contains("Anchor not found for insert_before", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Anchor not found for insert_after", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("make the insert task more specific", StringComparison.OrdinalIgnoreCase)) ||
+            suggestedTargetDiagnostics.Any(diagnostic =>
+                diagnostic.TargetLabel.Equals("anchor", StringComparison.OrdinalIgnoreCase) &&
+                (diagnostic.FailedOperation.Equals("insert_before", StringComparison.OrdinalIgnoreCase) ||
+                 diagnostic.FailedOperation.Equals("insert_after", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string BuildRepairCaseInstructionsText(PatchPreviewRepairContext repairContext)
+    {
+        if (HasMalformedReplaceValidationError(repairContext.ValidationErrors))
+        {
+            return """
+        Replace operations require oldText.
+        Regenerate using exact oldText from the selected file context.
+        If a valid anchor is available, you may convert the operation to insert_before or insert_after.
+
+        Return JSON only.
+        """;
+        }
+
+        if (HasMalformedInsertAnchorValidationError(repairContext.ValidationErrors, repairContext.SuggestedTargetDiagnostics))
+        {
+            return """
+        Insert operations require an exact anchor.
+        Use the closest-match suggestion as the anchor.
+        Regenerate with the exact anchor text from context.
+
+        Return JSON only.
+        """;
+        }
+
+        if (HasMalformedRemoveValidationError(repairContext.ValidationErrors))
+        {
+            return """
+        Remove operations require oldText.
+        Regenerate using exact oldText from the selected file context.
+
+        Return JSON only.
+        """;
+        }
+
+        return string.Empty;
+    }
+
+    private static string GetRepairAttemptLabel(PatchPreviewValidationException exception)
+    {
+        if (HasMalformedReplaceValidationError(exception.ValidationErrors))
+        {
+            return "replace";
+        }
+
+        if (HasMalformedRemoveValidationError(exception.ValidationErrors))
+        {
+            return "remove";
+        }
+
+        var insertDiagnostic = exception.SuggestedTargetDiagnostics.FirstOrDefault(diagnostic =>
+            diagnostic.TargetLabel.Equals("anchor", StringComparison.OrdinalIgnoreCase) &&
+            (diagnostic.FailedOperation.Equals("insert_before", StringComparison.OrdinalIgnoreCase) ||
+             diagnostic.FailedOperation.Equals("insert_after", StringComparison.OrdinalIgnoreCase)));
+
+        if (insertDiagnostic is not null)
+        {
+            return insertDiagnostic.FailedOperation;
+        }
+
+        if (exception.ValidationErrors.Any(error => error.Contains("insert_after", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "insert_after";
+        }
+
+        return "insert_before";
+    }
+
+    private static bool TryGetPatchPreviewRepairPlan(PatchPreviewValidationException exception, out PatchPreviewRepairPlan repairPlan)
+    {
+        if (HasMalformedReplaceValidationError(exception.ValidationErrors))
+        {
+            repairPlan = new PatchPreviewRepairPlan("replace", "replace");
+            return true;
+        }
+
+        if (HasMalformedInsertAnchorValidationError(exception))
+        {
+            var repairAttempt = GetRepairAttemptLabel(exception);
+            repairPlan = new PatchPreviewRepairPlan(repairAttempt, repairAttempt);
+            return true;
+        }
+
+        if (HasMalformedRemoveValidationError(exception.ValidationErrors))
+        {
+            repairPlan = new PatchPreviewRepairPlan("remove", "remove");
+            return true;
+        }
+
+        repairPlan = new PatchPreviewRepairPlan(string.Empty, string.Empty);
+        return false;
+    }
+
+    private async Task<AutoRepairOutcome?> TryRepairPatchPreviewAsync(
+        LocalCoderRequest request,
+        AgentModeProfile? profile,
+        string intentText,
+        string selectedFilePathsText,
+        string fileContextText,
+        string scopeText,
+        bool xmlDocumentationMode,
+        PatchPreviewRepairPlan repairPlan,
+        PatchPreviewValidationException originalException)
+    {
+        var repairContext = new PatchPreviewRepairContext(
+            request.Task,
+            originalException.RawModelResponse,
+            originalException.ValidationErrors.ToArray(),
+            originalException.ReplaceDiagnostics.ToArray(),
+            originalException.SuggestedTargetDiagnostics.ToArray());
+
+        var repairPrompt = BuildGeneratePatchPreviewPrompt(
+            request,
+            selectedFilePathsText,
+            fileContextText,
+            scopeText,
+            intentText,
+            xmlDocumentationMode,
+            repairContext,
+            profile);
+
+        var repairRequest = new OllamaGenerateRequest
+        {
+            Model = string.IsNullOrWhiteSpace(request.Model)
+                ? configuration["AiBox:LocalCoder:DefaultModel"] ?? "qwen2.5-coder:7b"
+                : request.Model,
+            Prompt = repairPrompt,
+            Stream = false
+        };
+
+        using var repairResponse = await httpClient.PostAsJsonAsync("/api/generate", repairRequest);
+        repairResponse.EnsureSuccessStatusCode();
+
+        var repairResult = await repairResponse.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
+        var repairRawResponse = repairResult?.Response ?? string.Empty;
+        var repairNormalizedResponse = NormalizePatchPreviewModelResponse(repairRawResponse);
+
+        try
+        {
+            if (xmlDocumentationMode)
+            {
+                ValidateXmlDocumentationOperationModes(repairNormalizedResponse);
+            }
+
+            var editResult = await patchEditOperationService.BuildAsync(
+                request.ProjectPath,
+                request.FileContexts,
+                repairNormalizedResponse);
+
+            return new AutoRepairOutcome(
+                editResult,
+                new PatchPreviewRepairSummary
+                {
+                    OriginalOperation = repairPlan.OriginalOperation,
+                    RepairAttempt = editResult.Operations.FirstOrDefault()?.Operation ?? repairPlan.RepairAttempt,
+                    RepairResult = "Success",
+                    ValidationError = string.Empty
+                },
+                repairRawResponse,
+                repairNormalizedResponse);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void RecordPatchPreviewAttempt()
+    {
+        Interlocked.Increment(ref patchPreviewAttempts);
+    }
+
+    private void RecordPatchPreviewSuccess()
+    {
+        Interlocked.Increment(ref patchPreviewSuccessfulPreviews);
+    }
+
+    private void RecordPatchPreviewFailure()
+    {
+        Interlocked.Increment(ref patchPreviewFailedPreviews);
+    }
+
+    private void RecordPatchPreviewRepaired()
+    {
+        Interlocked.Increment(ref patchPreviewRepairedPreviews);
+    }
+
+    private sealed record AutoRepairOutcome(
+        PatchEditOperationResult EditResult,
+        PatchPreviewRepairSummary RepairSummary,
+        string RawResponse,
+        string NormalizedResponse);
+
+    private sealed record PatchPreviewRepairPlan(string OriginalOperation, string RepairAttempt);
 
     internal static bool IsXmlDocumentationRequest(string task)
     {

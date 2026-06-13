@@ -255,6 +255,7 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             AllowedPaths = [.. intent.AllowedPaths ?? []],
             ProtectedPaths = [.. intent.ProtectedPaths ?? []],
             AllowedScope = intent.AllowedScope,
+            PrimaryIntent = intent.PrimaryIntent,
             ExpectedChangeType = intent.ExpectedChangeType,
             MustNotChange = [.. intent.MustNotChange ?? []],
             VerificationCommand = intent.VerificationCommand

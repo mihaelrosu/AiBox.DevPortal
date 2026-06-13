@@ -13,6 +13,7 @@ public interface ICoderConsoleService
     Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile? profile = null);
     Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile? profile = null, PatchPreviewRepairContext? repairContext = null);
     Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview);
+    PatchPreviewMetricsSnapshot GetPatchPreviewMetrics();
     Task<LocalCoderPatchRollbackResult> RollbackPatchAsync(LocalCoderPatchApplyResult applyResult, string projectPath);
     Task<IReadOnlyList<CommandRunResult>> CommitChangesAsync(string projectPath, string commitMessage);
     Task<IReadOnlyList<CommandRunResult>> BuildDeployAsync(string projectPath);

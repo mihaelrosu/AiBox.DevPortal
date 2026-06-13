@@ -147,7 +147,14 @@ public sealed class CoderComponentSmokeTests : TestContext
                 91.2))
             .Add(component => component.RawResponse, "{\"operations\":[]}")
             .Add(component => component.NormalizedResponse, "{\"operations\":[],\"errors\":[\"Exact target text was not found in context.\"]}")
-            .Add(component => component.NormalizedDiff, string.Empty));
+            .Add(component => component.NormalizedDiff, string.Empty)
+            .Add(component => component.PatchPreviewMetrics, new PatchPreviewMetricsSnapshot
+            {
+                Attempts = 3,
+                SuccessfulPreviews = 2,
+                FailedPreviews = 1,
+                RepairedPreviews = 1
+            }));
 
         Assert.Contains("Patch Debug", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Operation Grammar Errors", cut.Markup, StringComparison.Ordinal);
@@ -159,6 +166,55 @@ public sealed class CoderComponentSmokeTests : TestContext
         Assert.Contains("Fix Patch Preview", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Raw Model Response", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Normalized Response", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Patch Preview Metrics", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Patch preview attempts: 3", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CoderDiffViewer_PatchIntent_RendersPrimaryIntent()
+    {
+        var cut = RenderComponent<CoderDiffViewer>(parameters => parameters
+            .Add(component => component.PatchPreview, new LocalCoderPatchPreview
+            {
+                Intent = new PatchIntent
+                {
+                    Goal = "Add XML documentation.",
+                    PrimaryIntent = PatchPrimaryIntent.Modify,
+                    AllowedScope = "Context Files Only",
+                    ExpectedChangeType = PatchIntentChangeType.Add,
+                    VerificationCommand = "dotnet build"
+                }
+            }));
+
+        Assert.Contains("Primary Intent: Modify", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Expected change type: Add", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CoderDiffViewer_PatchRepair_RendersSummary()
+    {
+        var cut = RenderComponent<CoderDiffViewer>(parameters => parameters
+            .Add(component => component.ValidationErrors, ["Operation 'replace' for file 'Example.cs' requires a non-empty oldText."])
+            .Add(component => component.PatchPreview, new LocalCoderPatchPreview
+            {
+                RepairSummary = new PatchPreviewRepairSummary
+                {
+                    OriginalOperation = "replace",
+                    RepairAttempt = "insert_before",
+                    RepairResult = "Success"
+                }
+            })
+            .Add(component => component.RepairSummary, new PatchPreviewRepairSummary
+            {
+                OriginalOperation = "replace",
+                RepairAttempt = "insert_before",
+                RepairResult = "Success"
+            }));
+
+        Assert.Contains("Patch Repair", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Original Operation: replace", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Repair Attempt: insert_before", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Repair Result: Success", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]

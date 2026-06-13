@@ -23,9 +23,48 @@ public sealed class PatchIntentServiceTests
 
         Assert.Equal("Move Verify button into its own card", intent.Goal);
         Assert.Equal(["Components/Pages/Coder.razor", "Components/Coder/CoderPromptPanel.razor"], intent.AllowedPaths);
+        Assert.Equal(PatchPrimaryIntent.Modify, intent.PrimaryIntent);
         Assert.Equal(PatchIntentChangeType.Move, intent.ExpectedChangeType);
         Assert.Equal("dotnet build", intent.VerificationCommand);
         Assert.Contains("Patch apply logic", intent.MustNotChange);
+    }
+
+    [Theory]
+    [InlineData("Read file and add comment")]
+    [InlineData("Inspect file and create method")]
+    public void BuildIntent_ModificationVerb_WinsOverReadOnlyVerb(string task)
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = task,
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Components/Pages/Coder.razor" }
+            ]
+        });
+
+        Assert.Equal(PatchPrimaryIntent.Modify, intent.PrimaryIntent);
+    }
+
+    [Theory]
+    [InlineData("Review file")]
+    [InlineData("Summarize file")]
+    public void BuildIntent_ReadOnlyVerb_MapsToReadOnly(string task)
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = task,
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Components/Pages/Coder.razor" }
+            ]
+        });
+
+        Assert.Equal(PatchPrimaryIntent.ReadOnly, intent.PrimaryIntent);
     }
 
     [Fact]

@@ -15,5 +15,6 @@ public sealed class LocalCoderPatchPreview
     public PatchIntent? Intent { get; set; }
     public PatchIntentValidation? IntentValidation { get; set; }
     public PatchContextCoverage ContextCoverage { get; set; } = new();
+    public PatchPreviewRepairSummary? RepairSummary { get; set; }
     public string PatchText { get; set; } = string.Empty;
 }

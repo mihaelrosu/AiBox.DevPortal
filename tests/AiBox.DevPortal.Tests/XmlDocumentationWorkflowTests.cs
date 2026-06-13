@@ -157,6 +157,57 @@ public sealed class XmlDocumentationWorkflowTests
     }
 
     [Fact]
+    public void BuildGeneratePatchPreviewPrompt_MalformedReplaceRepairAddsReplaceOnlyInstructions()
+    {
+        var request = new LocalCoderRequest
+        {
+            ProjectPath = "/repo",
+            Task = "Read file and add XML documentation",
+            Model = "test-model",
+            FileContexts =
+            [
+                new LocalCoderFileContext
+                {
+                    RelativePath = "Components/Pages/Coder.razor",
+                    Content = "<h1>Header</h1>"
+                }
+            ]
+        };
+
+        var repairContext = new PatchPreviewRepairContext(
+            "Read file and add XML documentation",
+            """
+            {
+              "operations": [
+                {
+                  "filePath": "Components/Pages/Coder.razor",
+                  "operation": "replace",
+                  "oldText": "",
+                  "newText": "<summary>Docs</summary>"
+                }
+              ]
+            }
+            """,
+            ["Operation 'replace' for file 'Components/Pages/Coder.razor' requires a non-empty oldText."],
+            [],
+            []);
+
+        var prompt = CoderConsoleService.BuildGeneratePatchPreviewPrompt(
+            request,
+            "- Components/Pages/Coder.razor",
+            "FILE: Components/Pages/Coder.razor",
+            "Context Files Only",
+            "goal text",
+            xmlDocumentationMode: false,
+            repairContext: repairContext);
+
+        Assert.Contains("Replace operations require oldText.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Regenerate using exact oldText from the selected file context.", prompt, StringComparison.Ordinal);
+        Assert.Contains("If a valid anchor is available, you may convert the operation to insert_before or insert_after.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Return JSON only.", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ValidateXmlDocumentationOperationModes_RejectsNonReplaceOperations()
     {
         var rawResponse = """
