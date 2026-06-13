@@ -1,0 +1,13 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Agents/LocalCoderHistory.razor",
+      "operation": "replace",
+      "oldText": "/// <summary>\n/// Displays the history of Local Coder sessions.\n/// </summary>",
+      "newText": "// This file is intentionally left blank for demonstration purposes.",
+      "summary": "Replace summary with placeholder comment"
+    }
+  ]
+}
+```
