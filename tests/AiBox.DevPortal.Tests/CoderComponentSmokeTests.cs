@@ -162,6 +162,33 @@ public sealed class CoderComponentSmokeTests : TestContext
     }
 
     [Fact]
+    public void CoderDiffViewer_CreateScopeDebug_RendersSelectedContextFolder()
+    {
+        var cut = RenderComponent<CoderDiffViewer>(parameters => parameters
+            .Add(component => component.PatchPreview, new LocalCoderPatchPreview
+            {
+                ScopeAnalysis = new PatchScopeAnalysis
+                {
+                    Files =
+                    [
+                        new PatchScopeFileResult
+                        {
+                            RelativePath = "Models/ProjectKnowledgeIndex.cs",
+                            Status = PatchScopeStatus.InScope,
+                            IsCreate = true,
+                            ContextRepresentativePath = "Models/LocalCoderHistoryEntry.cs"
+                        }
+                    ]
+                }
+            }));
+
+        Assert.Contains("Selected Context Folder", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Models", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Created File", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Decision", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CoderHistoryPanel_Renders()
     {
         var cut = RenderComponent<CoderHistoryPanel>(parameters => parameters
@@ -181,6 +208,27 @@ public sealed class CoderComponentSmokeTests : TestContext
         var profileService = Substitute.For<IAgentModeProfileService>();
         profileService.GetAllAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<AgentModeProfile>>(CreateProfiles()));
+
+        var verificationProfileService = Substitute.For<ILocalCoderVerificationProfileService>();
+        verificationProfileService.GetAllAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<LocalCoderVerificationProfile>>(
+                [
+                    new LocalCoderVerificationProfile
+                    {
+                        Id = "quick",
+                        Name = "Quick",
+                        Description = "Fast verification with a single build.",
+                        Commands = ["dotnet build"]
+                    }
+                ]));
+        verificationProfileService.GetByIdAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<LocalCoderVerificationProfile?>(new LocalCoderVerificationProfile
+            {
+                Id = "quick",
+                Name = "Quick",
+                Description = "Fast verification with a single build.",
+                Commands = ["dotnet build"]
+            }));
 
         var runHistoryService = Substitute.For<IAgentRunHistoryService>();
         runHistoryService.GetAllAsync(Arg.Any<CancellationToken>())
@@ -206,6 +254,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(coderConsoleService);
         Services.AddSingleton(Substitute.For<IAgentModeRunner>());
         Services.AddSingleton(profileService);
+        Services.AddSingleton(verificationProfileService);
         Services.AddSingleton(runHistoryService);
         Services.AddSingleton(patchPackageService);
         Services.AddSingleton(Substitute.For<IPatchApplyService>());

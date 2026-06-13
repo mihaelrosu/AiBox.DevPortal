@@ -11,6 +11,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> AllowedOperations = new(StringComparer.OrdinalIgnoreCase)
     {
+        "create",
         "insert_after",
         "insert_before",
         "replace",
@@ -83,14 +84,35 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         foreach (var operation in response.Operations)
         {
+            var normalizedOperation = operation.Operation.Trim();
+            if (!AllowedOperations.Contains(normalizedOperation))
+            {
+                validationErrors.Add($"Unsupported operation '{operation.Operation}' for file '{operation.FilePath}'.");
+                continue;
+            }
+
             var filePath = NormalizeRelativePath(operation.FilePath);
-            if (!ValidatePath(rootPath, filePath, selectedContextMap, validationErrors))
+            var isCreate = normalizedOperation.Equals("create", StringComparison.OrdinalIgnoreCase);
+
+            if (!ValidatePath(rootPath, filePath, selectedContextMap, isCreate, validationErrors))
             {
                 continue;
             }
 
             var currentPath = Path.Combine(rootPath, filePath.Replace('/', Path.DirectorySeparatorChar));
-            if (!File.Exists(currentPath))
+            var fileExists = File.Exists(currentPath);
+            if (isCreate)
+            {
+                if (fileExists)
+                {
+                    validationErrors.Add($"Create operation target file already exists: {filePath}");
+                    continue;
+                }
+
+                fileStateMap[filePath] = string.Empty;
+                originalContentMap[filePath] = string.Empty;
+            }
+            else if (!fileExists)
             {
                 validationErrors.Add($"Patch edit target file does not exist: {filePath}");
                 continue;
@@ -98,7 +120,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
             if (!fileStateMap.TryGetValue(filePath, out var currentContent))
             {
-                currentContent = originalContentMap[filePath];
+                currentContent = originalContentMap.TryGetValue(filePath, out var originalContent)
+                    ? originalContent
+                    : string.Empty;
             }
 
             var result = ApplyOperation(operation, filePath, currentContent, validationErrors, replaceDiagnostics, suggestedTargetDiagnostics);
@@ -161,15 +185,26 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         List<PatchSuggestedTargetDiagnostic> suggestedTargetDiagnostics)
     {
         var normalizedOperation = operation.Operation.Trim();
-        if (!AllowedOperations.Contains(normalizedOperation))
-        {
-            validationErrors.Add($"Unsupported operation '{operation.Operation}' for file '{filePath}'.");
-            return null;
-        }
-
         var anchor = operation.Anchor ?? string.Empty;
         var oldText = operation.OldText ?? string.Empty;
         var newText = operation.NewText ?? string.Empty;
+
+        if (normalizedOperation.Equals("create", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(newText))
+            {
+                validationErrors.Add($"Operation 'create' for file '{filePath}' must include non-empty newText.");
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(oldText))
+            {
+                validationErrors.Add($"Operation 'create' for file '{filePath}' must not include oldText.");
+                return null;
+            }
+
+            return newText;
+        }
 
         if (normalizedOperation.Equals("remove", StringComparison.OrdinalIgnoreCase))
         {
@@ -710,6 +745,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         string rootPath,
         string relativePath,
         IReadOnlyDictionary<string, string> selectedContextMap,
+        bool allowMissingFileForCreate,
         List<string> validationErrors)
     {
         if (string.IsNullOrWhiteSpace(relativePath))
@@ -736,17 +772,41 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         if (!selectedContextMap.ContainsKey(relativePath))
         {
-            validationErrors.Add($"Patch edit operation file path was not included in the selected context: {relativePath}");
-            return false;
+            if (!allowMissingFileForCreate)
+            {
+                validationErrors.Add($"Patch edit operation file path was not included in the selected context: {relativePath}");
+                return false;
+            }
+
+            if (!HasContextRepresentative(relativePath, selectedContextMap))
+            {
+                validationErrors.Add($"Create operation requires a parent folder represented in the selected context: {relativePath}");
+                return false;
+            }
         }
 
         if (!File.Exists(fullPath))
         {
-            validationErrors.Add($"Patch edit target file does not exist: {relativePath}");
-            return false;
+            if (!allowMissingFileForCreate)
+            {
+                validationErrors.Add($"Patch edit target file does not exist: {relativePath}");
+                return false;
+            }
         }
 
         return true;
+    }
+
+    private static bool HasContextRepresentative(string relativePath, IReadOnlyDictionary<string, string> selectedContextMap)
+    {
+        var parentDirectory = GetParentDirectory(relativePath);
+        if (string.IsNullOrWhiteSpace(parentDirectory))
+        {
+            return false;
+        }
+
+        return selectedContextMap.Keys.Any(contextPath =>
+            string.Equals(GetParentDirectory(contextPath), parentDirectory, StringComparison.OrdinalIgnoreCase));
     }
 
     private static PatchEditOperationEnvelope ParseResponse(string rawJson)
@@ -1109,6 +1169,18 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         }
 
         return normalized.TrimStart('/');
+    }
+
+    private static string GetParentDirectory(string path)
+    {
+        var normalized = NormalizeRelativePath(path);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var index = normalized.LastIndexOf('/');
+        return index < 0 ? string.Empty : normalized[..index];
     }
 
     private static string EscapeArgument(string value)

@@ -232,7 +232,9 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
                 {
                     RelativePath = file.RelativePath,
                     Status = file.Status,
-                    Reason = file.Reason
+                    Reason = file.Reason,
+                    IsCreate = file.IsCreate,
+                    ContextRepresentativePath = file.ContextRepresentativePath
                 })
                 .ToArray(),
             WarningMessage = analysis.WarningMessage,

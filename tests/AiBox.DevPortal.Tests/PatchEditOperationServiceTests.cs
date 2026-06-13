@@ -168,6 +168,149 @@ public sealed class PatchEditOperationServiceTests
         }
     }
 
+    [Fact]
+    public async Task BuildAsync_CreateInRepresentedFolder_ProducesPatch()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-represented-folder-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string createdRelativePath = "Models/ProjectKnowledgeIndex.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+        const string createdContent = "public sealed class ProjectKnowledgeIndex {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    operations = new[]
+                    {
+                        new
+                        {
+                            filePath = createdRelativePath,
+                            operation = "create",
+                            anchor = string.Empty,
+                            oldText = string.Empty,
+                            newText = createdContent
+                        }
+                    }
+                }));
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal(createdRelativePath, change.RelativePath);
+            Assert.Equal(string.Empty, change.OldContent);
+            Assert.Equal(createdContent, change.NewContent);
+            Assert.Contains("diff --git a/Models/ProjectKnowledgeIndex.cs b/Models/ProjectKnowledgeIndex.cs", result.PatchText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_CreateOutsideRepresentedFolder_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-outside-represented-folder-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Services"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = "Services/LocalCoderProjectKnowledgeIndexService.cs",
+                                operation = "create",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = "public sealed class LocalCoderProjectKnowledgeIndexService {}"
+                            }
+                        }
+                    })));
+
+            Assert.Contains(
+                "parent folder represented in the selected context",
+                string.Join(Environment.NewLine, exception.ValidationErrors),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_CreateOutsideProject_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-outside-project-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = "../SiblingProject/Models/ProjectKnowledgeIndex.cs",
+                                operation = "create",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = "public sealed class ProjectKnowledgeIndex {}"
+                            }
+                        }
+                    })));
+
+            Assert.Contains(
+                "invalid",
+                string.Join(Environment.NewLine, exception.ValidationErrors),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
     [Theory]
     [InlineData("@page \"/test\"")]
     [InlineData("@using System.Text")]

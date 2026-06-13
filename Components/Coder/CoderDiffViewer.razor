@@ -259,18 +259,30 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
                         }
                         @foreach (var file in PatchPreview.ScopeAnalysis.Files)
                         {
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                <RadzenText Text="@file.RelativePath" TextStyle="TextStyle.Body2" />
-                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                    <RadzenBadge Text="@ScopeStatusText(file.Status)"
-                                                 BadgeStyle="@ScopeStatusBadgeStyle(file.Status)" />
+                            <RadzenCard Style="padding: 0.75rem;">
+                                <RadzenStack Gap="0.35rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                                 JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="@(file.IsCreate ? "Created File" : "Changed File")" TextStyle="TextStyle.Body2" />
+                                        <RadzenBadge Text="@ScopeStatusText(file.Status)"
+                                                     BadgeStyle="@ScopeStatusBadgeStyle(file.Status)" />
+                                    </RadzenStack>
+                                    <RadzenText Text="@file.RelativePath" TextStyle="TextStyle.Body1" />
+                                    @if (!string.IsNullOrWhiteSpace(file.ContextRepresentativePath))
+                                    {
+                                        <RadzenText Text="@($"Selected Context Folder: {GetSelectedContextFolder(file)}")" TextStyle="TextStyle.Caption" />
+                                    }
                                     @if (!string.IsNullOrWhiteSpace(file.Reason))
                                     {
+                                        <RadzenText Text="@($"Decision: {ScopeStatusText(file.Status)}")" TextStyle="TextStyle.Caption" />
                                         <RadzenBadge Text="@file.Reason" BadgeStyle="BadgeStyle.Warning" />
                                     }
+                                    else
+                                    {
+                                        <RadzenText Text="@($"Decision: {ScopeStatusText(file.Status)}")" TextStyle="TextStyle.Caption" />
+                                    }
                                 </RadzenStack>
-                            </RadzenStack>
+                            </RadzenCard>
                         }
                     </RadzenStack>
                 </RadzenCard>
@@ -502,6 +514,17 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
         <= 2 => BadgeStyle.Warning,
         _ => BadgeStyle.Danger
     };
+
+    private static string GetSelectedContextFolder(PatchScopeFileResult file)
+    {
+        if (string.IsNullOrWhiteSpace(file.ContextRepresentativePath))
+        {
+            return string.Empty;
+        }
+
+        var folder = Path.GetDirectoryName(file.ContextRepresentativePath.Replace('\\', '/'));
+        return string.IsNullOrWhiteSpace(folder) ? file.ContextRepresentativePath : folder.Replace('\\', '/');
+    }
 
     private string DescribeRequestedIntent()
     {

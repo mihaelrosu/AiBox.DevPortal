@@ -50,6 +50,8 @@ public static class PatchIntentService
         var requestedFiles = NormalizePaths(intent.AllowedPaths).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var modifiedFiles = NormalizePaths(preview.FileChanges.Select(change => change.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var contextFiles = NormalizePaths(preview.FileContexts.Select(context => context.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var scopeFilesByPath = (preview.ScopeAnalysis.Files ?? [])
+            .ToDictionary(file => NormalizePath(file.RelativePath), file => file, StringComparer.OrdinalIgnoreCase);
         var scopeFiles = NormalizePaths(preview.ScopeAnalysis.Files
                 .Where(file => file.Status == PatchScopeStatus.InScope)
                 .Select(file => file.RelativePath))
@@ -60,9 +62,12 @@ public static class PatchIntentService
 
         var fileEvaluations = modifiedFiles.Select(path =>
         {
+            scopeFilesByPath.TryGetValue(path, out var scopeFile);
+            var isCreate = scopeFile?.IsCreate == true;
+            var hasContextRepresentative = !string.IsNullOrWhiteSpace(scopeFile?.ContextRepresentativePath);
             var inContext = contextFiles.Contains(path);
             var inScope = scopeFiles.Contains(path);
-            var matchesRequestedFile = IsUnderAnyRequestedPath(path, requestedFiles);
+            var matchesRequestedFile = IsUnderAnyRequestedPath(path, requestedFiles) || (isCreate && hasContextRepresentative);
             var explicitlyAllowed = explicitAllowedFiles.Contains(path) || matchesRequestedFile;
             var explicitlyProtected = explicitProtectedFiles.Contains(path) || IsProtectedPath(path);
             var protectedFile = explicitlyProtected;
@@ -86,11 +91,15 @@ public static class PatchIntentService
             .ToArray();
         var requestedModifiedFiles = requestedFiles.Length == 0
             ? []
-            : modifiedFiles.Where(path => IsUnderAnyRequestedPath(path, requestedFiles)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            : fileEvaluations
+                .Where(evaluation => evaluation.ExplicitlyAllowed)
+                .Select(evaluation => evaluation.RelativePath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         var unexpectedModifiedFiles = preview.AllowedPatchScope == PatchScopeMode.AnyProjectFile
             ? []
             : modifiedFiles
-                .Where(path => !IsUnderAnyRequestedPath(path, requestedFiles))
+                .Where(path => !fileEvaluations.Any(evaluation => evaluation.RelativePath.Equals(path, StringComparison.OrdinalIgnoreCase) && evaluation.ExplicitlyAllowed))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 

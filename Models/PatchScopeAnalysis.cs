@@ -21,4 +21,6 @@ public sealed class PatchScopeFileResult
     public string RelativePath { get; set; } = string.Empty;
     public PatchScopeStatus Status { get; set; }
     public string Reason { get; set; } = string.Empty;
+    public bool IsCreate { get; set; }
+    public string ContextRepresentativePath { get; set; } = string.Empty;
 }

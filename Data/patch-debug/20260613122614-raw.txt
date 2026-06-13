@@ -1,0 +1,13 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Models/ProjectKnowledgeIndex.cs",
+      "operation": "create",
+      "oldText": "",
+      "newText": "public sealed class ProjectKnowledgeIndex\n{\n    public string ProjectPath { get; set; } = \"\";\n    public DateTime RebuiltAtUtc { get; set; } = DateTime.UtcNow;\n    public List<ProjectKnowledgeItem> Items { get; set; } = new();\n}\n\npublic sealed class ProjectKnowledgeItem\n{\n    public string RelativePath { get; set; } = \"\";\n    public string FileType { get; set; } = \"\";\n    public string Name { get; set; } = \"\";\n    public string Namespace { get; set; } = \"\";\n    public string Kind { get; set; } = \"\";\n    public string Summary { get; set; } = \"\";\n    public DateTime LastModifiedUtc { get; set; }\n}",
+      "summary": "Add ProjectKnowledgeIndex and ProjectKnowledgeItem classes"
+    }
+  ]
+}
+```

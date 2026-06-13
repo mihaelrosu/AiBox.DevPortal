@@ -1,0 +1,29 @@
+[
+  {
+    "id": "quick",
+    "name": "Quick",
+    "description": "Fast verification with a single build.",
+    "commands": [
+      "dotnet build"
+    ]
+  },
+  {
+    "id": "tests",
+    "name": "Tests",
+    "description": "Build first, then run the test suite.",
+    "commands": [
+      "dotnet build",
+      "dotnet test"
+    ]
+  },
+  {
+    "id": "full",
+    "name": "Full",
+    "description": "Build, test, and check the diff for whitespace or patch issues.",
+    "commands": [
+      "dotnet build",
+      "dotnet test",
+      "git diff --check"
+    ]
+  }
+]

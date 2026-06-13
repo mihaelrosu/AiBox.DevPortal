@@ -295,7 +295,7 @@ public sealed class CoderConsoleService(
                 request.AllowedPatchScope,
                 request.FileContexts.Select(context => context.RelativePath).ToArray(),
                 request.AllowedPatchFolders,
-                editResult.FileChanges.Select(change => change.RelativePath).ToArray()),
+                editResult.FileChanges),
             Intent = intent,
             PatchText = patchText
         };
@@ -1038,6 +1038,13 @@ public sealed class CoderConsoleService(
         {
           "operations": [
             {
+              "filePath": "Models/ProjectKnowledgeIndex.cs",
+              "operation": "create",
+              "oldText": "",
+              "newText": "public sealed class ProjectKnowledgeIndex {}",
+              "summary": "Create a new project knowledge index file"
+            },
+            {
               "filePath": "Components/Pages/Coder.razor",
               "operation": "insert_after",
               "anchor": "<h3>Patch Queue</h3>",
@@ -1058,6 +1065,10 @@ public sealed class CoderConsoleService(
         """;
         var operationGrammar = """
         Allowed operation grammar:
+        - create:
+          - filePath required
+          - newText required
+          - oldText must be omitted or empty
         - replace:
           - filePath required
           - oldText required
@@ -1080,6 +1091,8 @@ public sealed class CoderConsoleService(
         """;
         var forbiddenExamples = """
         Forbidden examples:
+        - create with a filePath outside the project root
+        - create outside a represented folder when scope is Context Files Only
         - replace with empty oldText
         - invented anchors
         - markdown explanations
@@ -1221,6 +1234,10 @@ public sealed class CoderConsoleService(
         {suggestedTargetDiagnostics}
 
         Patch operation grammar rules:
+        - create:
+          - filePath required
+          - newText required
+          - oldText must be omitted or empty
         - replace:
           - filePath required
           - oldText required

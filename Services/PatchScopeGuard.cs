@@ -17,7 +17,51 @@ public static class PatchScopeGuard
 
         foreach (var changedPath in NormalizePaths(changedPaths))
         {
-            var result = AnalyzeFile(effectiveMode, changedPath, normalizedContext, normalizedFolders);
+            var result = AnalyzeFile(effectiveMode, changedPath, normalizedContext, normalizedFolders, isCreate: false);
+            results.Add(result);
+        }
+
+        var analysis = new PatchScopeAnalysis
+        {
+            Mode = effectiveMode,
+            AllowedFolders = normalizedFolders,
+            Files = results,
+            IsBlocking = effectiveMode switch
+            {
+                PatchScopeMode.AnyProjectFile => false,
+                PatchScopeMode.ContextFilesOnly => results.Any(file => file.Status == PatchScopeStatus.OutOfScope),
+                PatchScopeMode.SelectedFolders => normalizedFolders.Count == 0 || results.Any(file => file.Status == PatchScopeStatus.OutOfScope),
+                _ => false
+            }
+        };
+
+        analysis.WarningMessage = effectiveMode switch
+        {
+            PatchScopeMode.AnyProjectFile => "Patch may modify any file in the project.",
+            PatchScopeMode.SelectedFolders when normalizedFolders.Count == 0 => "Add at least one allowed folder before approving or applying this patch.",
+            _ when analysis.IsBlocking => BuildBlockingMessage(analysis),
+            _ => string.Empty
+        };
+
+        return analysis;
+    }
+
+    public static PatchScopeAnalysis Analyze(
+        PatchScopeMode? mode,
+        IReadOnlyList<string> contextFilePaths,
+        IReadOnlyList<string> allowedFolders,
+        IReadOnlyList<PatchFileChange> fileChanges)
+    {
+        var effectiveMode = mode ?? PatchScopeMode.AnyProjectFile;
+        var normalizedContext = NormalizePaths(contextFilePaths);
+        var normalizedFolders = NormalizeFolders(allowedFolders);
+        var results = new List<PatchScopeFileResult>();
+
+        foreach (var change in fileChanges ?? [])
+        {
+            var changedPath = NormalizePath(change.RelativePath);
+            var isCreate = string.IsNullOrWhiteSpace(change.OldContent) && !string.IsNullOrWhiteSpace(change.NewContent);
+            var result = AnalyzeFile(effectiveMode, changedPath, normalizedContext, normalizedFolders, isCreate);
             results.Add(result);
         }
 
@@ -53,7 +97,7 @@ public static class PatchScopeGuard
             package.AllowedPatchScope,
             package.ContextFilePaths ?? [],
             package.AllowedPatchFolders ?? [],
-            package.FileChanges?.Select(change => change.RelativePath).ToArray() ?? []);
+            package.FileChanges);
     }
 
     public static PatchScopeAnalysis Analyze(LocalCoderPatchPreview preview)
@@ -63,7 +107,7 @@ public static class PatchScopeGuard
             preview.AllowedPatchScope,
             preview.FileContexts.Select(context => context.RelativePath).ToArray(),
             preview.AllowedPatchFolders,
-            ExtractChangedPaths(preview));
+            preview.FileChanges);
     }
 
     public static void ThrowIfBlocking(PatchPackage package)
@@ -116,11 +160,13 @@ public static class PatchScopeGuard
         PatchScopeMode mode,
         string changedPath,
         IReadOnlyList<string> contextPaths,
-        IReadOnlyList<string> allowedFolders)
+        IReadOnlyList<string> allowedFolders,
+        bool isCreate)
     {
+        var representativePath = string.Empty;
         var inScope = mode switch
         {
-            PatchScopeMode.ContextFilesOnly => contextPaths.Contains(changedPath, StringComparer.OrdinalIgnoreCase),
+            PatchScopeMode.ContextFilesOnly => AnalyzeContextFileScope(changedPath, contextPaths, isCreate, out representativePath),
             PatchScopeMode.SelectedFolders => allowedFolders.Any(folder => changedPath.StartsWith(folder, StringComparison.OrdinalIgnoreCase)),
             PatchScopeMode.AnyProjectFile => true,
             _ => false
@@ -130,52 +176,49 @@ public static class PatchScopeGuard
         {
             RelativePath = changedPath,
             Status = inScope ? PatchScopeStatus.InScope : PatchScopeStatus.OutOfScope,
+            IsCreate = isCreate,
+            ContextRepresentativePath = representativePath,
             Reason = inScope
                 ? string.Empty
                 : mode switch
                 {
-                    PatchScopeMode.ContextFilesOnly => "Not in selected context.",
+                    PatchScopeMode.ContextFilesOnly => isCreate
+                        ? "Parent folder is not represented in the selected context."
+                        : "Not in selected context.",
                     PatchScopeMode.SelectedFolders => "Not under an allowed folder.",
                     _ => string.Empty
                 }
         };
     }
 
-    private static IReadOnlyList<string> ExtractChangedPaths(LocalCoderPatchPreview preview)
+    private static bool AnalyzeContextFileScope(
+        string changedPath,
+        IReadOnlyList<string> contextPaths,
+        bool isCreate,
+        out string representativePath)
     {
-        if (preview.FileChanges is { Count: > 0 })
+        representativePath = string.Empty;
+
+        if (contextPaths.Contains(changedPath, StringComparer.OrdinalIgnoreCase))
         {
-            return preview.FileChanges
-                .Select(change => NormalizePath(change.RelativePath))
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            return true;
         }
 
-        var lines = (preview.PatchText ?? string.Empty).ReplaceLineEndings("\n").Split('\n');
-        var paths = new List<string>();
-
-        foreach (var line in lines)
+        if (!isCreate)
         {
-            if (!line.StartsWith("diff --git ", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 4)
-            {
-                continue;
-            }
-
-            var path = NormalizePath(parts[3]);
-            if (!string.IsNullOrWhiteSpace(path) && !path.Equals("dev/null", StringComparison.OrdinalIgnoreCase))
-            {
-                paths.Add(path);
-            }
+            return false;
         }
 
-        return paths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var parentDirectory = GetParentDirectory(changedPath);
+        if (string.IsNullOrWhiteSpace(parentDirectory))
+        {
+            return false;
+        }
+
+        representativePath = contextPaths.FirstOrDefault(contextPath =>
+            string.Equals(GetParentDirectory(contextPath), parentDirectory, StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
+
+        return !string.IsNullOrWhiteSpace(representativePath);
     }
 
     private static IReadOnlyList<string> NormalizePaths(IReadOnlyList<string> paths)
@@ -218,5 +261,17 @@ public static class PatchScopeGuard
         return normalized.EndsWith("/", StringComparison.Ordinal)
             ? normalized
             : $"{normalized}/";
+    }
+
+    private static string GetParentDirectory(string path)
+    {
+        var normalized = NormalizePath(path);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var index = normalized.LastIndexOf('/');
+        return index < 0 ? string.Empty : normalized[..index];
     }
 }
