@@ -156,8 +156,13 @@
                 </RadzenCard>
                 <CoderDiffViewer Error="@error"
                                  ValidationErrors="@LastPatchValidationErrors"
+                                 OperationGrammarErrors="@LastPatchOperationGrammarErrors"
+                                 ReplaceDiagnostics="@LastPatchReplaceDiagnostics"
+                                 SuggestedTargetDiagnostics="@LastPatchSuggestedTargetDiagnostics"
+                                 SelectedSuggestedTarget="@selectedSuggestedTarget"
                                  ValidationGuidance="@LastPatchValidationGuidance"
                                  RawResponse="@LastPatchRawResponse"
+                                 NormalizedResponse="@LastPatchNormalizedResponse"
                                  NormalizedDiff="@LastPatchNormalizedDiff"
                                  PatchPreview="@patchPreview"
                                  ApplyResult="@applyResult"
@@ -166,7 +171,11 @@
                                  CanRollbackPatch="@CanRollbackPatch()"
                                  IsRollingBack="@isRollingBack"
                                  OnApplyPatch="@ApplyPatchAsync"
-                                 OnRollbackPatch="@RollbackPatchAsync" />
+                                 OnRollbackPatch="@RollbackPatchAsync"
+                                 OnUseSuggestedTarget="@SelectSuggestedTargetAsync"
+                                 OnClearSuggestedTarget="@ClearSuggestedTargetAsync"
+                                 OnRegenerateWithSuggestedTarget="@RegeneratePatchPreviewWithSuggestedTargetAsync"
+                                 OnFixPatchPreview="@FixPatchPreviewAsync" />
                 <CoderPatchQueuePanel PatchPackages="@patchPackages"
                                       SelectedPatchPackage="@selectedPatchPackage"
                                       CanReview="@CanReviewSelectedPatch()"
@@ -290,9 +299,16 @@
     private string? selectedPlanTaskId;
     private string? activePlanTaskId;
     private string LastPatchRawResponse { get; set; } = string.Empty;
+    private string LastPatchTaskText { get; set; } = string.Empty;
+    private string LastPatchNormalizedResponse { get; set; } = string.Empty;
     private string LastPatchNormalizedDiff { get; set; } = string.Empty;
     private IReadOnlyList<string> LastPatchValidationErrors { get; set; } = [];
+    private IReadOnlyList<string> LastPatchOperationGrammarErrors { get; set; } = [];
+    private IReadOnlyList<PatchReplaceDiagnostic> LastPatchReplaceDiagnostics { get; set; } = [];
+    private IReadOnlyList<PatchSuggestedTargetDiagnostic> LastPatchSuggestedTargetDiagnostics { get; set; } = [];
     private IReadOnlyList<PatchValidationGuidance> LastPatchValidationGuidance { get; set; } = [];
+    private PatchSuggestedTargetSelection? selectedSuggestedTarget;
+    private LocalCoderPlanTask? lastPatchPlanTask;
     private int selectedTabIndex;
 
     private bool isLoading;
@@ -530,6 +546,66 @@
         return GeneratePatchPreviewCoreAsync(request.Task, null);
     }
 
+    private Task SelectSuggestedTargetAsync(PatchSuggestedTargetSelection selection)
+    {
+        selectedSuggestedTarget = selection;
+        NotificationService.Notify(
+            NotificationSeverity.Success,
+            "Suggested target selected",
+            "Suggested target selected for next patch generation.");
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task ClearSuggestedTargetAsync()
+    {
+        selectedSuggestedTarget = null;
+        NotificationService.Notify(
+            NotificationSeverity.Info,
+            "Suggested target cleared",
+            "Suggested target cleared.");
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task RegeneratePatchPreviewWithSuggestedTargetAsync()
+    {
+        if (selectedSuggestedTarget is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No suggested target selected",
+                "Select a suggested target before regenerating the patch.");
+            return Task.CompletedTask;
+        }
+
+        var taskText = BuildSuggestedTargetTaskText(request.Task, selectedSuggestedTarget);
+        activePlanTaskId = null;
+        return GeneratePatchPreviewCoreAsync(taskText, lastPatchPlanTask);
+    }
+
+    private Task FixPatchPreviewAsync()
+    {
+        if (string.IsNullOrWhiteSpace(LastPatchTaskText))
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No failed patch to repair",
+                "Generate a patch preview before using Fix Patch Preview.");
+            return Task.CompletedTask;
+        }
+
+        var repairContext = BuildPatchRepairContext(LastPatchTaskText);
+        if (repairContext is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No repair context",
+                "The failed patch preview does not have enough diagnostics to repair.");
+            return Task.CompletedTask;
+        }
+
+        return GeneratePatchPreviewCoreAsync(LastPatchTaskText, lastPatchPlanTask, repairContext, preserveFailedPreviewOnError: true);
+    }
+
     private Task ExecuteSelectedTaskAsync()
     {
         var selectedTask = planTasks.FirstOrDefault(task => task.Id == selectedPlanTaskId)
@@ -582,19 +658,28 @@
         await GeneratePatchPreviewCoreAsync(BuildPlanTaskTaskText(planTask), planTask);
     }
 
-    private async Task GeneratePatchPreviewCoreAsync(string taskText, LocalCoderPlanTask? planTask)
+    private async Task GeneratePatchPreviewCoreAsync(
+        string taskText,
+        LocalCoderPlanTask? planTask,
+        PatchPreviewRepairContext? repairContext = null,
+        bool preserveFailedPreviewOnError = false)
     {
         IReadOnlyList<LocalCoderHistoryContextFile> contextSnapshot = [];
         isContextLocked = true;
         isGeneratingPatch = true;
         error = null;
         currentTask = null;
-        patchPreview = null;
         patchIntent = null;
         patchIntentValidation = null;
         applyResult = null;
         rollbackResult = null;
-        ClearPatchDebug();
+        if (repairContext is null)
+        {
+            patchPreview = null;
+            ClearPatchDebug();
+        }
+        lastPatchPlanTask = planTask;
+        LastPatchTaskText = taskText;
 
         var previewRequest = CloneRequest(request, taskText);
         try
@@ -620,7 +705,7 @@
             previewRequest.Task = taskText;
             patchIntent = PatchIntentService.BuildIntent(previewRequest);
             contextSnapshot = CreateContextSnapshot(LocalCoderHistoryActionType.GeneratePatchPreview);
-            patchPreview = await AgentModeRunner.GeneratePatchPreviewAsync(previewRequest, profile);
+            patchPreview = await AgentModeRunner.GeneratePatchPreviewAsync(previewRequest, profile, repairContext);
             patchPreview.Intent = patchIntent;
             patchPreview.IntentValidation = PatchIntentService.Evaluate(patchIntent!, patchPreview);
             patchIntentValidation = patchPreview.IntentValidation;
@@ -661,10 +746,17 @@
         catch (PatchPreviewValidationException exception)
         {
             error = exception.Message;
-            LastPatchRawResponse = exception.RawModelResponse;
-            LastPatchNormalizedDiff = exception.NormalizedDiff;
-            LastPatchValidationErrors = exception.ValidationErrors.ToArray();
-            LastPatchValidationGuidance = exception.Guidance.ToArray();
+            if (!preserveFailedPreviewOnError || repairContext is null)
+            {
+                LastPatchRawResponse = exception.RawModelResponse;
+                LastPatchNormalizedResponse = exception.NormalizedResponse;
+                LastPatchNormalizedDiff = exception.NormalizedDiff;
+                LastPatchValidationErrors = exception.ValidationErrors.ToArray();
+                LastPatchOperationGrammarErrors = exception.OperationGrammarErrors.ToArray();
+                LastPatchReplaceDiagnostics = exception.ReplaceDiagnostics.ToArray();
+                LastPatchSuggestedTargetDiagnostics = exception.SuggestedTargetDiagnostics.ToArray();
+                LastPatchValidationGuidance = exception.Guidance.ToArray();
+            }
 
             if (planTask is not null)
             {
@@ -741,8 +833,12 @@
     private void ClearPatchDebug()
     {
         LastPatchRawResponse = string.Empty;
+        LastPatchNormalizedResponse = string.Empty;
         LastPatchNormalizedDiff = string.Empty;
         LastPatchValidationErrors = [];
+        LastPatchOperationGrammarErrors = [];
+        LastPatchReplaceDiagnostics = [];
+        LastPatchSuggestedTargetDiagnostics = [];
         LastPatchValidationGuidance = [];
     }
 
@@ -2011,6 +2107,35 @@
             AllowedPatchScope = source.AllowedPatchScope,
             AllowedPatchFolders = source.AllowedPatchFolders.ToList()
         };
+    }
+
+    private static string BuildSuggestedTargetTaskText(string originalTask, PatchSuggestedTargetSelection selection)
+    {
+        return string.Join(Environment.NewLine,
+            originalTask,
+            string.Empty,
+            "Regenerate with suggested target:",
+            $"- Failed operation: {selection.FailedOperation}",
+            $"- Operation type recommendation: {selection.FailedOperation}",
+            $"- Target field: {selection.TargetLabel}",
+            "- Suggested target text:",
+            selection.SuggestedTargetText,
+            "Use this exact target text as oldText/anchor.");
+    }
+
+    private PatchPreviewRepairContext? BuildPatchRepairContext(string originalTask)
+    {
+        if (LastPatchValidationErrors.Count == 0)
+        {
+            return null;
+        }
+
+        return new PatchPreviewRepairContext(
+            originalTask,
+            LastPatchRawResponse,
+            LastPatchValidationErrors.ToArray(),
+            LastPatchReplaceDiagnostics.ToArray(),
+            LastPatchSuggestedTargetDiagnostics.ToArray());
     }
 
     private static List<LocalCoderPlanTask> BuildPlanTasks(string planText)

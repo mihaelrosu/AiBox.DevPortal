@@ -65,7 +65,7 @@ public static class PatchIntentService
             var matchesRequestedFile = IsUnderAnyRequestedPath(path, requestedFiles);
             var explicitlyAllowed = explicitAllowedFiles.Contains(path) || matchesRequestedFile;
             var explicitlyProtected = explicitProtectedFiles.Contains(path) || IsProtectedPath(path);
-            var protectedFile = !inContext && !inScope && !explicitlyAllowed && explicitlyProtected;
+            var protectedFile = explicitlyProtected;
 
             return new PatchIntentFileEvaluation
             {

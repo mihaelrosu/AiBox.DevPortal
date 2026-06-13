@@ -48,6 +48,16 @@ public static class PatchValidationGuidanceFactory
                 "replace the complete surrounding block");
         }
 
+        if (ContainsAny(error, "requires a non-empty oldText", "requires a non-empty anchor", "must include non-empty newText", "unsupported operation", "invalid patch operation"))
+        {
+            return new PatchValidationGuidance(
+                PatchValidationCategory.UnsafeFileOperation,
+                error,
+                "Use a supported operation with every required field populated from exact selected-context text.",
+                "malformed patch operation",
+                "supported operation with exact target text");
+        }
+
         if (ContainsAny(error, "razor markup", "razor component", "razor structure"))
         {
             var saferOperation = ContainsAny(error, "card")

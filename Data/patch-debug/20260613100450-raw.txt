@@ -1,0 +1,12 @@
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Agents/LocalCoderHistory.razor",
+      "operation": "replace",
+      "anchor": "<h1>Local Coder History</h1>",
+      "oldText": "<h1>Local Coder History</h1>",
+      "newText": "<h1>Local Coder History & Sessions</h1>",
+      "summary": "Update heading to include sessions"
+    }
+  ]
+}

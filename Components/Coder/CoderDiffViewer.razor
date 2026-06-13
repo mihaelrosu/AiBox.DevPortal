@@ -23,9 +23,95 @@
     <RadzenCard>
         <RadzenStack Gap="0.75rem">
                     <RadzenText Text="Patch Debug" TextStyle="TextStyle.H5" />
+                    @if (OperationGrammarErrors.Count > 0)
+                    {
+                        <div>
+                            <RadzenText Text="Operation Grammar Errors" TextStyle="TextStyle.H6" />
+                            <pre class="coder-error">@string.Join(Environment.NewLine, OperationGrammarErrors.Select(errorText => $"- {errorText}"))</pre>
+                        </div>
+                    }
+                    @if (SelectedSuggestedTarget is not null)
+                    {
+                        <div>
+                            <RadzenText Text="Selected Suggested Target" TextStyle="TextStyle.H6" />
+                            <RadzenCard>
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenText Text="@($"File: {SelectedSuggestedTarget.FilePath}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Failed operation: {SelectedSuggestedTarget.FailedOperation}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Target field: {SelectedSuggestedTarget.TargetLabel}")" TextStyle="TextStyle.Body2" />
+                                    <pre class="coder-output">@SelectedSuggestedTarget.SuggestedTargetText</pre>
+                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                        <RadzenButton Text="Regenerate Patch With Suggested Target"
+                                                      Icon="refresh"
+                                                      ButtonStyle="ButtonStyle.Primary"
+                                                      Click="@OnRegenerateWithSuggestedTarget"
+                                                      Disabled="@(!CanRegenerateWithSuggestedTarget)" />
+                                        <RadzenButton Text="Clear Selected Suggested Target"
+                                                      Icon="close"
+                                                      ButtonStyle="ButtonStyle.Light"
+                                                      Click="@OnClearSuggestedTarget" />
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </RadzenCard>
+                        </div>
+                    }
+                    @if (SuggestedTargetDiagnostics.Count > 0)
+                    {
+                        <div>
+                            <RadzenText Text="Closest Matches" TextStyle="TextStyle.H6" />
+                            <RadzenStack Gap="0.75rem">
+                                @foreach (var diagnostic in SuggestedTargetDiagnostics)
+                                {
+                                    <RadzenCard>
+                                        <RadzenStack Gap="0.5rem">
+                                            <RadzenText Text="@($"Requested {diagnostic.TargetLabel}:")" TextStyle="TextStyle.Body2" />
+                                            <pre class="coder-output">@diagnostic.RequestedText</pre>
+                                            <RadzenText Text="Closest match:" TextStyle="TextStyle.Body2" />
+                                            @if (diagnostic.ClosestMatches.Count > 0)
+                                            {
+                                                @foreach (var match in diagnostic.ClosestMatches)
+                                                {
+                                                    <RadzenCard>
+                                                        <RadzenStack Gap="0.25rem">
+                                                            <RadzenText Text="@($"Line {match.LineNumber} | Similarity {match.SimilarityScore:0.0}%")"
+                                                                        TextStyle="TextStyle.Caption" />
+                                                            <pre class="coder-output">@match.Snippet</pre>
+                                                            <RadzenButton Text="Use This Target"
+                                                                          Icon="check"
+                                                                          ButtonStyle="ButtonStyle.Primary"
+                                                                          Click="@(() => OnUseSuggestedTarget.InvokeAsync(new PatchSuggestedTargetSelection(
+                                                                              diagnostic.FilePath,
+                                                                              diagnostic.FailedOperation,
+                                                                              diagnostic.TargetLabel,
+                                                                              diagnostic.RequestedText,
+                                                                              match.Snippet,
+                                                                              match.LineNumber,
+                                                                              match.SimilarityScore)))" />
+                                                        </RadzenStack>
+                                                    </RadzenCard>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <RadzenText Text="No similar text found." TextStyle="TextStyle.Body2" />
+                                            }
+                                            <RadzenText Text="Suggested replacement target:" TextStyle="TextStyle.Body2" />
+                                            <pre class="coder-output">@diagnostic.SuggestedTargetText</pre>
+                                        </RadzenStack>
+                                    </RadzenCard>
+                                }
+                            </RadzenStack>
+                        </div>
+                    }
                     <div>
                         <RadzenText Text="Validation Errors" TextStyle="TextStyle.H6" />
                         <pre class="coder-error">@string.Join(Environment.NewLine, ValidationErrors.Select(errorText => $"- {errorText}"))</pre>
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenButton Text="Fix Patch Preview"
+                                          Icon="build"
+                                          ButtonStyle="ButtonStyle.Primary"
+                                          Click="@OnFixPatchPreview" />
+                        </RadzenStack>
                     </div>
                     @if (ValidationGuidance.Count > 0)
                     {
@@ -53,6 +139,10 @@
             <div>
                 <RadzenText Text="Raw Model Response" TextStyle="TextStyle.H6" />
                 <pre class="coder-output">@RawResponse</pre>
+            </div>
+            <div>
+                <RadzenText Text="Normalized Response" TextStyle="TextStyle.H6" />
+                <pre class="coder-output">@NormalizedResponse</pre>
             </div>
             <div>
                 <RadzenText Text="Normalized Diff" TextStyle="TextStyle.H6" />
@@ -316,8 +406,13 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
 @code {
     [Parameter] public string? Error { get; set; }
     [Parameter] public IReadOnlyList<string> ValidationErrors { get; set; } = [];
+    [Parameter] public IReadOnlyList<string> OperationGrammarErrors { get; set; } = [];
+    [Parameter] public IReadOnlyList<PatchReplaceDiagnostic> ReplaceDiagnostics { get; set; } = [];
+    [Parameter] public IReadOnlyList<PatchSuggestedTargetDiagnostic> SuggestedTargetDiagnostics { get; set; } = [];
+    [Parameter] public PatchSuggestedTargetSelection? SelectedSuggestedTarget { get; set; }
     [Parameter] public IReadOnlyList<PatchValidationGuidance> ValidationGuidance { get; set; } = [];
     [Parameter] public string RawResponse { get; set; } = string.Empty;
+    [Parameter] public string NormalizedResponse { get; set; } = string.Empty;
     [Parameter] public string NormalizedDiff { get; set; } = string.Empty;
     [Parameter] public LocalCoderPatchPreview? PatchPreview { get; set; }
     [Parameter] public LocalCoderPatchApplyResult? ApplyResult { get; set; }
@@ -327,6 +422,11 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
     [Parameter] public bool IsRollingBack { get; set; }
     [Parameter] public EventCallback OnApplyPatch { get; set; }
     [Parameter] public EventCallback OnRollbackPatch { get; set; }
+    [Parameter] public EventCallback<PatchSuggestedTargetSelection> OnUseSuggestedTarget { get; set; }
+    [Parameter] public EventCallback OnClearSuggestedTarget { get; set; }
+    [Parameter] public EventCallback OnRegenerateWithSuggestedTarget { get; set; }
+    [Parameter] public EventCallback OnFixPatchPreview { get; set; }
+    public bool CanRegenerateWithSuggestedTarget => SelectedSuggestedTarget is not null;
 
     private static BadgeStyle CategoryBadgeStyle(PatchValidationCategory category) => category switch
     {

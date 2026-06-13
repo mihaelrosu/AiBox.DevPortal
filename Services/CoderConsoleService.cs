@@ -132,7 +132,7 @@ public sealed class CoderConsoleService(
         return task;
     }
 
-    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile? profile = null)
+    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile? profile = null, PatchPreviewRepairContext? repairContext = null)
     {
         ValidateProjectPath(request.ProjectPath);
 
@@ -227,6 +227,7 @@ public sealed class CoderConsoleService(
             scopeText,
             intentText,
             xmlDocumentationMode,
+            repairContext,
             profile);
 
         var ollamaRequest = new OllamaGenerateRequest
@@ -243,6 +244,7 @@ public sealed class CoderConsoleService(
 
         var result = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
         var rawResponse = result?.Response ?? string.Empty;
+        var normalizedResponse = NormalizePatchPreviewModelResponse(rawResponse);
         await SavePatchDebugRawResponseAsync(rawResponse);
 
         PatchEditOperationResult editResult;
@@ -250,13 +252,13 @@ public sealed class CoderConsoleService(
         {
             if (xmlDocumentationMode)
             {
-                ValidateXmlDocumentationOperationModes(rawResponse);
+                ValidateXmlDocumentationOperationModes(normalizedResponse);
             }
 
             editResult = await patchEditOperationService.BuildAsync(
                 request.ProjectPath,
                 request.FileContexts,
-                rawResponse);
+                normalizedResponse);
         }
         catch (PatchPreviewValidationException)
         {
@@ -268,7 +270,8 @@ public sealed class CoderConsoleService(
                 $"Patch preview validation failed:{Environment.NewLine}- {exception.Message}",
                 [exception.Message],
                 rawResponse,
-                string.Empty);
+                string.Empty,
+                normalizedResponse);
         }
 
         var patchText = editResult.PatchText;
@@ -276,7 +279,7 @@ public sealed class CoderConsoleService(
 
         if (!validation.IsValid)
         {
-            throw CreatePatchPreviewValidationException(validation, rawResponse, patchText);
+            throw CreatePatchPreviewValidationException(validation, rawResponse, patchText, normalizedResponse);
         }
 
         var patchPreview = new LocalCoderPatchPreview
@@ -1012,6 +1015,7 @@ public sealed class CoderConsoleService(
         string scopeText,
         string intentText,
         bool xmlDocumentationMode = false,
+        PatchPreviewRepairContext? repairContext = null,
         AgentModeProfile? profile = null)
     {
         var profileText = BuildAgentModeProfileText(profile);
@@ -1052,6 +1056,45 @@ public sealed class CoderConsoleService(
           ]
         }
         """;
+        var operationGrammar = """
+        Allowed operation grammar:
+        - replace:
+          - filePath required
+          - oldText required
+          - newText required
+          - oldText must be exact text from selected context
+        - insert_before:
+          - filePath required
+          - anchor required
+          - newText required
+          - anchor must be exact text from selected context
+        - insert_after:
+          - filePath required
+          - anchor required
+          - newText required
+          - anchor must be exact text from selected context
+        - remove:
+          - filePath required
+          - oldText required
+          - oldText must be exact text from selected context
+        """;
+        var forbiddenExamples = """
+        Forbidden examples:
+        - replace with empty oldText
+        - invented anchors
+        - markdown explanations
+        - code fences around JSON
+        - changing files outside context
+        """;
+        var missingTextInstruction = """
+        If exact oldText or anchor cannot be found, return:
+        {
+          "operations": [],
+          "errors": [
+            "Exact target text was not found in context."
+          ]
+        }
+        """;
         var xmlDocumentationInstructions = xmlDocumentationMode
             ? """
         XML documentation mode is active.
@@ -1060,6 +1103,9 @@ public sealed class CoderConsoleService(
         Use exact text replacement for documentation comments and XML doc blocks.
         """
             : string.Empty;
+        var repairInstructions = repairContext is null
+            ? string.Empty
+            : BuildRepairInstructionsText(repairContext);
         return $$"""
         You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
 
@@ -1067,8 +1113,12 @@ public sealed class CoderConsoleService(
         Do not explain.
         Do not use markdown fences.
         Do not include git diff.
+        {{repairInstructions}}
         Output format:
         {{operationExample}}
+        {{operationGrammar}}
+        {{forbiddenExamples}}
+        {{missingTextInstruction}}
         Use only files from the selected file context.
         Use exact anchors, exact string replacements, and exact text removal.
         {{xmlDocumentationInstructions}}
@@ -1099,6 +1149,102 @@ public sealed class CoderConsoleService(
         """;
     }
 
+    private static string BuildRepairInstructionsText(PatchPreviewRepairContext repairContext)
+    {
+        var validationErrors = string.Join(Environment.NewLine, repairContext.ValidationErrors.Select(error => $"- {error}"));
+        var replaceDiagnostics = repairContext.ReplaceDiagnostics.Count == 0
+            ? "- None"
+            : string.Join(
+                Environment.NewLine,
+                repairContext.ReplaceDiagnostics.Select(diagnostic =>
+                {
+                    var matches = diagnostic.ClosestMatches.Count == 0
+                        ? "    - None"
+                        : string.Join(
+                            Environment.NewLine,
+                            diagnostic.ClosestMatches.Select(match =>
+                                $"    - Line {match.LineNumber}; Similarity {match.SimilarityScore:0.0}%; Snippet: {match.Snippet}"));
+
+                    return $"""
+                    - File: {diagnostic.FilePath}
+                      Requested oldText: {diagnostic.RequestedOldText}
+                      Suggested replacement target: {diagnostic.SuggestedReplacementTarget}
+                      Closest matches:
+                    {matches}
+                    """.TrimEnd();
+                }));
+
+        var suggestedTargetDiagnostics = repairContext.SuggestedTargetDiagnostics.Count == 0
+            ? "- None"
+            : string.Join(
+                Environment.NewLine,
+                repairContext.SuggestedTargetDiagnostics.Select(diagnostic =>
+                {
+                    var matches = diagnostic.ClosestMatches.Count == 0
+                        ? "    - None"
+                        : string.Join(
+                            Environment.NewLine,
+                            diagnostic.ClosestMatches.Select(match =>
+                                $"    - Line {match.LineNumber}; Similarity {match.SimilarityScore:0.0}%; Snippet: {match.Snippet}"));
+
+                    return $"""
+                    - File: {diagnostic.FilePath}
+                      Failed operation: {diagnostic.FailedOperation}
+                      Target field: {diagnostic.TargetLabel}
+                      Requested text: {diagnostic.RequestedText}
+                      Suggested target text: {diagnostic.SuggestedTargetText}
+                      Closest matches:
+                    {matches}
+                    """.TrimEnd();
+                }));
+
+        return $"""
+        Repair mode is active.
+        Repair the failed patch preview using the current selected file context and the exact validation feedback below.
+        Return corrected patch JSON only.
+        Original user task:
+        {repairContext.OriginalTask}
+
+        Selected context files and file contents are listed below in the shared preview context section.
+
+        Raw model response:
+        {repairContext.RawModelResponse}
+
+        Validation errors:
+        {validationErrors}
+
+        Closest-match suggestions from diagnostics:
+        Replace diagnostics:
+        {replaceDiagnostics}
+
+        Suggested target diagnostics:
+        {suggestedTargetDiagnostics}
+
+        Patch operation grammar rules:
+        - replace:
+          - filePath required
+          - oldText required
+          - newText required
+          - oldText must be exact text from selected context
+        - insert_before:
+          - filePath required
+          - anchor required
+          - newText required
+          - anchor must be exact text from selected context
+        - insert_after:
+          - filePath required
+          - anchor required
+          - newText required
+          - anchor must be exact text from selected context
+        - remove:
+          - filePath required
+          - oldText required
+          - oldText must be exact text from selected context
+
+        Use the closest exact match when repairing oldText or anchor.
+        """;
+    }
+
     internal static bool IsXmlDocumentationRequest(string task)
     {
         if (string.IsNullOrWhiteSpace(task))
@@ -1118,12 +1264,13 @@ public sealed class CoderConsoleService(
 
     internal static void ValidateXmlDocumentationOperationModes(string rawResponse)
     {
-        if (string.IsNullOrWhiteSpace(rawResponse))
+        var normalizedResponse = NormalizePatchPreviewModelResponse(rawResponse);
+        if (string.IsNullOrWhiteSpace(normalizedResponse))
         {
             return;
         }
 
-        using var document = JsonDocument.Parse(rawResponse);
+        using var document = JsonDocument.Parse(normalizedResponse);
         if (!document.RootElement.TryGetProperty("operations", out var operations) ||
             operations.ValueKind != JsonValueKind.Array)
         {
@@ -1145,6 +1292,63 @@ public sealed class CoderConsoleService(
                 rawResponse,
                 string.Empty);
         }
+    }
+
+    private static string NormalizePatchPreviewModelResponse(string rawResponse)
+    {
+        var trimmed = (rawResponse ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return string.Empty;
+        }
+
+        var fencedBlock = TryExtractMarkdownFence(trimmed);
+        return fencedBlock ?? trimmed;
+    }
+
+    private static string? TryExtractMarkdownFence(string text)
+    {
+        var fenceStart = text.IndexOf("```", StringComparison.Ordinal);
+        if (fenceStart < 0)
+        {
+            return null;
+        }
+
+        var openingLineEnd = text.IndexOf('\n', fenceStart);
+        if (openingLineEnd < 0)
+        {
+            return null;
+        }
+
+        var openingFence = text[fenceStart..openingLineEnd].TrimEnd('\r').Trim();
+        if (!openingFence.Equals("```", StringComparison.Ordinal) &&
+            !openingFence.Equals("```json", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var closingFenceStart = text.LastIndexOf("```", StringComparison.Ordinal);
+        if (closingFenceStart <= openingLineEnd)
+        {
+            return null;
+        }
+
+        var closingLineStart = text.LastIndexOf('\n', closingFenceStart);
+        if (closingLineStart < 0)
+        {
+            return null;
+        }
+
+        var closingLineEnd = text.IndexOf('\n', closingFenceStart);
+        closingLineEnd = closingLineEnd < 0 ? text.Length : closingLineEnd;
+
+        var closingFence = text[(closingLineStart + 1)..closingLineEnd].TrimEnd('\r').Trim();
+        if (!closingFence.Equals("```", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return text[(openingLineEnd + 1)..closingLineStart].Trim();
     }
 
     internal static string BuildAgentModeProfileText(AgentModeProfile? profile)
@@ -1792,13 +1996,15 @@ public sealed class CoderConsoleService(
     private static PatchPreviewValidationException CreatePatchPreviewValidationException(
         LocalCoderPatchValidationResult validation,
         string rawResponse,
-        string normalizedDiff)
+        string normalizedDiff,
+        string normalizedResponse)
     {
         return new PatchPreviewValidationException(
             $"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.Errors)}",
             validation.Errors,
             rawResponse,
-            normalizedDiff);
+            normalizedDiff,
+            normalizedResponse);
     }
 
     private async Task SavePatchDebugRawResponseAsync(string rawResponse)

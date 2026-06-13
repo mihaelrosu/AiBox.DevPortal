@@ -190,7 +190,7 @@ public sealed class LocalCoderService(
 
             You must only create a plan.
             You must generate code-change tasks only.
-            You must not write tasks about opening files, navigating files, or using the IDE.
+            You must not write tasks about opening files, navigating files, or using the editor.
             You must not claim that files were changed.
             You must not write full code unless needed.
             You must not produce destructive commands or shell commands that modify the system.

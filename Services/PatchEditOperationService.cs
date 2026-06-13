@@ -6,7 +6,8 @@ namespace AiBox.DevPortal.Services;
 
 public sealed class PatchEditOperationService(ILogger<PatchEditOperationService> logger) : IPatchEditOperationService
 {
-    private const int MaxRemovalCharacters = 4096;
+    private readonly ILogger<PatchEditOperationService> logger = logger;
+    private const int MaxRemovalCharacters = 10 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> AllowedOperations = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -14,6 +15,13 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         "insert_before",
         "replace",
         "remove"
+    };
+    private static readonly HashSet<string> BinaryAndMediaExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".7z", ".avi", ".bin", ".bmp", ".class", ".dll", ".doc", ".docx", ".exe", ".flac",
+        ".gif", ".gz", ".ico", ".jar", ".jpeg", ".jpg", ".mkv", ".mov", ".mp3", ".mp4",
+        ".pdf", ".png", ".ppt", ".pptx", ".rar", ".so", ".svg", ".tar", ".tiff", ".wav",
+        ".webm", ".webp", ".xls", ".xlsx", ".zip"
     };
     private static readonly string[] RazorDirectives = ["@page", "@using", "@inject", "@attribute", "@layout"];
 
@@ -25,6 +33,17 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     {
         var rootPath = ValidateProjectRoot(projectPath);
         var response = ParseResponse(rawJson);
+        if (response.Operations.Count == 0 && response.Errors.Count > 0)
+        {
+            throw new PatchPreviewValidationException(
+                "The model returned an invalid patch operation.",
+                response.Errors.ToArray(),
+                rawJson ?? string.Empty,
+                string.Empty,
+                string.Empty,
+                response.Errors.ToArray());
+        }
+
         var selectedContextMap = selectedFileContexts
             .ToDictionary(context => NormalizeRelativePath(context.RelativePath), context => context.Content, StringComparer.OrdinalIgnoreCase);
 
@@ -34,7 +53,8 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 rawJson,
                 string.Empty,
                 ["Patch preview requires selected file context."],
-                response.Operations);
+                response.Operations,
+                []);
         }
 
         var fileStateMap = selectedContextMap.ToDictionary(
@@ -48,6 +68,8 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             StringComparer.OrdinalIgnoreCase);
 
         var validationErrors = new List<string>();
+        var replaceDiagnostics = new List<PatchReplaceDiagnostic>();
+        var suggestedTargetDiagnostics = new List<PatchSuggestedTargetDiagnostic>();
 
         if (response.Operations.Count == 0)
         {
@@ -55,7 +77,8 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 rawJson,
                 string.Empty,
                 ["Patch preview operations list is empty."],
-                response.Operations);
+                response.Operations,
+                replaceDiagnostics);
         }
 
         foreach (var operation in response.Operations)
@@ -78,7 +101,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 currentContent = originalContentMap[filePath];
             }
 
-            var result = ApplyOperation(operation, filePath, currentContent, validationErrors);
+            var result = ApplyOperation(operation, filePath, currentContent, validationErrors, replaceDiagnostics, suggestedTargetDiagnostics);
             if (result is null)
             {
                 continue;
@@ -93,7 +116,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 rawJson,
                 string.Empty,
                 validationErrors,
-                response.Operations);
+                response.Operations,
+                replaceDiagnostics,
+                suggestedTargetDiagnostics);
         }
 
         var fileChanges = fileStateMap
@@ -112,7 +137,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 rawJson,
                 string.Empty,
                 ["Patch edit operations produced no changes."],
-                response.Operations);
+                response.Operations,
+                replaceDiagnostics,
+                suggestedTargetDiagnostics);
         }
 
         var patchText = await BuildPatchTextAsync(fileChanges, cancellationToken);
@@ -129,7 +156,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         PatchEditOperation operation,
         string filePath,
         string currentContent,
-        List<string> validationErrors)
+        List<string> validationErrors,
+        List<PatchReplaceDiagnostic> replaceDiagnostics,
+        List<PatchSuggestedTargetDiagnostic> suggestedTargetDiagnostics)
     {
         var normalizedOperation = operation.Operation.Trim();
         if (!AllowedOperations.Contains(normalizedOperation))
@@ -144,7 +173,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         if (normalizedOperation.Equals("remove", StringComparison.OrdinalIgnoreCase))
         {
-            return RemoveText(filePath, currentContent, oldText, newText, validationErrors);
+            return RemoveText(filePath, currentContent, anchor, oldText, newText, validationErrors, suggestedTargetDiagnostics);
         }
 
         if (string.IsNullOrWhiteSpace(newText))
@@ -155,9 +184,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         return normalizedOperation.ToLowerInvariant() switch
         {
-            "insert_before" => InsertBefore(filePath, currentContent, anchor, newText, validationErrors),
-            "insert_after" => InsertAfter(filePath, currentContent, anchor, newText, validationErrors),
-            "replace" => ReplaceText(filePath, currentContent, oldText, newText, validationErrors),
+            "insert_before" => InsertBefore(filePath, currentContent, anchor, newText, validationErrors, suggestedTargetDiagnostics),
+            "insert_after" => InsertAfter(filePath, currentContent, anchor, newText, validationErrors, suggestedTargetDiagnostics),
+            "replace" => ReplaceText(filePath, currentContent, oldText, newText, validationErrors, replaceDiagnostics, suggestedTargetDiagnostics),
             _ => null
         };
     }
@@ -167,7 +196,8 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         string currentContent,
         string anchor,
         string newText,
-        List<string> validationErrors)
+        List<string> validationErrors,
+        List<PatchSuggestedTargetDiagnostic> suggestedTargetDiagnostics)
     {
         if (string.IsNullOrWhiteSpace(anchor))
         {
@@ -177,6 +207,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         if (!TryResolveAnchor("insert_before", filePath, currentContent, anchor, out var match))
         {
+            AddSuggestedTargetDiagnostics(suggestedTargetDiagnostics, filePath, currentContent, "insert_before", "anchor", anchor);
             validationErrors.Add($"Anchor not found for insert_before in file '{filePath}': {anchor}");
             return null;
         }
@@ -189,7 +220,8 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         string currentContent,
         string anchor,
         string newText,
-        List<string> validationErrors)
+        List<string> validationErrors,
+        List<PatchSuggestedTargetDiagnostic> suggestedTargetDiagnostics)
     {
         if (string.IsNullOrWhiteSpace(anchor))
         {
@@ -199,6 +231,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         if (!TryResolveAnchor("insert_after", filePath, currentContent, anchor, out var match))
         {
+            AddSuggestedTargetDiagnostics(suggestedTargetDiagnostics, filePath, currentContent, "insert_after", "anchor", anchor);
             validationErrors.Add($"Anchor not found for insert_after in file '{filePath}': {anchor}");
             return null;
         }
@@ -365,7 +398,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         string currentContent,
         string oldText,
         string newText,
-        List<string> validationErrors)
+        List<string> validationErrors,
+        List<PatchReplaceDiagnostic> replaceDiagnostics,
+        List<PatchSuggestedTargetDiagnostic> suggestedTargetDiagnostics)
     {
         if (string.IsNullOrWhiteSpace(oldText))
         {
@@ -376,6 +411,8 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         var index = currentContent.IndexOf(oldText, StringComparison.Ordinal);
         if (index < 0)
         {
+            AddReplaceDiagnostics(replaceDiagnostics, filePath, currentContent, oldText);
+            AddSuggestedTargetDiagnostics(suggestedTargetDiagnostics, filePath, currentContent, "replace", "oldText", oldText);
             validationErrors.Add($"Old text not found for replace in file '{filePath}': {oldText}");
             return null;
         }
@@ -383,12 +420,14 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         return currentContent[..index] + newText + currentContent[(index + oldText.Length)..];
     }
 
-    private static string? RemoveText(
+    private string? RemoveText(
         string filePath,
         string currentContent,
+        string anchor,
         string oldText,
         string newText,
-        List<string> validationErrors)
+        List<string> validationErrors,
+        List<PatchSuggestedTargetDiagnostic> suggestedTargetDiagnostics)
     {
         if (string.IsNullOrWhiteSpace(oldText))
         {
@@ -402,6 +441,12 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return null;
         }
 
+        if (IsBinaryOrMediaPath(filePath))
+        {
+            validationErrors.Add($"Remove operation for file '{filePath}' is blocked because binary and media files are not allowed.");
+            return null;
+        }
+
         if (oldText.Length > MaxRemovalCharacters)
         {
             validationErrors.Add($"Remove operation for file '{filePath}' exceeds the {MaxRemovalCharacters / 1024} KB safety limit.");
@@ -411,6 +456,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         var occurrenceCount = CountOccurrences(currentContent, oldText);
         if (occurrenceCount == 0)
         {
+            AddSuggestedTargetDiagnostics(suggestedTargetDiagnostics, filePath, currentContent, "remove", "oldText", oldText);
             validationErrors.Add(
                 ContainsWildcardToken(oldText)
                     ? $"Remove operation does not support wildcard matching in file '{filePath}': {oldText}"
@@ -420,11 +466,141 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         if (occurrenceCount > 1)
         {
-            validationErrors.Add($"Text appears multiple times; make the remove task more specific in file '{filePath}': {oldText}");
-            return null;
+            if (!TryResolveRemoveOccurrenceIndex(currentContent, oldText, anchor, out var occurrenceIndex))
+            {
+                validationErrors.Add($"Text appears multiple times; make the remove task more specific or provide a unique anchor in file '{filePath}': {oldText}");
+                return null;
+            }
+
+            logger.LogInformation(
+                "Patch remove operation resolved for {FilePath}. Operation: Remove; Removed text length: {RemovedTextLength}; Match count: {MatchCount}; Anchor provided: {AnchorProvided}",
+                filePath,
+                oldText.Length,
+                occurrenceCount,
+                !string.IsNullOrWhiteSpace(anchor));
+
+            if (TryRemoveStandaloneLine(currentContent, oldText, occurrenceIndex, out var anchoredLineRemovedContent))
+            {
+                return anchoredLineRemovedContent;
+            }
+
+            return currentContent[..occurrenceIndex] + string.Empty + currentContent[(occurrenceIndex + oldText.Length)..];
         }
 
-        return currentContent.Replace(oldText, string.Empty, StringComparison.Ordinal);
+        logger.LogInformation(
+            "Patch remove operation resolved for {FilePath}. Operation: Remove; Removed text length: {RemovedTextLength}; Match count: {MatchCount}; Anchor provided: {AnchorProvided}",
+            filePath,
+            oldText.Length,
+            occurrenceCount,
+            !string.IsNullOrWhiteSpace(anchor));
+
+        var occurrenceOnlyIndex = currentContent.IndexOf(oldText, StringComparison.Ordinal);
+        if (TryRemoveStandaloneLine(currentContent, oldText, occurrenceOnlyIndex, out var singleLineRemovedContent))
+        {
+            return singleLineRemovedContent;
+        }
+
+        return currentContent[..occurrenceOnlyIndex] + string.Empty + currentContent[(occurrenceOnlyIndex + oldText.Length)..];
+    }
+
+    private static bool TryRemoveStandaloneLine(
+        string currentContent,
+        string oldText,
+        int occurrenceIndex,
+        out string updatedContent)
+    {
+        updatedContent = string.Empty;
+
+        if (occurrenceIndex < 0)
+        {
+            return false;
+        }
+
+        var lineStartIndex = occurrenceIndex == 0
+            ? 0
+            : currentContent.LastIndexOf('\n', occurrenceIndex - 1);
+        lineStartIndex = lineStartIndex < 0 ? 0 : lineStartIndex + 1;
+
+        var lineEndIndex = currentContent.IndexOfAny(['\r', '\n'], occurrenceIndex + oldText.Length);
+        lineEndIndex = lineEndIndex < 0 ? currentContent.Length : lineEndIndex;
+
+        var lineContent = currentContent[lineStartIndex..lineEndIndex];
+        if (!string.Equals(lineContent.TrimEnd('\r'), oldText, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (lineEndIndex < currentContent.Length)
+        {
+            if (currentContent[lineEndIndex] == '\r' && lineEndIndex + 1 < currentContent.Length && currentContent[lineEndIndex + 1] == '\n')
+            {
+                lineEndIndex += 2;
+            }
+            else
+            {
+                lineEndIndex += 1;
+            }
+        }
+
+        updatedContent = currentContent[..lineStartIndex] + currentContent[lineEndIndex..];
+        return true;
+    }
+
+    private static bool TryResolveRemoveOccurrenceIndex(
+        string currentContent,
+        string oldText,
+        string anchor,
+        out int occurrenceIndex)
+    {
+        occurrenceIndex = -1;
+
+        var anchorMatch = string.IsNullOrWhiteSpace(anchor)
+            ? null
+            : PatchAnchorMatcher.TryResolve(currentContent, anchor, out var match)
+                ? match
+                : null;
+
+        if (anchorMatch is null)
+        {
+            return false;
+        }
+
+        var indexes = new List<int>();
+        var searchIndex = 0;
+        while ((searchIndex = currentContent.IndexOf(oldText, searchIndex, StringComparison.Ordinal)) >= 0)
+        {
+            indexes.Add(searchIndex);
+            searchIndex += oldText.Length;
+        }
+
+        if (indexes.Count <= 1)
+        {
+            occurrenceIndex = indexes.FirstOrDefault();
+            return occurrenceIndex >= 0;
+        }
+
+        var ranked = indexes
+            .Select(index => new
+            {
+                Index = index,
+                Distance = Math.Abs(index - anchorMatch.Index)
+            })
+            .OrderBy(item => item.Distance)
+            .ThenBy(item => item.Index)
+            .ToArray();
+
+        if (ranked.Length == 0 || (ranked.Length > 1 && ranked[0].Distance == ranked[1].Distance))
+        {
+            return false;
+        }
+
+        occurrenceIndex = ranked[0].Index;
+        return true;
+    }
+
+    private static bool IsBinaryOrMediaPath(string path)
+    {
+        return BinaryAndMediaExtensions.Contains(Path.GetExtension(path));
     }
 
     private async Task<string> BuildPatchTextAsync(
@@ -575,9 +751,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
     private static PatchEditOperationEnvelope ParseResponse(string rawJson)
     {
+        var normalizedJson = ExtractJsonPayload(rawJson);
         try
         {
-            var normalizedJson = UnwrapMarkdownCodeFence(rawJson);
             var response = JsonSerializer.Deserialize<PatchEditOperationEnvelope>(normalizedJson, JsonOptions);
             if (response is null)
             {
@@ -585,6 +761,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             }
 
             response.Operations ??= [];
+            response.Errors ??= [];
             return response;
         }
         catch (JsonException exception)
@@ -593,51 +770,81 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 $"Patch preview validation failed:{Environment.NewLine}- JSON parse error: {exception.Message}",
                 [$"JSON parse error: {exception.Message}"],
                 rawJson ?? string.Empty,
-                string.Empty);
+                string.Empty,
+                normalizedJson,
+                ["JSON parse error"]);
         }
     }
 
-    private static string UnwrapMarkdownCodeFence(string rawJson)
+    private static string ExtractJsonPayload(string rawJson)
     {
         var trimmed = (rawJson ?? string.Empty).Trim();
-        if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(trimmed))
         {
             return trimmed;
         }
 
-        var openingLineEnd = trimmed.IndexOf('\n');
+        var fencedBlock = TryExtractMarkdownFence(trimmed);
+        if (!string.IsNullOrWhiteSpace(fencedBlock))
+        {
+            return fencedBlock;
+        }
+
+        return trimmed;
+    }
+
+    private static string? TryExtractMarkdownFence(string text)
+    {
+        var fenceStart = text.IndexOf("```", StringComparison.Ordinal);
+        if (fenceStart < 0)
+        {
+            return null;
+        }
+
+        var openingLineEnd = text.IndexOf('\n', fenceStart);
         if (openingLineEnd < 0)
         {
-            return trimmed;
+            return null;
         }
 
-        var openingFence = trimmed[..openingLineEnd].TrimEnd('\r');
+        var openingFence = text[fenceStart..openingLineEnd].TrimEnd('\r');
         if (!openingFence.Equals("```", StringComparison.Ordinal) &&
             !openingFence.Equals("```json", StringComparison.OrdinalIgnoreCase))
         {
-            return trimmed;
+            return null;
         }
 
-        var closingLineStart = trimmed.LastIndexOf('\n');
-        if (closingLineStart <= openingLineEnd)
+        var closingFenceStart = text.LastIndexOf("```", StringComparison.Ordinal);
+        if (closingFenceStart <= openingLineEnd)
         {
-            return trimmed;
+            return null;
         }
 
-        var closingFence = trimmed[(closingLineStart + 1)..].Trim();
+        var closingLineStart = text.LastIndexOf('\n', closingFenceStart);
+        if (closingLineStart < 0)
+        {
+            return null;
+        }
+
+        var closingLineEnd = text.IndexOf('\n', closingFenceStart);
+        closingLineEnd = closingLineEnd < 0 ? text.Length : closingLineEnd;
+
+        var closingFence = text[(closingLineStart + 1)..closingLineEnd].TrimEnd('\r').Trim();
         if (!closingFence.Equals("```", StringComparison.Ordinal))
         {
-            return trimmed;
+            return null;
         }
 
-        return trimmed[(openingLineEnd + 1)..closingLineStart].Trim();
+        return text[(openingLineEnd + 1)..closingLineStart].Trim();
     }
 
     private static PatchPreviewValidationException BuildValidationException(
         string rawJson,
         string normalizedDiff,
         IReadOnlyList<string> validationErrors,
-        IReadOnlyList<PatchEditOperation> operations)
+        IReadOnlyList<PatchEditOperation> operations,
+        IReadOnlyList<PatchReplaceDiagnostic>? replaceDiagnostics = null,
+        IReadOnlyList<PatchSuggestedTargetDiagnostic>? suggestedTargetDiagnostics = null)
     {
         var errors = validationErrors.ToList();
         if (operations.Count == 0)
@@ -645,11 +852,230 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             errors.Add("Patch preview operations list is empty.");
         }
 
+        var grammarErrors = ExtractOperationGrammarErrors(errors);
+        var friendlyMessage = grammarErrors.Count > 0
+            ? "The model returned an invalid patch operation."
+            : $"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", errors)}";
+
         return new PatchPreviewValidationException(
-            $"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", errors)}",
+            friendlyMessage,
             errors,
             rawJson ?? string.Empty,
-            normalizedDiff ?? string.Empty);
+            normalizedDiff ?? string.Empty,
+            string.Empty,
+            grammarErrors,
+            replaceDiagnostics: replaceDiagnostics,
+            suggestedTargetDiagnostics: suggestedTargetDiagnostics);
+    }
+
+    private static IReadOnlyList<string> ExtractOperationGrammarErrors(IReadOnlyList<string> validationErrors)
+    {
+        return validationErrors
+            .Where(IsOperationGrammarError)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static bool IsOperationGrammarError(string error)
+    {
+        return ContainsAny(
+            error,
+            "requires a non-empty oldText",
+            "requires a non-empty anchor",
+            "must include non-empty newText",
+            "unsupported operation",
+            "JSON parse error",
+            "patch preview operations list is empty",
+            "exact target text was not found in context",
+            "make the remove task more specific");
+    }
+
+    private static bool ContainsAny(string value, params string[] needles)
+    {
+        return needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void AddReplaceDiagnostics(
+        List<PatchReplaceDiagnostic> replaceDiagnostics,
+        string filePath,
+        string currentContent,
+        string? oldText)
+    {
+        if (string.IsNullOrWhiteSpace(oldText))
+        {
+            return;
+        }
+
+        var closestMatches = FindClosestReplaceMatches(currentContent, oldText, 3);
+        var suggestedReplacementTarget = closestMatches.FirstOrDefault()?.Snippet ?? string.Empty;
+
+        replaceDiagnostics.Add(new PatchReplaceDiagnostic(
+            filePath,
+            oldText,
+            suggestedReplacementTarget,
+            closestMatches));
+    }
+
+    private static void AddSuggestedTargetDiagnostics(
+        List<PatchSuggestedTargetDiagnostic> suggestedTargetDiagnostics,
+        string filePath,
+        string currentContent,
+        string failedOperation,
+        string targetLabel,
+        string? requestedText)
+    {
+        if (string.IsNullOrWhiteSpace(requestedText))
+        {
+            return;
+        }
+
+        var closestMatches = FindClosestSuggestedTargetMatches(currentContent, requestedText, 3);
+        var suggestedTargetText = closestMatches.FirstOrDefault()?.Snippet ?? string.Empty;
+
+        suggestedTargetDiagnostics.Add(new PatchSuggestedTargetDiagnostic(
+            filePath,
+            failedOperation,
+            targetLabel,
+            requestedText,
+            suggestedTargetText,
+            closestMatches));
+    }
+
+    private static IReadOnlyList<PatchSuggestedTargetMatch> FindClosestSuggestedTargetMatches(
+        string currentContent,
+        string requestedText,
+        int topCount)
+    {
+        return BuildReplaceCandidates(currentContent, requestedText)
+            .Select(candidate => new PatchSuggestedTargetMatch(
+                candidate.LineNumber,
+                candidate.Snippet,
+                ComputeSimilarityScore(requestedText, candidate.Snippet)))
+            .OrderByDescending(match => match.SimilarityScore)
+            .ThenBy(match => match.LineNumber)
+            .Take(topCount)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<PatchReplaceClosestMatch> FindClosestReplaceMatches(
+        string currentContent,
+        string oldText,
+        int topCount)
+    {
+        return BuildReplaceCandidates(currentContent, oldText)
+            .Select(candidate => new PatchReplaceClosestMatch(
+                candidate.LineNumber,
+                candidate.Snippet,
+                ComputeSimilarityScore(oldText, candidate.Snippet)))
+            .OrderByDescending(match => match.SimilarityScore)
+            .ThenBy(match => match.LineNumber)
+            .Take(topCount)
+            .ToArray();
+    }
+
+    private static IEnumerable<(int LineNumber, string Snippet)> BuildReplaceCandidates(string currentContent, string oldText)
+    {
+        var lines = currentContent.ReplaceLineEndings("\n").Split('\n');
+        var requestedLineCount = Math.Max(1, oldText.ReplaceLineEndings("\n").Split('\n').Length);
+        var windowSize = Math.Min(5, requestedLineCount);
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var line = lines[index];
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                yield return (index + 1, line);
+            }
+
+            if (windowSize <= 1)
+            {
+                continue;
+            }
+
+            var end = Math.Min(lines.Length, index + windowSize);
+            if (end - index < windowSize)
+            {
+                continue;
+            }
+
+            var snippet = string.Join(Environment.NewLine, lines[index..end]).Trim();
+            if (!string.IsNullOrWhiteSpace(snippet))
+            {
+                yield return (index + 1, snippet);
+            }
+        }
+    }
+
+    private static double ComputeSimilarityScore(string expected, string candidate)
+    {
+        var normalizedExpected = NormalizeSimilarityText(expected);
+        var normalizedCandidate = NormalizeSimilarityText(candidate);
+
+        if (normalizedExpected.Length == 0 && normalizedCandidate.Length == 0)
+        {
+            return 100.0;
+        }
+
+        if (normalizedExpected.Length == 0 || normalizedCandidate.Length == 0)
+        {
+            return 0.0;
+        }
+
+        var distance = ComputeLevenshteinDistance(normalizedExpected, normalizedCandidate);
+        var maxLength = Math.Max(normalizedExpected.Length, normalizedCandidate.Length);
+        var similarity = 1.0 - ((double)distance / maxLength);
+        return Math.Clamp(similarity * 100.0, 0.0, 100.0);
+    }
+
+    private static string NormalizeSimilarityText(string text)
+    {
+        return string.Join(
+            " ",
+            (text ?? string.Empty)
+                .ReplaceLineEndings(" ")
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
+
+    private static int ComputeLevenshteinDistance(string left, string right)
+    {
+        if (left == right)
+        {
+            return 0;
+        }
+
+        if (left.Length == 0)
+        {
+            return right.Length;
+        }
+
+        if (right.Length == 0)
+        {
+            return left.Length;
+        }
+
+        var previous = new int[right.Length + 1];
+        var current = new int[right.Length + 1];
+
+        for (var j = 0; j <= right.Length; j++)
+        {
+            previous[j] = j;
+        }
+
+        for (var i = 1; i <= left.Length; i++)
+        {
+            current[0] = i;
+            for (var j = 1; j <= right.Length; j++)
+            {
+                var cost = left[i - 1] == right[j - 1] ? 0 : 1;
+                current[j] = Math.Min(
+                    Math.Min(current[j - 1] + 1, previous[j] + 1),
+                    previous[j - 1] + cost);
+            }
+
+            (previous, current) = (current, previous);
+        }
+
+        return previous[right.Length];
     }
 
     private static string ValidateProjectRoot(string projectPath)
@@ -693,5 +1119,6 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     private sealed class PatchEditOperationEnvelope
     {
         public IReadOnlyList<PatchEditOperation> Operations { get; set; } = [];
+        public IReadOnlyList<string> Errors { get; set; } = [];
     }
 }

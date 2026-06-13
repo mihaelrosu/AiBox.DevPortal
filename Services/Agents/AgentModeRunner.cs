@@ -45,7 +45,7 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile profile)
+    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile profile, PatchPreviewRepairContext? repairContext = null)
     {
         EnsureMode(profile, AgentActionProfiles.ForGeneratePatchPreview(), "Generate Patch Preview");
         var routedRequest = WithProfileModel(request, profile);
@@ -57,11 +57,12 @@ public sealed class AgentModeRunner(
             BuildPatchScopeText(routedRequest.AllowedPatchScope, routedRequest.AllowedPatchFolders),
             PatchIntentService.BuildPromptText(intent),
             IsXmlDocumentationRequest(routedRequest.Task),
+            repairContext,
             profile);
 
         try
         {
-            var result = await coderConsoleService.GeneratePatchPreviewAsync(routedRequest, profile);
+            var result = await coderConsoleService.GeneratePatchPreviewAsync(routedRequest, profile, repairContext);
             await RecordAsync(
                 AgentActionProfiles.GeneratePatchPreviewActionKey,
                 profile,

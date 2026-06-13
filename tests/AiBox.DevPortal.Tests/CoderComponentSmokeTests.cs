@@ -119,6 +119,49 @@ public sealed class CoderComponentSmokeTests : TestContext
     }
 
     [Fact]
+    public void CoderDiffViewer_PatchDebug_RendersGrammarAndResponseDetails()
+    {
+        var cut = RenderComponent<CoderDiffViewer>(parameters => parameters
+            .Add(component => component.ValidationErrors, ["The model returned an invalid patch operation."])
+            .Add(component => component.OperationGrammarErrors, ["Exact target text was not found in context."])
+            .Add(component => component.SuggestedTargetDiagnostics,
+            [
+                new PatchSuggestedTargetDiagnostic(
+                    "Example.cs",
+                    "replace",
+                    "oldText",
+                    "public void AlphaBeto()",
+                    "public void AlphaBeta()",
+                    [
+                        new PatchSuggestedTargetMatch(3, "public void AlphaBeta()", 91.2)
+                    ])
+            ])
+            .Add(component => component.SelectedSuggestedTarget,
+            new PatchSuggestedTargetSelection(
+                "Example.cs",
+                "replace",
+                "oldText",
+                "public void AlphaBeto()",
+                "public void AlphaBeta()",
+                3,
+                91.2))
+            .Add(component => component.RawResponse, "{\"operations\":[]}")
+            .Add(component => component.NormalizedResponse, "{\"operations\":[],\"errors\":[\"Exact target text was not found in context.\"]}")
+            .Add(component => component.NormalizedDiff, string.Empty));
+
+        Assert.Contains("Patch Debug", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Operation Grammar Errors", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Closest Matches", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Selected Suggested Target", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Use This Target", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Regenerate Patch With Suggested Target", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Clear Selected Suggested Target", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Fix Patch Preview", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Raw Model Response", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Normalized Response", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CoderHistoryPanel_Renders()
     {
         var cut = RenderComponent<CoderHistoryPanel>(parameters => parameters

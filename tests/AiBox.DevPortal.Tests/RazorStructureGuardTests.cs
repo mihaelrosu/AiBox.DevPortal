@@ -50,15 +50,16 @@ public sealed class RazorStructureGuardTests
     [Fact]
     public void Analyze_PageDirectiveChange_BlocksDirectiveRegion()
     {
-        var result = RazorStructureGuard.Analyze("""
-                                                diff --git a/Example.razor b/Example.razor
-                                                --- a/Example.razor
-                                                +++ b/Example.razor
-                                                @@ -1,3 +1,3 @@
--@page "/old"
-+@page "/new"
-                                                 <h1>Example</h1>
-                                                """, "Update the page header markup.");
+        var diff = string.Join(Environment.NewLine,
+            "diff --git a/Example.razor b/Example.razor",
+            "--- a/Example.razor",
+            "+++ b/Example.razor",
+            "@@ -1,3 +1,3 @@",
+            "-@page \"/old\"",
+            "+@page \"/new\"",
+            " <h1>Example</h1>");
+
+        var result = RazorStructureGuard.Analyze(diff, "Update the page header markup.");
 
         var hunk = Assert.Single(result.Hunks);
         Assert.Equal(RazorStructureRegion.DirectiveRegion, hunk.Region);
@@ -69,15 +70,16 @@ public sealed class RazorStructureGuardTests
     [Fact]
     public void Analyze_UsingDirectiveChange_BlocksImportRegion()
     {
-        var result = RazorStructureGuard.Analyze("""
-                                                diff --git a/Example.razor b/Example.razor
-                                                --- a/Example.razor
-                                                +++ b/Example.razor
-                                                @@ -1,3 +1,3 @@
--@using Foo.Bar
-+@using Foo.Baz
-                                                 <h1>Example</h1>
-                                                """, "Update the page header markup.");
+        var diff = string.Join(Environment.NewLine,
+            "diff --git a/Example.razor b/Example.razor",
+            "--- a/Example.razor",
+            "+++ b/Example.razor",
+            "@@ -1,3 +1,3 @@",
+            "-@using Foo.Bar",
+            "+@using Foo.Baz",
+            " <h1>Example</h1>");
+
+        var result = RazorStructureGuard.Analyze(diff, "Update the page header markup.");
 
         var hunk = Assert.Single(result.Hunks);
         Assert.Equal(RazorStructureRegion.ImportRegion, hunk.Region);

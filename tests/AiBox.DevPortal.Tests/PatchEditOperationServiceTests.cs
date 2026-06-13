@@ -237,6 +237,169 @@ public sealed class PatchEditOperationServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_MarkdownFencedJson_WithWrapperText_ParsesOperations()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-fenced-json-wrapper-test-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Example.cs"), "Hello");
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = "Example.cs", Content = "Hello" }],
+                """
+                Here is the patch preview:
+
+                ```json
+                {
+                  "operations": [
+                    {
+                      "filePath": "Example.cs",
+                      "operation": "replace",
+                      "anchor": "",
+                      "oldText": "Hello",
+                      "newText": "Hi"
+                    }
+                  ]
+                }
+                ```
+
+                Thanks.
+                """);
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal("Hi", change.NewContent);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_ReplaceMissingOldText_ReportsClosestMatches()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-replace-diagnostics-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public class Example
+        {
+            public void AlphaBeta()
+            {
+            }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "replace",
+                                anchor = string.Empty,
+                                oldText = "public void AlphaBeto()",
+                                newText = "public void AlphaBetaRenamed()"
+                            }
+                        }
+                    })));
+
+            var diagnostics = Assert.Single(exception.ReplaceDiagnostics);
+            Assert.Equal(relativePath, diagnostics.FilePath);
+            Assert.Equal("public void AlphaBeto()", diagnostics.RequestedOldText);
+            Assert.NotEmpty(diagnostics.ClosestMatches);
+            Assert.NotEmpty(diagnostics.SuggestedReplacementTarget);
+            Assert.Contains(diagnostics.ClosestMatches, match => match.LineNumber == 3 && match.SimilarityScore > 50.0);
+
+            var suggestedTarget = Assert.Single(exception.SuggestedTargetDiagnostics);
+            Assert.Equal("replace", suggestedTarget.FailedOperation);
+            Assert.Equal("oldText", suggestedTarget.TargetLabel);
+            Assert.Equal("public void AlphaBeto()", suggestedTarget.RequestedText);
+            Assert.NotEmpty(suggestedTarget.ClosestMatches);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_InsertAfterMissingAnchor_ReportsSuggestedTarget()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-anchor-suggested-target-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public class Example
+        {
+            public void Render()
+            {
+            }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "insert_after",
+                                anchor = "Missing target",
+                                oldText = string.Empty,
+                                newText = "\n// Added"
+                            }
+                        }
+                    })));
+
+            var diagnostics = Assert.Single(exception.SuggestedTargetDiagnostics);
+            Assert.Equal("insert_after", diagnostics.FailedOperation);
+            Assert.Equal("anchor", diagnostics.TargetLabel);
+            Assert.Equal("Missing target", diagnostics.RequestedText);
+            Assert.NotEmpty(diagnostics.ClosestMatches);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task BuildAsync_RemoveExactText_ProducesEmptyFile()
     {
         var result = await BuildSingleFileOperationAsync(
@@ -268,12 +431,324 @@ public sealed class PatchEditOperationServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_RemoveEmptyOldText_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-remove-empty-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), "Hello");
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = "Hello" }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "remove",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = string.Empty
+                            }
+                        }
+                    })));
+
+            Assert.Equal("The model returned an invalid patch operation.", exception.Message);
+            Assert.Contains("requires a non-empty oldText", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_RemoveDuplicateOldTextWithoutAnchor_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-remove-duplicate-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = "Hello\nWorld\nHello";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "remove",
+                                anchor = string.Empty,
+                                oldText = "Hello",
+                                newText = string.Empty
+                            }
+                        }
+                    })));
+
+            Assert.Equal("The model returned an invalid patch operation.", exception.Message);
+            Assert.Contains("make the remove task more specific", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_InsertBeforeMissingAnchor_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-insert-before-anchor-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = "public class Example {}";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "insert_before",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = "\n// Added"
+                            }
+                        }
+                    })));
+
+            Assert.Equal("The model returned an invalid patch operation.", exception.Message);
+            Assert.Contains("requires a non-empty anchor", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_ReplaceMissingOldText_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-replace-empty-old-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = "public class Example {}";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "replace",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = "public class ExampleRenamed {}"
+                            }
+                        }
+                    })));
+
+            Assert.Equal("The model returned an invalid patch operation.", exception.Message);
+            Assert.Contains("requires a non-empty oldText", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_RemoveMissingOldText_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-remove-empty-old-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = "public class Example {}";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "remove",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = string.Empty
+                            }
+                        }
+                    })));
+
+            Assert.Equal("The model returned an invalid patch operation.", exception.Message);
+            Assert.Contains("requires a non-empty oldText", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_EmptyOperationsWithErrors_ReturnsFriendlyValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-empty-ops-errors-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = "public class Example {}";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    """
+                    {
+                      "operations": [],
+                      "errors": [
+                        "Exact target text was not found in context."
+                      ]
+                    }
+                    """));
+
+            Assert.Equal("The model returned an invalid patch operation.", exception.Message);
+            Assert.True(
+                exception.ValidationErrors.Any(error =>
+                    string.Equals(error, "Exact target text was not found in context.", StringComparison.Ordinal)));
+            Assert.True(
+                exception.OperationGrammarErrors.Any(error =>
+                    string.Equals(error, "Exact target text was not found in context.", StringComparison.Ordinal)));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_RemoveDuplicateOldTextWithAnchor_ProducesPatch()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-remove-anchor-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = "Start\nHello\nMiddle\nHello";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    operations = new[]
+                    {
+                        new
+                        {
+                            filePath = relativePath,
+                            operation = "remove",
+                            anchor = "Middle",
+                            oldText = "Hello",
+                            newText = string.Empty
+                        }
+                    }
+            }));
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal("Start\nMiddle\nHello", change.NewContent);
+            Assert.StartsWith("diff --git a/Example.cs b/Example.cs", result.PatchText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task BuildAsync_RemoveOverSafetyLimit_FailsValidation()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-remove-limit-test-{Guid.NewGuid():N}");
         const string relativePath = "Example.cs";
         var filePath = Path.Combine(projectRoot, relativePath);
-        var oldText = new string('A', 4097);
+        var oldText = new string('A', 10 * 1024 + 1);
 
         try
         {
@@ -360,7 +835,8 @@ public sealed class PatchEditOperationServiceTests
         string content,
         string anchor,
         string newText,
-        string operation = "insert_after")
+        string operation = "insert_after",
+        string? oldText = null)
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-directive-test-{Guid.NewGuid():N}");
         const string relativePath = "Example.razor";
@@ -380,7 +856,7 @@ public sealed class PatchEditOperationServiceTests
                         filePath = relativePath,
                         operation,
                         anchor,
-                        oldText = anchor,
+                        oldText = oldText ?? anchor,
                         newText
                     }
                 }
