@@ -17,6 +17,6 @@ public interface ICoderConsoleService
     Task<IReadOnlyList<CommandRunResult>> CommitChangesAsync(string projectPath, string commitMessage);
     Task<IReadOnlyList<CommandRunResult>> BuildDeployAsync(string projectPath);
     Task<CommandRunResult> RunCommandAsync(string projectPath, string command);
-    Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath);
+    Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath, IReadOnlyList<string>? commands = null);
     Task<IReadOnlyList<ConsoleLocalCoderTask>> GetHistoryAsync();
 }

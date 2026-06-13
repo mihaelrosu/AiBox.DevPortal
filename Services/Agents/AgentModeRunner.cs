@@ -272,7 +272,7 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath, AgentModeProfile profile)
+    public async Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath, AgentModeProfile profile, IReadOnlyList<string>? verificationCommands = null)
     {
         EnsureMode(profile, AgentActionProfiles.ForVerifyProject(), "Verify Project");
         var userRequest = $"Verify project {projectPath}";
@@ -284,7 +284,7 @@ public sealed class AgentModeRunner(
 
         try
         {
-            var result = await coderConsoleService.VerifyProjectAsync(projectPath);
+            var result = await coderConsoleService.VerifyProjectAsync(projectPath, verificationCommands);
             var failure = result.FirstOrDefault(item => item.ExitCode != 0);
             await RecordAsync(
                 AgentActionProfiles.VerifyProjectActionKey,

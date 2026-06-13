@@ -32,6 +32,24 @@ public sealed class LocalCoderHistoryEntry
 
     public string PatchPreviewText { get; set; } = string.Empty;
 
+    public PatchScopeAnalysis? ScopeAnalysis { get; set; }
+
+    public PatchIntent? Intent { get; set; }
+
+    public PatchIntentValidation? IntentValidation { get; set; }
+
+    public PatchContextCoverage? ContextCoverage { get; set; }
+
+    public IReadOnlyList<string> ValidationErrors { get; set; } = [];
+
+    public IReadOnlyList<string> OperationGrammarErrors { get; set; } = [];
+
+    public IReadOnlyList<PatchValidationGuidance> ValidationGuidance { get; set; } = [];
+
+    public IReadOnlyList<PatchReplaceDiagnostic> ReplaceDiagnostics { get; set; } = [];
+
+    public IReadOnlyList<PatchSuggestedTargetDiagnostic> SuggestedTargetDiagnostics { get; set; } = [];
+
     public LocalCoderPatchApplyResult? ApplyResult { get; set; }
 
     public LocalCoderPatchRollbackResult? RollbackResult { get; set; }

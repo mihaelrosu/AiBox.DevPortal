@@ -1,8 +1,42 @@
 <RadzenCard>
     <RadzenStack Gap="0.75rem">
         <RadzenText Text="Safe Commands" TextStyle="TextStyle.H5" />
-        <RadzenText Text="Verify Project runs git status, dotnet build, and dotnet test."
+        <RadzenText Text="Verify Project runs the commands from the selected verification profile."
                     TextStyle="TextStyle.Caption" />
+
+        @if (VerificationProfiles.Count > 0)
+        {
+            <RadzenFormField Text="Verification profile" Style="width: 100%;">
+                <RadzenDropDown TValue="string"
+                                Data="@VerificationProfiles"
+                                TextProperty="Name"
+                                ValueProperty="Id"
+                                Value="@SelectedVerificationProfileId"
+                                Change="@OnSelectedVerificationProfileChanged"
+                                Style="width: 100%;" />
+            </RadzenFormField>
+        }
+
+        @if (SelectedVerificationProfile is not null)
+        {
+            <RadzenCard Style="padding: 0.75rem;">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                 JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <RadzenText Text="@SelectedVerificationProfile.Name" TextStyle="TextStyle.H6" />
+                        <RadzenBadge Text="@($"{SelectedVerificationProfile.Commands.Count} command(s)")" BadgeStyle="BadgeStyle.Info" />
+                    </RadzenStack>
+                    <RadzenText Text="@SelectedVerificationProfile.Description" TextStyle="TextStyle.Body2" />
+                    <div>
+                        <RadzenText Text="Commands executed" TextStyle="TextStyle.Caption" />
+                        @foreach (var command in SelectedVerificationProfile.Commands)
+                        {
+                            <RadzenText Text="@command" TextStyle="TextStyle.Body2" />
+                        }
+                    </div>
+                </RadzenStack>
+            </RadzenCard>
+        }
 
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
             <RadzenButton Text="git status" Click="@(() => OnRunCommand.InvokeAsync("git status"))" Disabled="@IsRunningCommand" />
@@ -63,7 +97,17 @@
 @if (VerifyResults.Count > 0)
 {
     <RadzenCard>
-        <RadzenText Text="Verification Result" TextStyle="TextStyle.H5" />
+        <RadzenStack Gap="0.75rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenText Text="Verification Result" TextStyle="TextStyle.H5" />
+                <RadzenBadge Text="@((VerifyResults.All(result => result.ExitCode == 0)) ? "Success" : "Failure")"
+                             BadgeStyle="@((VerifyResults.All(result => result.ExitCode == 0)) ? BadgeStyle.Success : BadgeStyle.Danger)" />
+            </RadzenStack>
+            @if (SelectedVerificationProfile is not null)
+            {
+                <RadzenText Text="@($"Profile: {SelectedVerificationProfile.Name}")" TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
         @foreach (var item in VerifyResults)
         {
             <RadzenCard Style="margin-top: 1rem;">
@@ -86,6 +130,9 @@
 @code {
     [Parameter] public bool IsRunningCommand { get; set; }
     [Parameter] public bool CanVerifyProject { get; set; }
+    [Parameter] public IReadOnlyList<LocalCoderVerificationProfile> VerificationProfiles { get; set; } = [];
+    [Parameter] public string SelectedVerificationProfileId { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SelectedVerificationProfileIdChanged { get; set; }
     [Parameter] public bool CanCommitChanges { get; set; }
     [Parameter] public bool CanBuildDeploy { get; set; }
     [Parameter] public string CommitMessage { get; set; } = string.Empty;
@@ -98,6 +145,16 @@
     [Parameter] public EventCallback OnVerifyProject { get; set; }
     [Parameter] public EventCallback OnCommitChanges { get; set; }
     [Parameter] public EventCallback OnBuildDeploy { get; set; }
+
+    private LocalCoderVerificationProfile? SelectedVerificationProfile =>
+        VerificationProfiles.FirstOrDefault(profile => profile.Id.Equals(SelectedVerificationProfileId, StringComparison.OrdinalIgnoreCase))
+        ?? VerificationProfiles.FirstOrDefault();
+
+    private Task OnSelectedVerificationProfileChanged(object? value)
+    {
+        var profileId = value?.ToString() ?? string.Empty;
+        return SelectedVerificationProfileIdChanged.InvokeAsync(profileId);
+    }
 
     private RenderFragment CommandResults(IReadOnlyList<CommandRunResult> Results) => @<text>
         <RadzenText Text="Command Results" TextStyle="TextStyle.H6" />

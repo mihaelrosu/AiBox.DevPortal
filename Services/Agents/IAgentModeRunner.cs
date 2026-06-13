@@ -13,5 +13,5 @@ public interface IAgentModeRunner
     Task<IReadOnlyList<CommandRunResult>> CommitChangesAsync(string projectPath, string commitMessage, AgentModeProfile profile);
     Task<IReadOnlyList<CommandRunResult>> BuildDeployAsync(string projectPath, AgentModeProfile profile);
     Task<CommandRunResult> RunCommandAsync(string projectPath, string command, AgentModeProfile profile);
-    Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath, AgentModeProfile profile);
+    Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath, AgentModeProfile profile, IReadOnlyList<string>? verificationCommands = null);
 }

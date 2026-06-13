@@ -178,6 +178,15 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
                 .ToArray(),
             PlanText = entry.PlanText,
             PatchPreviewText = entry.PatchPreviewText,
+            ScopeAnalysis = CloneScopeAnalysis(entry.ScopeAnalysis),
+            Intent = CloneIntent(entry.Intent),
+            IntentValidation = CloneIntentValidation(entry.IntentValidation),
+            ContextCoverage = CloneContextCoverage(entry.ContextCoverage),
+            ValidationErrors = [.. entry.ValidationErrors ?? []],
+            OperationGrammarErrors = [.. entry.OperationGrammarErrors ?? []],
+            ValidationGuidance = [.. entry.ValidationGuidance ?? []],
+            ReplaceDiagnostics = [.. entry.ReplaceDiagnostics ?? []],
+            SuggestedTargetDiagnostics = [.. entry.SuggestedTargetDiagnostics ?? []],
             ApplyResult = CloneApplyResult(entry.ApplyResult),
             RollbackResult = CloneRollbackResult(entry.RollbackResult),
             VerificationResults = [.. entry.VerificationResults ?? []],
@@ -204,6 +213,102 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             ChangedFiles = [.. result.ChangedFiles ?? []],
             BackupFiles = [.. result.BackupFiles ?? []],
             VerificationResults = [.. result.VerificationResults ?? []]
+        };
+    }
+
+    private static PatchScopeAnalysis? CloneScopeAnalysis(PatchScopeAnalysis? analysis)
+    {
+        if (analysis is null)
+        {
+            return null;
+        }
+
+        return new PatchScopeAnalysis
+        {
+            Mode = analysis.Mode,
+            AllowedFolders = [.. analysis.AllowedFolders ?? []],
+            Files = (analysis.Files ?? [])
+                .Select(file => new PatchScopeFileResult
+                {
+                    RelativePath = file.RelativePath,
+                    Status = file.Status,
+                    Reason = file.Reason
+                })
+                .ToArray(),
+            WarningMessage = analysis.WarningMessage,
+            IsBlocking = analysis.IsBlocking
+        };
+    }
+
+    private static PatchIntent? CloneIntent(PatchIntent? intent)
+    {
+        if (intent is null)
+        {
+            return null;
+        }
+
+        return new PatchIntent
+        {
+            Goal = intent.Goal,
+            AllowedPaths = [.. intent.AllowedPaths ?? []],
+            ProtectedPaths = [.. intent.ProtectedPaths ?? []],
+            AllowedScope = intent.AllowedScope,
+            ExpectedChangeType = intent.ExpectedChangeType,
+            MustNotChange = [.. intent.MustNotChange ?? []],
+            VerificationCommand = intent.VerificationCommand
+        };
+    }
+
+    private static PatchIntentValidation? CloneIntentValidation(PatchIntentValidation? validation)
+    {
+        if (validation is null)
+        {
+            return null;
+        }
+
+        return new PatchIntentValidation
+        {
+            Status = validation.Status,
+            DetectedChangeType = validation.DetectedChangeType,
+            ScopeMode = validation.ScopeMode,
+            RequestedFiles = [.. validation.RequestedFiles ?? []],
+            ModifiedFiles = [.. validation.ModifiedFiles ?? []],
+            ContextFiles = [.. validation.ContextFiles ?? []],
+            ProtectedFiles = [.. validation.ProtectedFiles ?? []],
+            FileEvaluations = (validation.FileEvaluations ?? [])
+                .Select(file => new PatchIntentFileEvaluation
+                {
+                    RelativePath = file.RelativePath,
+                    InContext = file.InContext,
+                    InScope = file.InScope,
+                    MatchesRequestedFile = file.MatchesRequestedFile,
+                    ExplicitlyAllowed = file.ExplicitlyAllowed,
+                    ExplicitlyProtected = file.ExplicitlyProtected,
+                    Protected = file.Protected
+                })
+                .ToArray(),
+            Reasons = [.. validation.Reasons ?? []]
+        };
+    }
+
+    private static PatchContextCoverage? CloneContextCoverage(PatchContextCoverage? coverage)
+    {
+        if (coverage is null)
+        {
+            return null;
+        }
+
+        return new PatchContextCoverage
+        {
+            Files = (coverage.Files ?? [])
+                .Select(file => new PatchContextCoverageFile
+                {
+                    RelativePath = file.RelativePath,
+                    Category = file.Category,
+                    RiskReasons = [.. file.RiskReasons ?? []]
+                })
+                .ToArray(),
+            RiskScore = coverage.RiskScore
         };
     }
 

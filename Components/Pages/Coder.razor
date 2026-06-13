@@ -203,6 +203,9 @@
                 </RadzenCard>
                 <CoderExecutionPanel IsRunningCommand="@isRunningCommand"
                                      CanVerifyProject="@(!isRunningCommand && !isVerifying && !string.IsNullOrWhiteSpace(request.ProjectPath))"
+                                     VerificationProfiles="@verificationProfiles"
+                                     SelectedVerificationProfileId="@selectedVerificationProfileId"
+                                     SelectedVerificationProfileIdChanged="@OnSelectedVerificationProfileChanged"
                                      CanCommitChanges="@CanCommitChanges()"
                                      CanBuildDeploy="@CanBuildDeploy()"
                                      CommitMessage="@commitMessage"
@@ -257,6 +260,7 @@
     [Inject] private IPatchPackageService PatchPackageService { get; set; } = default!;
     [Inject] private IPatchApplyService PatchApplyService { get; set; } = default!;
     [Inject] private IPatchRollbackService PatchRollbackService { get; set; } = default!;
+    [Inject] private ILocalCoderVerificationProfileService LocalCoderVerificationProfileService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
@@ -274,6 +278,7 @@
     private IReadOnlyList<CommandRunResult> commitResults = [];
     private IReadOnlyList<CommandRunResult> buildDeployResults = [];
     private IReadOnlyList<AgentModeProfile> agentModeProfiles = [];
+    private IReadOnlyList<LocalCoderVerificationProfile> verificationProfiles = [];
     private IReadOnlyList<AgentRunRecord> agentRunHistory = [];
     private IReadOnlyList<PatchPackage> patchPackages = [];
     private IReadOnlyList<LocalCoderHistoryEntry> historyEntries = [];
@@ -298,6 +303,7 @@
     private string commitMessage = string.Empty;
     private string? selectedPlanTaskId;
     private string? activePlanTaskId;
+    private string selectedVerificationProfileId = "quick";
     private string LastPatchRawResponse { get; set; } = string.Empty;
     private string LastPatchTaskText { get; set; } = string.Empty;
     private string LastPatchNormalizedResponse { get; set; } = string.Empty;
@@ -361,6 +367,8 @@
             }
 
             agentModeProfiles = await AgentModeProfiles.GetAllAsync();
+            verificationProfiles = await LocalCoderVerificationProfileService.GetAllAsync();
+            selectedVerificationProfileId = ResolveVerificationProfileId(selectedVerificationProfileId);
             await LoadAgentRunHistoryAsync();
             await LoadPatchQueueAsync();
             await LoadHistoryAsync();
@@ -665,6 +673,7 @@
         bool preserveFailedPreviewOnError = false)
     {
         IReadOnlyList<LocalCoderHistoryContextFile> contextSnapshot = [];
+        var generatedPlanText = currentTask?.Plan ?? string.Empty;
         isContextLocked = true;
         isGeneratingPatch = true;
         error = null;
@@ -732,7 +741,9 @@
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: true,
                 "Patch preview created.",
+                planText: generatedPlanText,
                 patchPreviewText: patchPreview!.PatchText,
+                patchPreviewSnapshot: patchPreview!,
                 model: profile.Model,
                 taskTextOverride: taskText,
                 contextSnapshot: contextSnapshot,
@@ -768,7 +779,9 @@
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: false,
                 exception.Message,
+                planText: generatedPlanText,
                 taskTextOverride: taskText,
+                patchPreviewValidation: exception,
                 contextSnapshot: contextSnapshot,
                 planTasksSnapshot: GetPlanTasksSnapshot());
 
@@ -791,6 +804,7 @@
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: false,
                 exception.Message,
+                planText: generatedPlanText,
                 taskTextOverride: taskText,
                 contextSnapshot: contextSnapshot,
                 planTasksSnapshot: GetPlanTasksSnapshot());
@@ -814,6 +828,7 @@
                 LocalCoderHistoryActionType.GeneratePatchPreview,
                 success: false,
                 exception.Message,
+                planText: generatedPlanText,
                 taskTextOverride: taskText,
                 contextSnapshot: contextSnapshot,
                 planTasksSnapshot: GetPlanTasksSnapshot());
@@ -889,6 +904,9 @@
                 success: applyResult.Applied && applyResult.VerificationPassed,
                 applyResult.Message,
                 applyResult: applyResult,
+                verificationResults: applyResult.VerificationResults,
+                patchPreviewText: patchPreview?.PatchText,
+                patchPreviewSnapshot: patchPreview,
                 model: profile.Model,
                 taskTextOverride: GetActivePlanTaskText() ?? request.Task,
                 planTasksSnapshot: GetPlanTasksSnapshot());
@@ -956,6 +974,8 @@
                 success: false,
                 ex.Message,
                 applyResult: applyResult,
+                patchPreviewText: patchPreview?.PatchText,
+                patchPreviewSnapshot: patchPreview,
                 taskTextOverride: GetActivePlanTaskText() ?? request.Task,
                 planTasksSnapshot: GetPlanTasksSnapshot());
 
@@ -1012,6 +1032,7 @@
                 rollbackResult.Message,
                 applyResult: applyResult,
                 rollbackResult: rollbackResult,
+                verificationResults: rollbackResult.VerificationResults,
                 model: profile.Model);
 
             if (rollbackResult.RolledBack && rollbackResult.VerificationPassed)
@@ -1046,7 +1067,8 @@
                 success: false,
                 exception.Message,
                 applyResult: applyResult,
-                rollbackResult: rollbackResult);
+                rollbackResult: rollbackResult,
+                verificationResults: rollbackResult.VerificationResults);
 
             NotificationService.Notify(
                 NotificationSeverity.Error,
@@ -1112,7 +1134,8 @@
         try
         {
             var profile = GetRequiredProfile(AgentActionProfiles.ForVerifyProject());
-            verifyResults = await AgentModeRunner.VerifyProjectAsync(request.ProjectPath, profile);
+            var verificationProfile = GetSelectedVerificationProfile();
+            verifyResults = await AgentModeRunner.VerifyProjectAsync(request.ProjectPath, profile, verificationProfile.Commands);
             var activeTaskText = GetActivePlanTaskText();
 
             var failed = verifyResults.FirstOrDefault(x => x.ExitCode != 0);
@@ -1127,7 +1150,7 @@
                 NotificationService.Notify(
                     NotificationSeverity.Success,
                     "Verification passed",
-                    "git status, dotnet build, and dotnet test completed.");
+                    $"{verificationProfile.Name} completed: {string.Join(", ", verificationProfile.Commands)}.");
             }
             else
             {
@@ -1725,7 +1748,7 @@
         try
         {
             var profile = GetRequiredProfile(AgentActionProfiles.ForVerifyProject());
-            var results = await AgentModeRunner.VerifyProjectAsync(selectedPatchPackage.ProjectPath, profile);
+            var results = await AgentModeRunner.VerifyProjectAsync(selectedPatchPackage.ProjectPath, profile, GetSelectedVerificationProfile().Commands);
             var failed = results.FirstOrDefault(result => result.ExitCode != 0);
             var status = failed is null ? PatchPackageStatus.Verified : PatchPackageStatus.Failed;
             var statusMessage = failed is null
@@ -1908,6 +1931,8 @@
         LocalCoderPatchApplyResult? applyResult = null,
         LocalCoderPatchRollbackResult? rollbackResult = null,
         IReadOnlyList<CommandRunResult>? verificationResults = null,
+        LocalCoderPatchPreview? patchPreviewSnapshot = null,
+        PatchPreviewValidationException? patchPreviewValidation = null,
         string? model = null,
         IReadOnlyList<LocalCoderHistoryContextFile>? contextSnapshot = null,
         string? taskTextOverride = null,
@@ -1939,6 +1964,15 @@
                 PlanTasks = (planTasksSnapshot ?? GetPlanTasksSnapshot()).ToArray(),
                 PlanText = planText ?? string.Empty,
                 PatchPreviewText = patchPreviewText ?? string.Empty,
+                ScopeAnalysis = patchPreviewSnapshot?.ScopeAnalysis,
+                Intent = patchPreviewSnapshot?.Intent,
+                IntentValidation = patchPreviewSnapshot?.IntentValidation,
+                ContextCoverage = patchPreviewSnapshot?.ContextCoverage,
+                ValidationErrors = patchPreviewValidation?.ValidationErrors?.ToArray() ?? [],
+                OperationGrammarErrors = patchPreviewValidation?.OperationGrammarErrors?.ToArray() ?? [],
+                ValidationGuidance = patchPreviewValidation?.Guidance?.ToArray() ?? [],
+                ReplaceDiagnostics = patchPreviewValidation?.ReplaceDiagnostics?.ToArray() ?? [],
+                SuggestedTargetDiagnostics = patchPreviewValidation?.SuggestedTargetDiagnostics?.ToArray() ?? [],
                 ApplyResult = applyResult,
                 RollbackResult = rollbackResult,
                 VerificationResults = verificationResults?.ToArray() ?? [],
@@ -1998,6 +2032,12 @@
     private Task OnSelectedPlanTaskChangedAsync(string? planTaskId)
     {
         selectedPlanTaskId = planTaskId;
+        return Task.CompletedTask;
+    }
+
+    private Task OnSelectedVerificationProfileChanged(string? profileId)
+    {
+        selectedVerificationProfileId = ResolveVerificationProfileId(profileId);
         return Task.CompletedTask;
     }
 
@@ -2187,6 +2227,32 @@
     private static string BuildPlanTaskTaskText(LocalCoderPlanTask task)
     {
         return string.IsNullOrWhiteSpace(task.Description) ? task.Title : task.Description;
+    }
+
+    private LocalCoderVerificationProfile GetSelectedVerificationProfile()
+    {
+        return verificationProfiles.FirstOrDefault(profile => profile.Id.Equals(selectedVerificationProfileId, StringComparison.OrdinalIgnoreCase))
+            ?? verificationProfiles.FirstOrDefault(profile => profile.Id.Equals("quick", StringComparison.OrdinalIgnoreCase))
+            ?? verificationProfiles.FirstOrDefault()
+            ?? new LocalCoderVerificationProfile
+            {
+                Id = "quick",
+                Name = "Quick",
+                Description = "Fast verification with a single build.",
+                Commands = ["dotnet build"]
+            };
+    }
+
+    private string ResolveVerificationProfileId(string? profileId)
+    {
+        if (!string.IsNullOrWhiteSpace(profileId) &&
+            verificationProfiles.Any(profile => profile.Id.Equals(profileId, StringComparison.OrdinalIgnoreCase)))
+        {
+            return profileId;
+        }
+
+        var quickProfile = verificationProfiles.FirstOrDefault(profile => profile.Id.Equals("quick", StringComparison.OrdinalIgnoreCase));
+        return quickProfile?.Id ?? verificationProfiles.FirstOrDefault()?.Id ?? "quick";
     }
 
     #endregion

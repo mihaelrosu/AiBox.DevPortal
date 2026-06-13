@@ -2483,18 +2483,26 @@ public sealed class CoderConsoleService(
         public string Response { get; set; } = string.Empty;
     }
 
-    public async Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath)
+    public async Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath, IReadOnlyList<string>? commands = null)
     {
         var results = new List<CommandRunResult>();
 
-        string[] commands =
-        [
-            "git status",
-            "dotnet build",
-            "dotnet test"
-        ];
+        var verificationCommands = (commands is { Count: > 0 }
+            ? commands
+            : new[]
+            {
+                "dotnet build"
+            })
+            .Where(command => !string.IsNullOrWhiteSpace(command))
+            .Select(command => command.Trim())
+            .ToArray();
 
-        foreach (var command in commands)
+        if (verificationCommands.Length == 0)
+        {
+            verificationCommands = ["dotnet build"];
+        }
+
+        foreach (var command in verificationCommands)
         {
             var result = await RunCommandAsync(projectPath, command);
             results.Add(result);
