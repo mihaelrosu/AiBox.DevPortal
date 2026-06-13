@@ -50,6 +50,10 @@ public sealed class AgentModeRunner(
         EnsureMode(profile, AgentActionProfiles.ForGeneratePatchPreview(), "Generate Patch Preview");
         var routedRequest = WithProfileModel(request, profile);
         var intent = PatchIntentService.BuildIntent(routedRequest);
+        var targetResolution = CoderConsoleService.ResolveDeterministicTargetResolution(
+            routedRequest.Task,
+            routedRequest.FileContexts,
+            out _);
         var prompt = CoderConsoleService.BuildGeneratePatchPreviewPrompt(
             routedRequest,
             BuildSelectedFilePathsText(routedRequest.FileContexts),
@@ -57,6 +61,7 @@ public sealed class AgentModeRunner(
             BuildPatchScopeText(routedRequest.AllowedPatchScope, routedRequest.AllowedPatchFolders),
             PatchIntentService.BuildPromptText(intent),
             IsXmlDocumentationRequest(routedRequest.Task),
+            targetResolution,
             repairContext,
             profile);
 

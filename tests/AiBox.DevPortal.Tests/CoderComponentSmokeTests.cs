@@ -134,7 +134,8 @@ public sealed class CoderComponentSmokeTests : TestContext
                     "public void AlphaBeta()",
                     [
                         new PatchSuggestedTargetMatch(3, "public void AlphaBeta()", 91.2)
-                    ])
+                    ],
+                    "For adding documentation, use insert_before with the class or member declaration as anchor.")
             ])
             .Add(component => component.SelectedSuggestedTarget,
             new PatchSuggestedTargetSelection(
@@ -145,6 +146,24 @@ public sealed class CoderComponentSmokeTests : TestContext
                 "public void AlphaBeta()",
                 3,
                 91.2))
+            .Add(component => component.PromptAudit, new PatchPromptAudit
+            {
+                ContextFiles = ["Example.cs"],
+                ContextCharactersLoaded = 1234,
+                ContextTextCharactersSent = 1500,
+                ContextTextFirst500Chars = "FIRST500",
+                ContextTextLast500Chars = "LAST500"
+            })
+            .Add(component => component.PromptTargetResolution, new PatchPromptTargetResolution
+            {
+                TargetFound = true,
+                Operation = "insert_before",
+                FilePath = "Example.cs",
+                LineNumber = 3,
+                TargetText = "public void AlphaBeta()",
+                SurroundingContext = "1: class Example\n2: {\n3: public void AlphaBeta()\n4: }\n",
+                MatchCount = 1
+            })
             .Add(component => component.RawResponse, "{\"operations\":[]}")
             .Add(component => component.NormalizedResponse, "{\"operations\":[],\"errors\":[\"Exact target text was not found in context.\"]}")
             .Add(component => component.NormalizedDiff, string.Empty)
@@ -164,6 +183,15 @@ public sealed class CoderComponentSmokeTests : TestContext
         Assert.Contains("Regenerate Patch With Suggested Target", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Clear Selected Suggested Target", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Fix Patch Preview", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Prompt Audit", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Characters loaded: 1,234", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Context text sent: 1,500 chars", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("First 500 chars of context sent to model", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Last 500 chars of context sent to model", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Deterministic Target Resolution", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Target found: Yes", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("File: Example.cs", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Line: 3", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Raw Model Response", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Normalized Response", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Patch Preview Metrics", cut.Markup, StringComparison.Ordinal);

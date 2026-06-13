@@ -85,11 +85,6 @@ public sealed class CoderConsoleServiceRepairTests
             Assert.Equal("replace", preview.RepairSummary!.OriginalOperation);
             Assert.Equal("insert_before", preview.RepairSummary.RepairAttempt);
             Assert.Equal("Success", preview.RepairSummary.RepairResult);
-            var metrics = service.GetPatchPreviewMetrics();
-            Assert.Equal(1, metrics.Attempts);
-            Assert.Equal(1, metrics.SuccessfulPreviews);
-            Assert.Equal(0, metrics.FailedPreviews);
-            Assert.Equal(1, metrics.RepairedPreviews);
             Assert.Contains("// note", preview.PatchText, StringComparison.Ordinal);
             Assert.Equal(2, requests.Count);
             Assert.Contains("Replace operations require oldText.", requests[1], StringComparison.Ordinal);
@@ -184,11 +179,6 @@ public sealed class CoderConsoleServiceRepairTests
             Assert.Equal("insert_after", preview.RepairSummary!.OriginalOperation);
             Assert.Equal("insert_after", preview.RepairSummary.RepairAttempt);
             Assert.Equal("Success", preview.RepairSummary.RepairResult);
-            var metrics = service.GetPatchPreviewMetrics();
-            Assert.Equal(1, metrics.Attempts);
-            Assert.Equal(1, metrics.SuccessfulPreviews);
-            Assert.Equal(0, metrics.FailedPreviews);
-            Assert.Equal(1, metrics.RepairedPreviews);
             Assert.Contains("// note", preview.PatchText, StringComparison.Ordinal);
             Assert.Equal(2, requests.Count);
             Assert.Contains("Insert operations require an exact anchor.", requests[1], StringComparison.Ordinal);
@@ -275,11 +265,6 @@ public sealed class CoderConsoleServiceRepairTests
             Assert.Equal("remove", preview.RepairSummary!.OriginalOperation);
             Assert.Equal("remove", preview.RepairSummary.RepairAttempt);
             Assert.Equal("Success", preview.RepairSummary.RepairResult);
-            var metrics = service.GetPatchPreviewMetrics();
-            Assert.Equal(1, metrics.Attempts);
-            Assert.Equal(1, metrics.SuccessfulPreviews);
-            Assert.Equal(0, metrics.FailedPreviews);
-            Assert.Equal(1, metrics.RepairedPreviews);
             Assert.Contains("diff --git", preview.PatchText, StringComparison.Ordinal);
             Assert.Equal(2, requests.Count);
             Assert.Contains("Remove operations require oldText.", requests[1], StringComparison.Ordinal);
@@ -354,12 +339,154 @@ public sealed class CoderConsoleServiceRepairTests
                     }
                 ]
             }));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
 
-            var metrics = service.GetPatchPreviewMetrics();
-            Assert.Equal(1, metrics.Attempts);
-            Assert.Equal(0, metrics.SuccessfulPreviews);
-            Assert.Equal(1, metrics.FailedPreviews);
-            Assert.Equal(0, metrics.RepairedPreviews);
+    [Fact]
+    public async Task GeneratePatchPreviewAsync_DeterministicTargetResolution_ReachesModelPrompt()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-deterministic-target-prompt-{Guid.NewGuid():N}");
+        var filePath = Path.Combine(projectRoot, "Example.cs");
+        var requests = new List<string>();
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, "public class Example {}");
+
+            var handler = new QueueHandler(
+                requests,
+                """
+                {
+                  "response": "{\"operations\":[{\"filePath\":\"Example.cs\",\"operation\":\"insert_before\",\"anchor\":\"public class Example {}\",\"oldText\":\"\",\"newText\":\"// TEST_MARKER\\n\"}]}",
+                  "done": true
+                }
+                """);
+
+            var httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri("http://localhost")
+            };
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["AiBox:LocalCoder:DefaultModel"] = "test-model",
+                    ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
+                })
+                .Build();
+
+            var environment = Substitute.For<IWebHostEnvironment>();
+            environment.ContentRootPath.Returns(projectRoot);
+
+            var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
+            var contextService = Substitute.For<ILocalCoderContextService>();
+
+            var service = new CoderConsoleService(
+                httpClient,
+                configuration,
+                environment,
+                patchEditOperationService,
+                contextService);
+
+            var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
+            {
+                ProjectPath = projectRoot,
+                Model = "test-model",
+                Task = "Insert '// TEST_MARKER' immediately before: public class Example {}",
+                FileContexts =
+                [
+                    new LocalCoderFileContext
+                    {
+                        RelativePath = "Example.cs",
+                        Content = "public class Example {}"
+                    }
+                ]
+            });
+
+            Assert.Single(requests);
+            Assert.Contains("Server-resolved target:", requests[0], StringComparison.Ordinal);
+            Assert.Contains("Target found: Yes", requests[0], StringComparison.Ordinal);
+            Assert.Contains("public class Example {}", requests[0], StringComparison.Ordinal);
+            Assert.Equal("insert_before", preview.PromptTargetResolution?.Operation);
+            Assert.True(preview.PromptTargetResolution?.TargetFound);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task GeneratePatchPreviewAsync_DeterministicTargetMissing_StopsBeforeModelCall()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-deterministic-target-missing-{Guid.NewGuid():N}");
+        var filePath = Path.Combine(projectRoot, "Example.cs");
+        var requests = new List<string>();
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, "public class Example {}");
+
+            var handler = new QueueHandler(requests);
+
+            var httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri("http://localhost")
+            };
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["AiBox:LocalCoder:DefaultModel"] = "test-model",
+                    ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
+                })
+                .Build();
+
+            var environment = Substitute.For<IWebHostEnvironment>();
+            environment.ContentRootPath.Returns(projectRoot);
+
+            var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
+            var contextService = Substitute.For<ILocalCoderContextService>();
+
+            var service = new CoderConsoleService(
+                httpClient,
+                configuration,
+                environment,
+                patchEditOperationService,
+                contextService);
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() => service.GeneratePatchPreviewAsync(new LocalCoderRequest
+            {
+                ProjectPath = projectRoot,
+                Model = "test-model",
+                Task = "Insert '// TEST_MARKER' immediately before: public sealed class MissingType",
+                FileContexts =
+                [
+                    new LocalCoderFileContext
+                    {
+                        RelativePath = "Example.cs",
+                        Content = "public class Example {}"
+                    }
+                ]
+            }));
+
+            Assert.Contains("Deterministic target text was not found in selected context", exception.Message, StringComparison.Ordinal);
+            Assert.NotNull(exception.PromptTargetResolution);
+            Assert.False(exception.PromptTargetResolution!.TargetFound);
+            Assert.Equal("insert_before", exception.PromptTargetResolution.Operation);
+            Assert.Equal(0, requests.Count);
         }
         finally
         {

@@ -1,0 +1,13 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Models/LocalCoderHistoryEntry.cs",
+      "operation": "insert_before",
+      "anchor": "public sealed class LocalCoderHistoryEntry",
+      "newText": "/// <summary>\n/// Represents one saved Local Coder history entry.\n/// </summary>\n",
+      "summary": "Add XML documentation to LocalCoderHistoryEntry class"
+    }
+  ]
+}
+```

@@ -169,6 +169,173 @@ public sealed class PatchEditOperationServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_XmlDocRequest_ClassWithoutXmlDocs_SuggestsClassDeclaration()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-xml-doc-class-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public sealed class Example
+        {
+            public string Name { get; set; }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "replace",
+                                anchor = string.Empty,
+                                oldText = "<summary></summary>",
+                                newText = "/// <summary></summary>"
+                            }
+                        }
+                    })));
+
+            var replaceDiagnostic = Assert.Single(exception.ReplaceDiagnostics);
+            Assert.Contains("public sealed class Example", replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal);
+            Assert.DoesNotContain("Name", replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal);
+
+            var targetDiagnostic = Assert.Single(exception.SuggestedTargetDiagnostics);
+            Assert.Equal("For adding documentation, use insert_before with the class or member declaration as anchor.", targetDiagnostic.Recommendation);
+            Assert.Contains("public sealed class Example", targetDiagnostic.SuggestedTargetText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_XmlDocRequest_ClassWithXmlDocs_SuggestsSummaryBlock()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-xml-doc-block-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        /// <summary>
+        /// Existing docs
+        /// </summary>
+        public sealed class Example
+        {
+            public string Name { get; set; }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "replace",
+                                anchor = string.Empty,
+                                oldText = "<summary></summary>",
+                                newText = "/// <summary>Updated docs</summary>"
+                            }
+                        }
+                    })));
+
+            var replaceDiagnostic = Assert.Single(exception.ReplaceDiagnostics);
+            Assert.Contains("/// <summary>", replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal);
+            Assert.Contains("Existing docs", replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal);
+
+            var targetDiagnostic = Assert.Single(exception.SuggestedTargetDiagnostics);
+            Assert.Contains("/// <summary>", targetDiagnostic.SuggestedTargetText, StringComparison.Ordinal);
+            Assert.Equal("For adding documentation, use insert_before with the class or member declaration as anchor.", targetDiagnostic.Recommendation);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_XmlDocRequest_DoesNotPreferPropertyOverDeclaration()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-xml-doc-property-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public sealed class Example
+        {
+            public string Name { get; set; }
+
+            public string Title { get; set; }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "replace",
+                                anchor = string.Empty,
+                                oldText = "<summary></summary>",
+                                newText = "/// <summary>Updated docs</summary>"
+                            }
+                        }
+                    })));
+
+            var replaceDiagnostic = Assert.Single(exception.ReplaceDiagnostics);
+            Assert.DoesNotContain("Name { get; set; }", replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal);
+            Assert.DoesNotContain("Title { get; set; }", replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal);
+            Assert.Contains("public sealed class Example", replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task BuildAsync_CreateInRepresentedFolder_ProducesPatch()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-represented-folder-test-{Guid.NewGuid():N}");

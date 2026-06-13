@@ -966,8 +966,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return;
         }
 
-        var closestMatches = FindClosestReplaceMatches(currentContent, oldText, 3);
-        var suggestedReplacementTarget = closestMatches.FirstOrDefault()?.Snippet ?? string.Empty;
+        var xmlDocumentationRequested = IsXmlDocumentationRequested(oldText);
+        var closestMatches = FindClosestReplaceMatches(currentContent, oldText, 3, xmlDocumentationRequested);
+        var suggestedReplacementTarget = xmlDocumentationRequested
+            ? SelectXmlDocumentationSuggestedTargetFromContent(currentContent)
+            : closestMatches.FirstOrDefault()?.Snippet ?? string.Empty;
 
         replaceDiagnostics.Add(new PatchReplaceDiagnostic(
             filePath,
@@ -989,8 +992,14 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return;
         }
 
-        var closestMatches = FindClosestSuggestedTargetMatches(currentContent, requestedText, 3);
-        var suggestedTargetText = closestMatches.FirstOrDefault()?.Snippet ?? string.Empty;
+        var xmlDocumentationRequested = IsXmlDocumentationRequested(requestedText);
+        var closestMatches = FindClosestSuggestedTargetMatches(currentContent, requestedText, 3, xmlDocumentationRequested);
+        var suggestedTargetText = xmlDocumentationRequested
+            ? SelectXmlDocumentationSuggestedTargetFromContent(currentContent)
+            : closestMatches.FirstOrDefault()?.Snippet ?? string.Empty;
+        var recommendation = xmlDocumentationRequested
+            ? "For adding documentation, use insert_before with the class or member declaration as anchor."
+            : string.Empty;
 
         suggestedTargetDiagnostics.Add(new PatchSuggestedTargetDiagnostic(
             filePath,
@@ -998,21 +1007,30 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             targetLabel,
             requestedText,
             suggestedTargetText,
-            closestMatches));
+            closestMatches,
+            recommendation));
     }
 
     private static IReadOnlyList<PatchSuggestedTargetMatch> FindClosestSuggestedTargetMatches(
         string currentContent,
         string requestedText,
-        int topCount)
+        int topCount,
+        bool xmlDocumentationRequested)
     {
-        return BuildReplaceCandidates(currentContent, requestedText)
-            .Select(candidate => new PatchSuggestedTargetMatch(
-                candidate.LineNumber,
-                candidate.Snippet,
-                ComputeSimilarityScore(requestedText, candidate.Snippet)))
-            .OrderByDescending(match => match.SimilarityScore)
-            .ThenBy(match => match.LineNumber)
+        return BuildReplaceCandidates(currentContent, requestedText, xmlDocumentationRequested)
+            .Select(candidate => new
+            {
+                Candidate = candidate,
+                Similarity = ComputeSimilarityScore(requestedText, candidate.Snippet),
+                Priority = GetXmlDocumentationPriority(candidate, xmlDocumentationRequested)
+            })
+            .OrderByDescending(item => item.Priority)
+            .ThenByDescending(item => item.Similarity)
+            .ThenBy(item => item.Candidate.LineNumber)
+            .Select(item => new PatchSuggestedTargetMatch(
+                item.Candidate.LineNumber,
+                item.Candidate.Snippet,
+                item.Similarity))
             .Take(topCount)
             .ToArray();
     }
@@ -1020,20 +1038,28 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     private static IReadOnlyList<PatchReplaceClosestMatch> FindClosestReplaceMatches(
         string currentContent,
         string oldText,
-        int topCount)
+        int topCount,
+        bool xmlDocumentationRequested)
     {
-        return BuildReplaceCandidates(currentContent, oldText)
-            .Select(candidate => new PatchReplaceClosestMatch(
-                candidate.LineNumber,
-                candidate.Snippet,
-                ComputeSimilarityScore(oldText, candidate.Snippet)))
-            .OrderByDescending(match => match.SimilarityScore)
-            .ThenBy(match => match.LineNumber)
+        return BuildReplaceCandidates(currentContent, oldText, xmlDocumentationRequested)
+            .Select(candidate => new
+            {
+                Candidate = candidate,
+                Similarity = ComputeSimilarityScore(oldText, candidate.Snippet),
+                Priority = GetXmlDocumentationPriority(candidate, xmlDocumentationRequested)
+            })
+            .OrderByDescending(item => item.Priority)
+            .ThenByDescending(item => item.Similarity)
+            .ThenBy(item => item.Candidate.LineNumber)
+            .Select(item => new PatchReplaceClosestMatch(
+                item.Candidate.LineNumber,
+                item.Candidate.Snippet,
+                item.Similarity))
             .Take(topCount)
             .ToArray();
     }
 
-    private static IEnumerable<(int LineNumber, string Snippet)> BuildReplaceCandidates(string currentContent, string oldText)
+    private static IEnumerable<ReplaceCandidate> BuildReplaceCandidates(string currentContent, string oldText, bool xmlDocumentationRequested)
     {
         var lines = currentContent.ReplaceLineEndings("\n").Split('\n');
         var requestedLineCount = Math.Max(1, oldText.ReplaceLineEndings("\n").Split('\n').Length);
@@ -1044,7 +1070,43 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             var line = lines[index];
             if (!string.IsNullOrWhiteSpace(line))
             {
-                yield return (index + 1, line);
+                yield return new ReplaceCandidate(index + 1, line, IsXmlDocLine(line), IsDeclarationLine(line));
+            }
+
+            if (xmlDocumentationRequested)
+            {
+                if (IsXmlDocLine(line))
+                {
+                    var xmlBlockEnd = FindXmlDocBlockEnd(lines, index);
+                    var xmlBlockSnippet = string.Join(Environment.NewLine, lines[index..xmlBlockEnd]).Trim();
+                    if (!string.IsNullOrWhiteSpace(xmlBlockSnippet))
+                    {
+                        yield return new ReplaceCandidate(index + 1, xmlBlockSnippet, true, false);
+                    }
+
+                    var declarationIndex = FindFollowingDeclarationIndex(lines, xmlBlockEnd);
+                    if (declarationIndex >= 0)
+                    {
+                        var declarationLine = lines[declarationIndex];
+                        yield return new ReplaceCandidate(
+                            declarationIndex + 1,
+                            declarationLine.Trim(),
+                            false,
+                            IsDeclarationLine(declarationLine));
+                    }
+                }
+                else if (IsDeclarationLine(line))
+                {
+                    var docBlockStart = FindPrecedingXmlDocBlockStart(lines, index);
+                    if (docBlockStart >= 0)
+                    {
+                        var xmlBlockSnippet = string.Join(Environment.NewLine, lines[docBlockStart..index]).Trim();
+                        if (!string.IsNullOrWhiteSpace(xmlBlockSnippet))
+                        {
+                            yield return new ReplaceCandidate(docBlockStart + 1, xmlBlockSnippet, true, false);
+                        }
+                    }
+                }
             }
 
             if (windowSize <= 1)
@@ -1061,9 +1123,255 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             var snippet = string.Join(Environment.NewLine, lines[index..end]).Trim();
             if (!string.IsNullOrWhiteSpace(snippet))
             {
-                yield return (index + 1, snippet);
+                yield return new ReplaceCandidate(
+                    index + 1,
+                    snippet,
+                    ContainsXmlDocBlock(snippet),
+                    IsDeclarationBlock(snippet));
+            }
+
+        }
+    }
+
+    private static bool IsXmlDocumentationRequested(string? requestedText)
+    {
+        if (string.IsNullOrWhiteSpace(requestedText))
+        {
+            return false;
+        }
+
+        return ContainsAny(
+            requestedText,
+            "<summary>",
+            "</summary>",
+            "/// <summary>",
+            "/// </summary>");
+    }
+
+    private static bool IsXmlDocLine(string line)
+    {
+        return line.TrimStart().StartsWith("///", StringComparison.Ordinal);
+    }
+
+    private static bool ContainsXmlDocBlock(string snippet)
+    {
+        return snippet.Contains("<summary>", StringComparison.OrdinalIgnoreCase) &&
+               snippet.Contains("</summary>", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsDeclarationLine(string line)
+    {
+        return GetDeclarationKind(line) is not DeclarationKind.None;
+    }
+
+    private static bool IsDeclarationBlock(string snippet)
+    {
+        return snippet.Split('\n').Any(IsDeclarationLine);
+    }
+
+    private static int FindXmlDocBlockEnd(string[] lines, int startIndex)
+    {
+        var index = startIndex;
+        while (index < lines.Length && IsXmlDocLine(lines[index]))
+        {
+            index++;
+        }
+
+        return index;
+    }
+
+    private static int FindFollowingDeclarationIndex(string[] lines, int startIndex)
+    {
+        for (var index = startIndex; index < lines.Length; index++)
+        {
+            var line = lines[index];
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            return IsDeclarationLine(line) ? index : -1;
+        }
+
+        return -1;
+    }
+
+    private static int FindPrecedingXmlDocBlockStart(string[] lines, int declarationIndex)
+    {
+        var index = declarationIndex - 1;
+        while (index >= 0 && string.IsNullOrWhiteSpace(lines[index]))
+        {
+            index--;
+        }
+
+        if (index < 0 || !IsXmlDocLine(lines[index]))
+        {
+            return -1;
+        }
+
+        while (index - 1 >= 0 && IsXmlDocLine(lines[index - 1]))
+        {
+            index--;
+        }
+
+        return index;
+    }
+
+    private static int GetXmlDocumentationPriority(ReplaceCandidate candidate, bool xmlDocumentationRequested)
+    {
+        if (!xmlDocumentationRequested)
+        {
+            return 0;
+        }
+
+        var priority = 0;
+        if (candidate.IsXmlDocBlock)
+        {
+            priority = 4;
+        }
+        else if (candidate.IsDeclarationLine)
+        {
+            priority = GetDeclarationKind(candidate.Snippet) switch
+            {
+                DeclarationKind.SealedClass => 3,
+                DeclarationKind.Class => 3,
+                DeclarationKind.Method => 2,
+                DeclarationKind.Property => 1,
+                DeclarationKind.Other => 0,
+                _ => 0
+            };
+        }
+        else if (candidate.Snippet.TrimStart().StartsWith("///", StringComparison.Ordinal))
+        {
+            priority = 2;
+        }
+
+        return priority;
+    }
+
+    private static string SelectXmlDocumentationSuggestedTargetFromContent(string currentContent)
+    {
+        var lines = currentContent.ReplaceLineEndings("\n").Split('\n');
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (!IsXmlDocLine(lines[index]))
+            {
+                continue;
+            }
+
+            var xmlBlockEnd = FindXmlDocBlockEnd(lines, index);
+            var xmlBlockSnippet = string.Join(Environment.NewLine, lines[index..xmlBlockEnd]).Trim();
+            if (ContainsXmlDocBlock(xmlBlockSnippet))
+            {
+                return xmlBlockSnippet;
+            }
+
+            var declarationIndex = FindFollowingDeclarationIndex(lines, xmlBlockEnd);
+            if (declarationIndex >= 0)
+            {
+                return lines[declarationIndex].Trim();
             }
         }
+
+        var preferredDeclaration = SelectPreferredDeclarationLine(lines);
+        if (!string.IsNullOrWhiteSpace(preferredDeclaration))
+        {
+            return preferredDeclaration;
+        }
+
+        return string.Empty;
+    }
+
+    private static string SelectPreferredDeclarationLine(string[] lines)
+    {
+        var bestDeclaration = string.Empty;
+        var bestPriority = int.MinValue;
+
+        foreach (var line in lines)
+        {
+            var kind = GetDeclarationKind(line);
+            var priority = kind switch
+            {
+                DeclarationKind.SealedClass => 4,
+                DeclarationKind.Class => 4,
+                DeclarationKind.Method => 3,
+                DeclarationKind.Property => 2,
+                DeclarationKind.Other => 1,
+                _ => 0
+            };
+
+            if (priority <= bestPriority)
+            {
+                continue;
+            }
+
+            if (kind is DeclarationKind.None)
+            {
+                continue;
+            }
+
+            bestPriority = priority;
+            bestDeclaration = line.Trim();
+        }
+
+        return bestDeclaration;
+    }
+
+    private static DeclarationKind GetDeclarationKind(string snippet)
+    {
+        var trimmed = snippet.TrimStart();
+
+        if (trimmed.StartsWith("public sealed class", StringComparison.Ordinal))
+        {
+            return DeclarationKind.SealedClass;
+        }
+
+        if (trimmed.StartsWith("public class", StringComparison.Ordinal) ||
+            trimmed.StartsWith("public record", StringComparison.Ordinal) ||
+            trimmed.StartsWith("public interface", StringComparison.Ordinal) ||
+            trimmed.StartsWith("public struct", StringComparison.Ordinal) ||
+            trimmed.StartsWith("public enum", StringComparison.Ordinal))
+        {
+            return DeclarationKind.Class;
+        }
+
+        if (!trimmed.StartsWith("public ", StringComparison.Ordinal))
+        {
+            return DeclarationKind.None;
+        }
+
+        if (trimmed.Contains("get;", StringComparison.Ordinal) ||
+            trimmed.Contains("set;", StringComparison.Ordinal) ||
+            trimmed.Contains("{ get", StringComparison.Ordinal) ||
+            trimmed.Contains("=>", StringComparison.Ordinal))
+        {
+            return DeclarationKind.Property;
+        }
+
+        if (trimmed.Contains("(", StringComparison.Ordinal) && trimmed.Contains(")", StringComparison.Ordinal))
+        {
+            return DeclarationKind.Method;
+        }
+
+        if (trimmed.Contains("{", StringComparison.Ordinal))
+        {
+            return DeclarationKind.Property;
+        }
+
+        return DeclarationKind.Other;
+    }
+
+    private sealed record ReplaceCandidate(int LineNumber, string Snippet, bool IsXmlDocBlock, bool IsDeclarationLine);
+
+    private enum DeclarationKind
+    {
+        None = 0,
+        Other = 1,
+        Property = 2,
+        Method = 3,
+        Class = 4,
+        SealedClass = 5
     }
 
     private static double ComputeSimilarityScore(string expected, string candidate)

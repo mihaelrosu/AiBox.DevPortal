@@ -54,4 +54,8 @@ public sealed class PatchPreviewValidationException : InvalidOperationException
     public IReadOnlyList<PatchSuggestedTargetDiagnostic> SuggestedTargetDiagnostics { get; }
 
     public PatchPreviewRepairSummary? RepairSummary { get; set; }
+
+    public PatchPromptAudit? PromptAudit { get; set; }
+
+    public PatchPromptTargetResolution? PromptTargetResolution { get; set; }
 }

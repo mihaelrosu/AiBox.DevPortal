@@ -1,5 +1,8 @@
 namespace AiBox.DevPortal.Models;
 
+/// <summary>
+/// Represents one saved Local Coder history entry.
+/// </summary>
 public sealed class LocalCoderHistoryEntry
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -40,6 +43,10 @@ public sealed class LocalCoderHistoryEntry
 
     public PatchContextCoverage? ContextCoverage { get; set; }
 
+    public PatchPromptAudit? PromptAudit { get; set; }
+
+    public PatchPromptTargetResolution? PromptTargetResolution { get; set; }
+
     public IReadOnlyList<string> ValidationErrors { get; set; } = [];
 
     public IReadOnlyList<string> OperationGrammarErrors { get; set; } = [];
@@ -49,6 +56,8 @@ public sealed class LocalCoderHistoryEntry
     public IReadOnlyList<PatchReplaceDiagnostic> ReplaceDiagnostics { get; set; } = [];
 
     public IReadOnlyList<PatchSuggestedTargetDiagnostic> SuggestedTargetDiagnostics { get; set; } = [];
+
+    public PatchPreviewRepairSummary? RepairSummary { get; set; }
 
     public LocalCoderPatchApplyResult? ApplyResult { get; set; }
 

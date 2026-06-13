@@ -11,7 +11,8 @@ public sealed record PatchSuggestedTargetDiagnostic(
     string TargetLabel,
     string RequestedText,
     string SuggestedTargetText,
-    IReadOnlyList<PatchSuggestedTargetMatch> ClosestMatches);
+    IReadOnlyList<PatchSuggestedTargetMatch> ClosestMatches,
+    string Recommendation = "");
 
 public sealed record PatchSuggestedTargetSelection(
     string FilePath,

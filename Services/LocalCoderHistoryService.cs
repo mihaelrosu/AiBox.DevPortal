@@ -182,11 +182,14 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             Intent = CloneIntent(entry.Intent),
             IntentValidation = CloneIntentValidation(entry.IntentValidation),
             ContextCoverage = CloneContextCoverage(entry.ContextCoverage),
+            PromptAudit = ClonePromptAudit(entry.PromptAudit),
+            PromptTargetResolution = ClonePromptTargetResolution(entry.PromptTargetResolution),
             ValidationErrors = [.. entry.ValidationErrors ?? []],
             OperationGrammarErrors = [.. entry.OperationGrammarErrors ?? []],
             ValidationGuidance = [.. entry.ValidationGuidance ?? []],
             ReplaceDiagnostics = [.. entry.ReplaceDiagnostics ?? []],
             SuggestedTargetDiagnostics = [.. entry.SuggestedTargetDiagnostics ?? []],
+            RepairSummary = CloneRepairSummary(entry.RepairSummary),
             ApplyResult = CloneApplyResult(entry.ApplyResult),
             RollbackResult = CloneRollbackResult(entry.RollbackResult),
             VerificationResults = [.. entry.VerificationResults ?? []],
@@ -213,6 +216,22 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             ChangedFiles = [.. result.ChangedFiles ?? []],
             BackupFiles = [.. result.BackupFiles ?? []],
             VerificationResults = [.. result.VerificationResults ?? []]
+        };
+    }
+
+    private static PatchPreviewRepairSummary? CloneRepairSummary(PatchPreviewRepairSummary? repairSummary)
+    {
+        if (repairSummary is null)
+        {
+            return null;
+        }
+
+        return new PatchPreviewRepairSummary
+        {
+            OriginalOperation = repairSummary.OriginalOperation,
+            RepairAttempt = repairSummary.RepairAttempt,
+            RepairResult = repairSummary.RepairResult,
+            ValidationError = repairSummary.ValidationError
         };
     }
 
@@ -312,6 +331,43 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
                 })
                 .ToArray(),
             RiskScore = coverage.RiskScore
+        };
+    }
+
+    private static PatchPromptAudit? ClonePromptAudit(PatchPromptAudit? promptAudit)
+    {
+        if (promptAudit is null)
+        {
+            return null;
+        }
+
+        return new PatchPromptAudit
+        {
+            ContextFiles = [.. promptAudit.ContextFiles ?? []],
+            ContextCharactersLoaded = promptAudit.ContextCharactersLoaded,
+            ContextTextCharactersSent = promptAudit.ContextTextCharactersSent,
+            ContextTextFirst500Chars = promptAudit.ContextTextFirst500Chars,
+            ContextTextLast500Chars = promptAudit.ContextTextLast500Chars
+        };
+    }
+
+    private static PatchPromptTargetResolution? ClonePromptTargetResolution(PatchPromptTargetResolution? targetResolution)
+    {
+        if (targetResolution is null)
+        {
+            return null;
+        }
+
+        return new PatchPromptTargetResolution
+        {
+            TargetFound = targetResolution.TargetFound,
+            Operation = targetResolution.Operation,
+            FilePath = targetResolution.FilePath,
+            LineNumber = targetResolution.LineNumber,
+            TargetText = targetResolution.TargetText,
+            SurroundingContext = targetResolution.SurroundingContext,
+            MatchCount = targetResolution.MatchCount,
+            ErrorMessage = targetResolution.ErrorMessage
         };
     }
 

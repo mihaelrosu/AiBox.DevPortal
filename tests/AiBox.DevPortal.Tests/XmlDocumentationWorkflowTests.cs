@@ -46,7 +46,7 @@ public sealed class XmlDocumentationWorkflowTests
     }
 
     [Fact]
-    public void BuildGeneratePatchPreviewPrompt_XmlDocumentationModeUsesReplaceOnlyInstructions()
+    public void BuildGeneratePatchPreviewPrompt_XmlDocumentationModeAllowsReplaceOrInsertBefore()
     {
         var request = new LocalCoderRequest
         {
@@ -64,13 +64,13 @@ public sealed class XmlDocumentationWorkflowTests
             xmlDocumentationMode: true);
 
         Assert.Contains("XML documentation mode is active.", prompt, StringComparison.Ordinal);
-        Assert.Contains("Generate replace operations only.", prompt, StringComparison.Ordinal);
-        Assert.Contains("replace:", prompt, StringComparison.Ordinal);
-        Assert.Contains("oldText must be exact text from selected context", prompt, StringComparison.Ordinal);
-        Assert.Contains("If exact oldText or anchor cannot be found, return:", prompt, StringComparison.Ordinal);
-        Assert.Contains("\"errors\": [", prompt, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"operation\": \"insert_after\"", prompt, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"operation\": \"insert_before\"", prompt, StringComparison.Ordinal);
+        Assert.Contains("If XML documentation already exists, use replace with exact oldText.", prompt, StringComparison.Ordinal);
+        Assert.Contains("If XML documentation does not exist, use insert_before with the exact class or member declaration as anchor.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Models/LocalCoderHistoryEntry.cs", prompt, StringComparison.Ordinal);
+        Assert.Contains("\"operation\": \"insert_before\"", prompt, StringComparison.Ordinal);
+        Assert.Contains("public sealed class LocalCoderHistoryEntry", prompt, StringComparison.Ordinal);
+        Assert.Contains("Add XML documentation to LocalCoderHistoryEntry class", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Generate replace operations only.", prompt, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -135,7 +135,8 @@ public sealed class XmlDocumentationWorkflowTests
                     "oldText",
                     "<h1>Headr</h1>",
                     "<h1>Header</h1>",
-                    [new PatchSuggestedTargetMatch(1, "<h1>Header</h1>", 97.0)])
+                    [new PatchSuggestedTargetMatch(1, "<h1>Header</h1>", 97.0)],
+                    "For adding documentation, use insert_before with the class or member declaration as anchor.")
             ]);
 
         var prompt = CoderConsoleService.BuildGeneratePatchPreviewPrompt(
@@ -208,7 +209,103 @@ public sealed class XmlDocumentationWorkflowTests
     }
 
     [Fact]
-    public void ValidateXmlDocumentationOperationModes_RejectsNonReplaceOperations()
+    public void BuildPatchPromptAudit_CapturesContextSlices()
+    {
+        var fileContexts = new[]
+        {
+            new LocalCoderFileContext
+            {
+                RelativePath = "Components/Pages/Coder.razor",
+                Content = "Alpha"
+            },
+            new LocalCoderFileContext
+            {
+                RelativePath = "Models/LocalCoderHistoryEntry.cs",
+                Content = "BetaBeta"
+            }
+        };
+
+        var fileContextText = "FIRST" + new string('A', 520) + "LAST";
+
+        var audit = CoderConsoleService.BuildPatchPromptAudit(fileContexts, fileContextText);
+
+        Assert.Equal(2, audit.ContextFiles.Count);
+        Assert.Contains("Components/Pages/Coder.razor", audit.ContextFiles, StringComparer.Ordinal);
+        Assert.Contains("Models/LocalCoderHistoryEntry.cs", audit.ContextFiles, StringComparer.Ordinal);
+        Assert.Equal(13, audit.ContextCharactersLoaded);
+        Assert.Equal(fileContextText.Length, audit.ContextTextCharactersSent);
+        Assert.StartsWith("FIRST", audit.ContextTextFirst500Chars, StringComparison.Ordinal);
+        Assert.DoesNotContain("LAST", audit.ContextTextFirst500Chars, StringComparison.Ordinal);
+        Assert.EndsWith("LAST", audit.ContextTextLast500Chars, StringComparison.Ordinal);
+        Assert.DoesNotContain("FIRST", audit.ContextTextLast500Chars, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildGeneratePatchPreviewPrompt_IncludesDeterministicTargetResolution()
+    {
+        var request = new LocalCoderRequest
+        {
+            ProjectPath = "/repo",
+            Task = "Insert '// TEST_MARKER' immediately before: public sealed class LocalCoderHistoryEntry",
+            Model = "test-model",
+            FileContexts =
+            [
+                new LocalCoderFileContext
+                {
+                    RelativePath = "Models/LocalCoderHistoryEntry.cs",
+                    Content = "public sealed class LocalCoderHistoryEntry {}"
+                }
+            ]
+        };
+
+        var targetResolution = new PatchPromptTargetResolution
+        {
+            TargetFound = true,
+            Operation = "insert_before",
+            FilePath = "Models/LocalCoderHistoryEntry.cs",
+            LineNumber = 1,
+            TargetText = "public sealed class LocalCoderHistoryEntry {}",
+            SurroundingContext = "1: public sealed class LocalCoderHistoryEntry {}",
+            MatchCount = 1
+        };
+
+        var prompt = CoderConsoleService.BuildGeneratePatchPreviewPrompt(
+            request,
+            "- Models/LocalCoderHistoryEntry.cs",
+            "FILE: Models/LocalCoderHistoryEntry.cs",
+            "Context Files Only",
+            "goal text",
+            xmlDocumentationMode: false,
+            targetResolution: targetResolution);
+
+        Assert.Contains("Server-resolved target:", prompt, StringComparison.Ordinal);
+        Assert.Contains("Target found: Yes", prompt, StringComparison.Ordinal);
+        Assert.Contains("File: Models/LocalCoderHistoryEntry.cs", prompt, StringComparison.Ordinal);
+        Assert.Contains("Line: 1", prompt, StringComparison.Ordinal);
+        Assert.Contains("Do not search for anchors.", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ValidateXmlDocumentationOperationModes_AllowsInsertBeforeWhenDocsAreMissing()
+    {
+        var rawResponse = """
+        {
+          "operations": [
+            {
+              "filePath": "Components/Pages/Coder.razor",
+              "operation": "insert_before",
+              "anchor": "public sealed class LocalCoderHistoryEntry",
+              "newText": "/// <summary>\n/// Docs\n/// </summary>\n"
+            }
+          ]
+        }
+        """;
+
+        CoderConsoleService.ValidateXmlDocumentationOperationModes(rawResponse);
+    }
+
+    [Fact]
+    public void ValidateXmlDocumentationOperationModes_RejectsUnsupportedOperations()
     {
         var rawResponse = """
         {
@@ -216,8 +313,8 @@ public sealed class XmlDocumentationWorkflowTests
             {
               "filePath": "Components/Pages/Coder.razor",
               "operation": "insert_after",
-              "anchor": "<summary>",
-              "newText": "<summary>Updated</summary>"
+              "anchor": "public sealed class LocalCoderHistoryEntry",
+              "newText": "/// <summary>\n/// Docs\n/// </summary>\n"
             }
           ]
         }
@@ -226,7 +323,7 @@ public sealed class XmlDocumentationWorkflowTests
         var exception = Assert.Throws<PatchPreviewValidationException>(() =>
             CoderConsoleService.ValidateXmlDocumentationOperationModes(rawResponse));
 
-        Assert.Contains("replace operations only", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("replace or insert_before operations", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("XML documentation mode detected", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
     }
 
@@ -251,7 +348,7 @@ public sealed class XmlDocumentationWorkflowTests
         var exception = Assert.Throws<PatchPreviewValidationException>(() =>
             CoderConsoleService.ValidateXmlDocumentationOperationModes(rawResponse));
 
-        Assert.Contains("replace operations only", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("replace or insert_before operations", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

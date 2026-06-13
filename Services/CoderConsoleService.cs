@@ -156,6 +156,23 @@ public sealed class CoderConsoleService(
         var intent = PatchIntentService.BuildIntent(request);
         var intentText = PatchIntentService.BuildPromptText(intent);
         var xmlDocumentationMode = IsXmlDocumentationRequest(request.Task);
+        var deterministicTargetResolution = ResolveDeterministicTargetResolution(
+            request.Task,
+            request.FileContexts,
+            out var deterministicTargetError);
+
+        if (deterministicTargetError is not null)
+        {
+            RecordPatchPreviewFailure();
+            var validationException = new PatchPreviewValidationException(
+                $"Patch preview validation failed:{Environment.NewLine}- {deterministicTargetError}",
+                [deterministicTargetError],
+                string.Empty,
+                string.Empty,
+                string.Empty);
+            validationException.PromptTargetResolution = deterministicTargetResolution;
+            throw validationException;
+        }
 
         if (TryParseExactRemovalTask(request.Task, out var removalText))
         {
@@ -224,6 +241,7 @@ public sealed class CoderConsoleService(
         }
 
         var fileContextText = BuildPatchPreviewFileContextText(request.FileContexts);
+        var promptAudit = BuildPatchPromptAudit(request.FileContexts, fileContextText);
         var selectedFilePathsText = BuildSelectedFilePathsText(request.FileContexts);
         var scopeText = BuildPatchScopeText(request.AllowedPatchScope, request.AllowedPatchFolders);
 
@@ -234,6 +252,7 @@ public sealed class CoderConsoleService(
             scopeText,
             intentText,
             xmlDocumentationMode,
+            deterministicTargetResolution,
             repairContext,
             profile);
 
@@ -272,6 +291,8 @@ public sealed class CoderConsoleService(
         }
         catch (PatchPreviewValidationException exception)
         {
+            exception.PromptAudit = promptAudit;
+            exception.PromptTargetResolution = deterministicTargetResolution;
             originalValidationException = exception;
             if (!TryGetPatchPreviewRepairPlan(exception, out var repairPlan))
             {
@@ -287,6 +308,7 @@ public sealed class CoderConsoleService(
                 fileContextText,
                 scopeText,
                 xmlDocumentationMode,
+                deterministicTargetResolution,
                 repairPlan,
                 exception);
 
@@ -311,12 +333,15 @@ public sealed class CoderConsoleService(
         catch (Exception exception)
         {
             RecordPatchPreviewFailure();
-            throw new PatchPreviewValidationException(
+            var validationException = new PatchPreviewValidationException(
                 $"Patch preview validation failed:{Environment.NewLine}- {exception.Message}",
                 [exception.Message],
                 rawResponse,
                 string.Empty,
                 normalizedResponse);
+            validationException.PromptAudit = promptAudit;
+            validationException.PromptTargetResolution = deterministicTargetResolution;
+            throw validationException;
         }
 
         await SavePatchDebugRawResponseAsync(finalRawResponse);
@@ -330,13 +355,18 @@ public sealed class CoderConsoleService(
             {
                 repairSummary.RepairResult = "Failed";
                 repairSummary.ValidationError = originalValidationException.Message;
+                originalValidationException.PromptAudit = promptAudit;
+                originalValidationException.PromptTargetResolution = deterministicTargetResolution;
                 originalValidationException.RepairSummary = repairSummary;
                 RecordPatchPreviewFailure();
                 throw originalValidationException;
             }
 
             RecordPatchPreviewFailure();
-            throw CreatePatchPreviewValidationException(validation, finalRawResponse, patchText, finalNormalizedResponse);
+            var validationException = CreatePatchPreviewValidationException(validation, finalRawResponse, patchText, finalNormalizedResponse);
+            validationException.PromptAudit = promptAudit;
+            validationException.PromptTargetResolution = deterministicTargetResolution;
+            throw validationException;
         }
 
         var patchPreview = new LocalCoderPatchPreview
@@ -354,6 +384,8 @@ public sealed class CoderConsoleService(
                 request.AllowedPatchFolders,
                 editResult.FileChanges),
             Intent = intent,
+            PromptAudit = promptAudit,
+            PromptTargetResolution = deterministicTargetResolution,
             PatchText = patchText,
             RepairSummary = repairSummary
         };
@@ -1089,6 +1121,7 @@ public sealed class CoderConsoleService(
         string scopeText,
         string intentText,
         bool xmlDocumentationMode = false,
+        PatchPromptTargetResolution? targetResolution = null,
         PatchPreviewRepairContext? repairContext = null,
         AgentModeProfile? profile = null)
     {
@@ -1098,12 +1131,11 @@ public sealed class CoderConsoleService(
         {
           "operations": [
             {
-              "filePath": "Components/Pages/Coder.razor",
-              "operation": "replace",
-              "anchor": "<summary>",
-              "oldText": "<summary>Old text</summary>",
-              "newText": "<summary>New text</summary>",
-              "summary": "Update XML documentation text"
+              "filePath": "Models/LocalCoderHistoryEntry.cs",
+              "operation": "insert_before",
+              "anchor": "public sealed class LocalCoderHistoryEntry",
+              "newText": "/// <summary>\n/// Represents one saved Local Coder history entry.\n/// </summary>\n",
+              "summary": "Add XML documentation to LocalCoderHistoryEntry class"
             }
           ]
         }
@@ -1185,14 +1217,15 @@ public sealed class CoderConsoleService(
         var xmlDocumentationInstructions = xmlDocumentationMode
             ? """
         XML documentation mode is active.
-        Generate replace operations only.
-        Do not use insert_before or insert_after.
-        Use exact text replacement for documentation comments and XML doc blocks.
+        If XML documentation already exists, use replace with exact oldText.
+        If XML documentation does not exist, use insert_before with the exact class or member declaration as anchor.
+        Use exact text replacement for existing documentation comments and exact declaration anchors for new documentation.
         """
             : string.Empty;
         var repairInstructions = repairContext is null
             ? string.Empty
             : BuildRepairInstructionsText(repairContext);
+        var targetResolutionText = BuildPromptTargetResolutionText(targetResolution);
         return $$"""
         You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
 
@@ -1228,6 +1261,8 @@ public sealed class CoderConsoleService(
 
         Patch intent:
         {{intentText}}
+
+        {{targetResolutionText}}
 
         Selected file context:
         {{fileContextText}}
@@ -1335,6 +1370,28 @@ public sealed class CoderConsoleService(
           - oldText must be exact text from selected context
 
         Use the closest exact match when repairing oldText or anchor.
+        """;
+    }
+
+    private static string BuildPromptTargetResolutionText(PatchPromptTargetResolution? targetResolution)
+    {
+        if (targetResolution is null)
+        {
+            return string.Empty;
+        }
+
+        return $"""
+        Server-resolved target:
+        Operation: {targetResolution.Operation}
+        Target found: {(targetResolution.TargetFound ? "Yes" : "No")}
+        File: {targetResolution.FilePath}
+        Line: {targetResolution.LineNumber}
+        Match count: {targetResolution.MatchCount}
+        Exact target text:
+        {targetResolution.TargetText}
+        Surrounding context:
+        {targetResolution.SurroundingContext}
+        Do not search for anchors. Use the exact target text above.
         """;
     }
 
@@ -1479,6 +1536,7 @@ public sealed class CoderConsoleService(
         string fileContextText,
         string scopeText,
         bool xmlDocumentationMode,
+        PatchPromptTargetResolution? targetResolution,
         PatchPreviewRepairPlan repairPlan,
         PatchPreviewValidationException originalException)
     {
@@ -1496,6 +1554,7 @@ public sealed class CoderConsoleService(
             scopeText,
             intentText,
             xmlDocumentationMode,
+            targetResolution,
             repairContext,
             profile);
 
@@ -1573,6 +1632,14 @@ public sealed class CoderConsoleService(
 
     private sealed record PatchPreviewRepairPlan(string OriginalOperation, string RepairAttempt);
 
+    private sealed record DeterministicTargetInstruction(string Operation, string TargetText);
+
+    private sealed record DeterministicTargetMatch(
+        string FilePath,
+        int LineNumber,
+        string TargetText,
+        string SurroundingContext);
+
     internal static bool IsXmlDocumentationRequest(string task)
     {
         if (string.IsNullOrWhiteSpace(task))
@@ -1608,15 +1675,17 @@ public sealed class CoderConsoleService(
         var forbiddenOperations = operations
             .EnumerateArray()
             .Select(operation => operation.TryGetProperty("operation", out var operationName) ? operationName.GetString() ?? string.Empty : string.Empty)
-            .Where(operationName => !string.Equals(operationName, "replace", StringComparison.OrdinalIgnoreCase))
+            .Where(operationName =>
+                !string.Equals(operationName, "replace", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(operationName, "insert_before", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         if (forbiddenOperations.Length > 0)
         {
             throw new PatchPreviewValidationException(
-                "XML documentation requests must use replace operations only.",
-                ["XML documentation mode detected. The patch preview used an unsupported operation. Use replace operations only."],
+                "XML documentation requests must use replace or insert_before operations.",
+                ["XML documentation mode detected. The patch preview used an unsupported operation. Use replace when XML docs already exist, otherwise use insert_before with the class or member declaration as anchor."],
                 rawResponse,
                 string.Empty);
         }
@@ -1904,6 +1973,22 @@ public sealed class CoderConsoleService(
         return builder.ToString();
     }
 
+    internal static PatchPromptAudit BuildPatchPromptAudit(
+        IReadOnlyList<LocalCoderFileContext> fileContexts,
+        string fileContextText)
+    {
+        var contextText = fileContextText ?? string.Empty;
+
+        return new PatchPromptAudit
+        {
+            ContextFiles = fileContexts.Select(fileContext => fileContext.RelativePath).ToArray(),
+            ContextCharactersLoaded = fileContexts.Sum(fileContext => fileContext.CharacterCount),
+            ContextTextCharactersSent = contextText.Length,
+            ContextTextFirst500Chars = contextText.Length <= 500 ? contextText : contextText[..500],
+            ContextTextLast500Chars = contextText.Length <= 500 ? contextText : contextText[^500..]
+        };
+    }
+
     private static string BuildSelectedFilePathsText(IReadOnlyList<LocalCoderFileContext> fileContexts)
     {
         if (fileContexts.Count == 0)
@@ -1930,6 +2015,325 @@ public sealed class CoderConsoleService(
             PatchScopeMode.AnyProjectFile => "Any Project File",
             _ => "Context Files Only"
         };
+    }
+
+    internal static PatchPromptTargetResolution? ResolveDeterministicTargetResolution(
+        string task,
+        IReadOnlyList<LocalCoderFileContext> fileContexts,
+        out string? validationError)
+    {
+        validationError = null;
+
+        if (!TryParseDeterministicTargetInstruction(task, out var instruction))
+        {
+            return null;
+        }
+
+        var matches = FindDeterministicTargetMatches(fileContexts, instruction.TargetText).ToArray();
+        if (matches.Length == 0)
+        {
+            validationError = $"Deterministic target text was not found in selected context for operation '{instruction.Operation}': {instruction.TargetText}";
+            return new PatchPromptTargetResolution
+            {
+                TargetFound = false,
+                Operation = instruction.Operation,
+                TargetText = instruction.TargetText,
+                MatchCount = 0,
+                ErrorMessage = validationError
+            };
+        }
+
+        if (matches.Length > 1)
+        {
+            validationError = $"Deterministic target text matched multiple locations in selected context for operation '{instruction.Operation}'. Make the task more specific.";
+            return new PatchPromptTargetResolution
+            {
+                TargetFound = false,
+                Operation = instruction.Operation,
+                TargetText = instruction.TargetText,
+                MatchCount = matches.Length,
+                ErrorMessage = validationError
+            };
+        }
+
+        var match = matches[0];
+        return new PatchPromptTargetResolution
+        {
+            TargetFound = true,
+            Operation = instruction.Operation,
+            FilePath = match.FilePath,
+            LineNumber = match.LineNumber,
+            TargetText = match.TargetText,
+            SurroundingContext = match.SurroundingContext,
+            MatchCount = 1
+        };
+    }
+
+    private static bool TryParseDeterministicTargetInstruction(string task, out DeterministicTargetInstruction instruction)
+    {
+        var lines = (task ?? string.Empty)
+            .ReplaceLineEndings("\n")
+            .Split('\n');
+
+        if (TryReadTaskBlockBetweenLabels(lines, "replace", "with", out var replaceText))
+        {
+            instruction = new DeterministicTargetInstruction("replace", replaceText);
+            return true;
+        }
+
+        if (TryReadTaskBlockAfterLabel(lines, "before", out var insertBeforeText))
+        {
+            instruction = new DeterministicTargetInstruction("insert_before", insertBeforeText);
+            return true;
+        }
+
+        if (TryReadTaskBlockAfterLabel(lines, "after", out var insertAfterText))
+        {
+            instruction = new DeterministicTargetInstruction("insert_after", insertAfterText);
+            return true;
+        }
+
+        if (TryReadTaskBlockAfterLabel(lines, "delete", out var deleteText))
+        {
+            instruction = new DeterministicTargetInstruction("delete", deleteText);
+            return true;
+        }
+
+        if (TryReadTaskBlockAfterLabel(lines, "remove", out var removeText))
+        {
+            instruction = new DeterministicTargetInstruction("delete", removeText);
+            return true;
+        }
+
+        instruction = new DeterministicTargetInstruction(string.Empty, string.Empty);
+        return false;
+    }
+
+    private static bool TryReadTaskBlockBetweenLabels(string[] lines, string startLabel, string endLabel, out string text)
+    {
+        var startIndex = FindTaskLabelLineIndex(lines, startLabel);
+        if (startIndex < 0)
+        {
+            text = string.Empty;
+            return false;
+        }
+
+        var builder = new List<string>();
+        AddInlineTaskLabelText(builder, lines[startIndex], startLabel, endLabel);
+
+        for (var index = startIndex + 1; index < lines.Length; index++)
+        {
+            if (ContainsTaskLabel(lines[index], endLabel))
+            {
+                break;
+            }
+
+            if (IsTaskLabelLine(lines[index]) && builder.Count > 0)
+            {
+                break;
+            }
+
+            builder.Add(lines[index]);
+        }
+
+        text = NormalizeTaskBlockText(builder);
+        return !string.IsNullOrWhiteSpace(text);
+    }
+
+    private static bool TryReadTaskBlockAfterLabel(string[] lines, string label, out string text)
+    {
+        var labelIndex = FindTaskLabelLineIndex(lines, label);
+        if (labelIndex < 0)
+        {
+            text = string.Empty;
+            return false;
+        }
+
+        var builder = new List<string>();
+        AddInlineTaskLabelText(builder, lines[labelIndex], label);
+
+        for (var index = labelIndex + 1; index < lines.Length; index++)
+        {
+            if (IsTaskLabelLine(lines[index]) && builder.Count > 0)
+            {
+                break;
+            }
+
+            builder.Add(lines[index]);
+        }
+
+        text = NormalizeTaskBlockText(builder);
+        return !string.IsNullOrWhiteSpace(text);
+    }
+
+    private static int FindTaskLabelLineIndex(string[] lines, string label)
+    {
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (ContainsTaskLabel(lines[index], label))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static void AddInlineTaskLabelText(List<string> builder, string line, string label, string? endLabel = null)
+    {
+        var labelIndex = line.IndexOf($"{label}:", StringComparison.OrdinalIgnoreCase);
+        if (labelIndex < 0)
+        {
+            return;
+        }
+
+        var afterLabel = line[(labelIndex + label.Length + 1)..];
+        if (!string.IsNullOrWhiteSpace(afterLabel))
+        {
+            if (!string.IsNullOrWhiteSpace(endLabel))
+            {
+                var endIndex = afterLabel.IndexOf($"{endLabel}:", StringComparison.OrdinalIgnoreCase);
+                if (endIndex >= 0)
+                {
+                    afterLabel = afterLabel[..endIndex];
+                }
+            }
+
+            builder.Add(afterLabel.TrimStart());
+        }
+    }
+
+    private static bool ContainsTaskLabel(string line, string label)
+    {
+        return line.IndexOf($"{label}:", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsTaskLabelLine(string line)
+    {
+        return line.Contains("replace:", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("with:", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("before:", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("after:", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("delete:", StringComparison.OrdinalIgnoreCase) ||
+               line.Contains("remove:", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeTaskBlockText(IReadOnlyList<string> lines)
+    {
+        if (lines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var joined = string.Join(Environment.NewLine, lines);
+        return NormalizeTaskBlockText(joined);
+    }
+
+    private static string NormalizeTaskBlockText(string text)
+    {
+        var normalized = (text ?? string.Empty).ReplaceLineEndings(Environment.NewLine);
+        var lines = normalized.ReplaceLineEndings("\n").Split('\n');
+
+        var start = 0;
+        while (start < lines.Length && string.IsNullOrWhiteSpace(lines[start]))
+        {
+            start++;
+        }
+
+        var end = lines.Length - 1;
+        while (end >= start && string.IsNullOrWhiteSpace(lines[end]))
+        {
+            end--;
+        }
+
+        if (start > end)
+        {
+            return string.Empty;
+        }
+
+        var selected = lines[start..(end + 1)];
+        var joined = string.Join(Environment.NewLine, selected);
+        return TrimMatchingQuotes(joined);
+    }
+
+    private static string TrimMatchingQuotes(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = text.Trim();
+        if (trimmed.Length >= 2)
+        {
+            if ((trimmed.StartsWith('"') && trimmed.EndsWith('"')) || (trimmed.StartsWith('\'') && trimmed.EndsWith('\'')))
+            {
+                return trimmed[1..^1];
+            }
+        }
+
+        return text.TrimEnd();
+    }
+
+    private static IEnumerable<DeterministicTargetMatch> FindDeterministicTargetMatches(
+        IReadOnlyList<LocalCoderFileContext> fileContexts,
+        string targetText)
+    {
+        var normalizedTarget = (targetText ?? string.Empty).ReplaceLineEndings("\n");
+
+        foreach (var fileContext in fileContexts)
+        {
+            var normalizedContent = (fileContext.Content ?? string.Empty).ReplaceLineEndings("\n");
+            var index = 0;
+
+            while (index >= 0 && index < normalizedContent.Length)
+            {
+                index = normalizedContent.IndexOf(normalizedTarget, index, StringComparison.Ordinal);
+                if (index < 0)
+                {
+                    break;
+                }
+
+                var lineNumber = CountLinesBeforeIndex(normalizedContent, index) + 1;
+                var surroundingContext = BuildSurroundingContext(normalizedContent, lineNumber, normalizedTarget);
+                yield return new DeterministicTargetMatch(
+                    fileContext.RelativePath,
+                    lineNumber,
+                    normalizedTarget,
+                    surroundingContext);
+                index += Math.Max(1, normalizedTarget.Length);
+            }
+        }
+    }
+
+    private static int CountLinesBeforeIndex(string text, int index)
+    {
+        var count = 0;
+        for (var i = 0; i < index && i < text.Length; i++)
+        {
+            if (text[i] == '\n')
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static string BuildSurroundingContext(string normalizedContent, int lineNumber, string targetText)
+    {
+        var lines = normalizedContent.Split('\n');
+        var targetLineCount = Math.Max(1, (targetText.ReplaceLineEndings("\n").Split('\n').Length));
+        var startIndex = Math.Max(0, lineNumber - 3);
+        var endIndex = Math.Min(lines.Length - 1, lineNumber - 1 + targetLineCount + 2);
+
+        var builder = new System.Text.StringBuilder();
+        for (var index = startIndex; index <= endIndex; index++)
+        {
+            builder.AppendLine($"{index + 1}: {lines[index]}");
+        }
+
+        return builder.ToString().TrimEnd();
     }
 
     private static bool TryParseExactReplacementTask(string task, out string oldText, out string newText)

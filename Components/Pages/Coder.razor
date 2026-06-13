@@ -159,10 +159,12 @@
                                  OperationGrammarErrors="@LastPatchOperationGrammarErrors"
                                  ReplaceDiagnostics="@LastPatchReplaceDiagnostics"
                                  SuggestedTargetDiagnostics="@LastPatchSuggestedTargetDiagnostics"
-                                  SelectedSuggestedTarget="@selectedSuggestedTarget"
-                                  ValidationGuidance="@LastPatchValidationGuidance"
-                                  RepairSummary="@(patchPreview?.RepairSummary ?? LastPatchRepairSummary)"
-                                 PatchPreviewMetrics="@CoderConsoleService.GetPatchPreviewMetrics()"
+                                 SelectedSuggestedTarget="@selectedSuggestedTarget"
+                                 ValidationGuidance="@LastPatchValidationGuidance"
+                                 RepairSummary="@(patchPreview?.RepairSummary ?? LastPatchRepairSummary)"
+                                 PromptAudit="@(patchPreview?.PromptAudit ?? LastPatchPromptAudit)"
+                                 PromptTargetResolution="@(patchPreview?.PromptTargetResolution ?? LastPatchPromptTargetResolution)"
+                                 PatchPreviewMetrics="@GetPatchPreviewMetrics()"
                                  RawResponse="@LastPatchRawResponse"
                                  NormalizedResponse="@LastPatchNormalizedResponse"
                                  NormalizedDiff="@LastPatchNormalizedDiff"
@@ -316,6 +318,10 @@
     private IReadOnlyList<PatchSuggestedTargetDiagnostic> LastPatchSuggestedTargetDiagnostics { get; set; } = [];
     private IReadOnlyList<PatchValidationGuidance> LastPatchValidationGuidance { get; set; } = [];
     private PatchPreviewRepairSummary? LastPatchRepairSummary { get; set; }
+
+    private PatchPromptAudit? LastPatchPromptAudit { get; set; }
+
+    private PatchPromptTargetResolution? LastPatchPromptTargetResolution { get; set; }
     private PatchSuggestedTargetSelection? selectedSuggestedTarget;
     private LocalCoderPlanTask? lastPatchPlanTask;
     private int selectedTabIndex;
@@ -723,6 +729,8 @@
             patchIntentValidation = patchPreview.IntentValidation;
             ClearPatchDebug();
             LastPatchRepairSummary = patchPreview.RepairSummary;
+            LastPatchPromptAudit = patchPreview.PromptAudit;
+            LastPatchPromptTargetResolution = patchPreview.PromptTargetResolution;
             if (planTask is not null)
             {
                 UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.PatchGenerated, "Patch preview generated.");
@@ -748,6 +756,7 @@
                 planText: generatedPlanText,
                 patchPreviewText: patchPreview!.PatchText,
                 patchPreviewSnapshot: patchPreview!,
+                promptAudit: patchPreview.PromptAudit,
                 model: profile.Model,
                 taskTextOverride: taskText,
                 contextSnapshot: contextSnapshot,
@@ -762,6 +771,8 @@
         {
             error = exception.Message;
             LastPatchRepairSummary = exception.RepairSummary;
+            LastPatchPromptAudit = exception.PromptAudit;
+            LastPatchPromptTargetResolution = exception.PromptTargetResolution;
             if (!preserveFailedPreviewOnError || repairContext is null)
             {
                 LastPatchRawResponse = exception.RawModelResponse;
@@ -787,6 +798,7 @@
                 planText: generatedPlanText,
                 taskTextOverride: taskText,
                 patchPreviewValidation: exception,
+                promptAudit: exception.PromptAudit,
                 contextSnapshot: contextSnapshot,
                 planTasksSnapshot: GetPlanTasksSnapshot());
 
@@ -861,6 +873,8 @@
         LastPatchSuggestedTargetDiagnostics = [];
         LastPatchValidationGuidance = [];
         LastPatchRepairSummary = null;
+        LastPatchPromptAudit = null;
+        LastPatchPromptTargetResolution = null;
     }
 
     #endregion
@@ -1939,6 +1953,8 @@
         IReadOnlyList<CommandRunResult>? verificationResults = null,
         LocalCoderPatchPreview? patchPreviewSnapshot = null,
         PatchPreviewValidationException? patchPreviewValidation = null,
+        PatchPromptAudit? promptAudit = null,
+        PatchPromptTargetResolution? promptTargetResolution = null,
         string? model = null,
         IReadOnlyList<LocalCoderHistoryContextFile>? contextSnapshot = null,
         string? taskTextOverride = null,
@@ -1974,11 +1990,14 @@
                 Intent = patchPreviewSnapshot?.Intent,
                 IntentValidation = patchPreviewSnapshot?.IntentValidation,
                 ContextCoverage = patchPreviewSnapshot?.ContextCoverage,
+                PromptAudit = promptAudit ?? patchPreviewSnapshot?.PromptAudit ?? patchPreviewValidation?.PromptAudit,
+                PromptTargetResolution = promptTargetResolution ?? patchPreviewSnapshot?.PromptTargetResolution ?? patchPreviewValidation?.PromptTargetResolution,
                 ValidationErrors = patchPreviewValidation?.ValidationErrors?.ToArray() ?? [],
                 OperationGrammarErrors = patchPreviewValidation?.OperationGrammarErrors?.ToArray() ?? [],
                 ValidationGuidance = patchPreviewValidation?.Guidance?.ToArray() ?? [],
                 ReplaceDiagnostics = patchPreviewValidation?.ReplaceDiagnostics?.ToArray() ?? [],
                 SuggestedTargetDiagnostics = patchPreviewValidation?.SuggestedTargetDiagnostics?.ToArray() ?? [],
+                RepairSummary = patchPreviewSnapshot?.RepairSummary ?? patchPreviewValidation?.RepairSummary,
                 ApplyResult = applyResult,
                 RollbackResult = rollbackResult,
                 VerificationResults = verificationResults?.ToArray() ?? [],
@@ -2182,6 +2201,11 @@
             LastPatchValidationErrors.ToArray(),
             LastPatchReplaceDiagnostics.ToArray(),
             LastPatchSuggestedTargetDiagnostics.ToArray());
+    }
+
+    private PatchPreviewMetricsSnapshot GetPatchPreviewMetrics()
+    {
+        return LocalCoderPatchPreviewMetricsCalculator.FromHistory(historyEntries);
     }
 
     private static List<LocalCoderPlanTask> BuildPlanTasks(string planText)

@@ -42,16 +42,71 @@
                             </RadzenCard>
                         </div>
                     }
-                    @if (PatchPreviewMetrics is not null)
+                    <div>
+                        <RadzenText Text="Patch Preview Metrics" TextStyle="TextStyle.H6" />
+                        <RadzenCard>
+                            <RadzenStack Gap="0.35rem">
+                                <RadzenText Text="@($"Patch preview attempts: {PatchPreviewMetrics?.Attempts ?? 0}")" TextStyle="TextStyle.Body2" />
+                                <RadzenText Text="@($"Successful previews: {PatchPreviewMetrics?.SuccessfulPreviews ?? 0}")" TextStyle="TextStyle.Body2" />
+                                <RadzenText Text="@($"Failed previews: {PatchPreviewMetrics?.FailedPreviews ?? 0}")" TextStyle="TextStyle.Body2" />
+                                <RadzenText Text="@($"Repaired previews: {PatchPreviewMetrics?.RepairedPreviews ?? 0}")" TextStyle="TextStyle.Body2" />
+                            </RadzenStack>
+                        </RadzenCard>
+                    </div>
+                    @if (PromptAudit is not null)
                     {
                         <div>
-                            <RadzenText Text="Patch Preview Metrics" TextStyle="TextStyle.H6" />
+                            <RadzenText Text="Prompt Audit" TextStyle="TextStyle.H6" />
                             <RadzenCard>
-                                <RadzenStack Gap="0.35rem">
-                                    <RadzenText Text="@($"Patch preview attempts: {PatchPreviewMetrics.Attempts}")" TextStyle="TextStyle.Body2" />
-                                    <RadzenText Text="@($"Successful previews: {PatchPreviewMetrics.SuccessfulPreviews}")" TextStyle="TextStyle.Body2" />
-                                    <RadzenText Text="@($"Failed previews: {PatchPreviewMetrics.FailedPreviews}")" TextStyle="TextStyle.Body2" />
-                                    <RadzenText Text="@($"Repaired previews: {PatchPreviewMetrics.RepairedPreviews}")" TextStyle="TextStyle.Body2" />
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenText Text="@($"Characters loaded: {PromptAudit.ContextCharactersLoaded:N0}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Context text sent: {PromptAudit.ContextTextCharactersSent:N0} chars")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="Context files" TextStyle="TextStyle.Body2" />
+                                    @if (PromptAudit.ContextFiles.Count == 0)
+                                    {
+                                        <RadzenText Text="No context files were captured for this prompt." TextStyle="TextStyle.Body2" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                            @foreach (var file in PromptAudit.ContextFiles)
+                                            {
+                                                <RadzenBadge Text="@file" BadgeStyle="BadgeStyle.Info" />
+                                            }
+                                        </RadzenStack>
+                                    }
+                                    <RadzenText Text="First 500 chars of context sent to model" TextStyle="TextStyle.Body2" />
+                                    <pre class="coder-output">@PromptAudit.ContextTextFirst500Chars</pre>
+                                    <RadzenText Text="Last 500 chars of context sent to model" TextStyle="TextStyle.Body2" />
+                                    <pre class="coder-output">@PromptAudit.ContextTextLast500Chars</pre>
+                                </RadzenStack>
+                            </RadzenCard>
+                        </div>
+                    }
+                    @if (PromptTargetResolution is not null)
+                    {
+                        <div>
+                            <RadzenText Text="Deterministic Target Resolution" TextStyle="TextStyle.H6" />
+                            <RadzenCard>
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenText Text="@($"Target found: {(PromptTargetResolution.TargetFound ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Operation: {PromptTargetResolution.Operation}")" TextStyle="TextStyle.Body2" />
+                                    @if (PromptTargetResolution.TargetFound)
+                                    {
+                                        <RadzenText Text="@($"File: {PromptTargetResolution.FilePath}")" TextStyle="TextStyle.Body2" />
+                                        <RadzenText Text="@($"Line: {PromptTargetResolution.LineNumber}")" TextStyle="TextStyle.Body2" />
+                                        <RadzenText Text="@($"Match count: {PromptTargetResolution.MatchCount}")" TextStyle="TextStyle.Body2" />
+                                        <RadzenText Text="Exact target text" TextStyle="TextStyle.Body2" />
+                                        <pre class="coder-output">@PromptTargetResolution.TargetText</pre>
+                                        <RadzenText Text="Surrounding context" TextStyle="TextStyle.Body2" />
+                                        <pre class="coder-output">@PromptTargetResolution.SurroundingContext</pre>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(PromptTargetResolution.ErrorMessage))
+                                    {
+                                        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                                            @PromptTargetResolution.ErrorMessage
+                                        </RadzenAlert>
+                                    }
                                 </RadzenStack>
                             </RadzenCard>
                         </div>
@@ -98,6 +153,12 @@
                                     <RadzenCard>
                                         <RadzenStack Gap="0.5rem">
                                             <RadzenText Text="@($"Requested {diagnostic.TargetLabel}:")" TextStyle="TextStyle.Body2" />
+                                            @if (!string.IsNullOrWhiteSpace(diagnostic.Recommendation))
+                                            {
+                                                <RadzenAlert AlertStyle="AlertStyle.Info" ShowIcon="true">
+                                                    @diagnostic.Recommendation
+                                                </RadzenAlert>
+                                            }
                                             <pre class="coder-output">@diagnostic.RequestedText</pre>
                                             <RadzenText Text="Closest match:" TextStyle="TextStyle.Body2" />
                                             @if (diagnostic.ClosestMatches.Count > 0)
@@ -181,20 +242,17 @@
                 <RadzenText Text="Normalized Diff" TextStyle="TextStyle.H6" />
                 <pre class="coder-output">@NormalizedDiff</pre>
             </div>
-            @if (PatchPreviewMetrics is not null)
-            {
-                <div>
-                    <RadzenText Text="Patch Preview Metrics" TextStyle="TextStyle.H6" />
-                    <RadzenCard>
-                        <RadzenStack Gap="0.35rem">
-                            <RadzenText Text="@($"Patch preview attempts: {PatchPreviewMetrics.Attempts}")" TextStyle="TextStyle.Body2" />
-                            <RadzenText Text="@($"Successful previews: {PatchPreviewMetrics.SuccessfulPreviews}")" TextStyle="TextStyle.Body2" />
-                            <RadzenText Text="@($"Failed previews: {PatchPreviewMetrics.FailedPreviews}")" TextStyle="TextStyle.Body2" />
-                            <RadzenText Text="@($"Repaired previews: {PatchPreviewMetrics.RepairedPreviews}")" TextStyle="TextStyle.Body2" />
-                        </RadzenStack>
-                    </RadzenCard>
-                </div>
-            }
+            <div>
+                <RadzenText Text="Patch Preview Metrics" TextStyle="TextStyle.H6" />
+                <RadzenCard>
+                    <RadzenStack Gap="0.35rem">
+                        <RadzenText Text="@($"Patch preview attempts: {PatchPreviewMetrics?.Attempts ?? 0}")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="@($"Successful previews: {PatchPreviewMetrics?.SuccessfulPreviews ?? 0}")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="@($"Failed previews: {PatchPreviewMetrics?.FailedPreviews ?? 0}")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="@($"Repaired previews: {PatchPreviewMetrics?.RepairedPreviews ?? 0}")" TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+            </div>
             @if (RepairSummary is not null)
             {
                 <RadzenCard>
@@ -224,6 +282,55 @@
                                   Click="@OnApplyPatch" Disabled="@(!CanApplyPatch)" />
                 </RadzenStack>
                 <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
+                @if (PatchPreview.PromptAudit is not null)
+                {
+                    <RadzenCard>
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenText Text="Prompt Audit" TextStyle="TextStyle.H6" />
+                            <RadzenText Text="@($"Characters loaded: {PatchPreview.PromptAudit.ContextCharactersLoaded:N0}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Context text sent: {PatchPreview.PromptAudit.ContextTextCharactersSent:N0} chars")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="Context files" TextStyle="TextStyle.Body2" />
+                            @if (PatchPreview.PromptAudit.ContextFiles.Count == 0)
+                            {
+                                <RadzenText Text="No context files were captured for this prompt." TextStyle="TextStyle.Body2" />
+                            }
+                            else
+                            {
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                    @foreach (var file in PatchPreview.PromptAudit.ContextFiles)
+                                    {
+                                        <RadzenBadge Text="@file" BadgeStyle="BadgeStyle.Info" />
+                                    }
+                                </RadzenStack>
+                            }
+                            <RadzenText Text="First 500 chars of context sent to model" TextStyle="TextStyle.Body2" />
+                            <pre class="coder-output">@PatchPreview.PromptAudit.ContextTextFirst500Chars</pre>
+                            <RadzenText Text="Last 500 chars of context sent to model" TextStyle="TextStyle.Body2" />
+                            <pre class="coder-output">@PatchPreview.PromptAudit.ContextTextLast500Chars</pre>
+                        </RadzenStack>
+                    </RadzenCard>
+                }
+                @if (PatchPreview.PromptTargetResolution is not null)
+                {
+                    <RadzenCard>
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenText Text="Deterministic Target Resolution" TextStyle="TextStyle.H6" />
+                            <RadzenText Text="@($"Target found: {(PatchPreview.PromptTargetResolution.TargetFound ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Operation: {PatchPreview.PromptTargetResolution.Operation}")" TextStyle="TextStyle.Body2" />
+                            @if (PatchPreview.PromptTargetResolution.TargetFound)
+                            {
+                                <RadzenText Text="@($"File: {PatchPreview.PromptTargetResolution.FilePath}")" TextStyle="TextStyle.Body2" />
+                                <RadzenText Text="@($"Line: {PatchPreview.PromptTargetResolution.LineNumber}")" TextStyle="TextStyle.Body2" />
+                            }
+                            else if (!string.IsNullOrWhiteSpace(PatchPreview.PromptTargetResolution.ErrorMessage))
+                            {
+                                <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                                    @PatchPreview.PromptTargetResolution.ErrorMessage
+                                </RadzenAlert>
+                            }
+                        </RadzenStack>
+                    </RadzenCard>
+                }
                 <RadzenCard>
                     <RadzenStack Gap="0.75rem">
                         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
@@ -487,6 +594,8 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
     [Parameter] public string RawResponse { get; set; } = string.Empty;
     [Parameter] public string NormalizedResponse { get; set; } = string.Empty;
     [Parameter] public string NormalizedDiff { get; set; } = string.Empty;
+    [Parameter] public PatchPromptAudit? PromptAudit { get; set; }
+    [Parameter] public PatchPromptTargetResolution? PromptTargetResolution { get; set; }
     [Parameter] public LocalCoderPatchPreview? PatchPreview { get; set; }
     [Parameter] public LocalCoderPatchApplyResult? ApplyResult { get; set; }
     [Parameter] public LocalCoderPatchRollbackResult? RollbackResult { get; set; }
