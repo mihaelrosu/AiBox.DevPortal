@@ -61,6 +61,28 @@
             </RadzenStack>
         </RadzenTabsItem>
 
+        <RadzenTabsItem Text="Knowledge" Icon="menu_book">
+            <RadzenStack Gap="1rem">
+                <RadzenCard>
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Project knowledge index" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="Rebuild and inspect the current project knowledge index for the selected project."
+                                    TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+
+                <CoderKnowledgePanel ProjectPath="@request.ProjectPath"
+                                     Index="@projectKnowledgeIndex"
+                                     SelectedFilePaths="@selectedFilePaths"
+                                     CurrentTaskText="@request.Task"
+                                     StatusMessage="@knowledgeIndexStatusMessage"
+                                     ErrorMessage="@knowledgeIndexErrorMessage"
+                                     IsRebuilding="@isRebuildingKnowledgeIndex"
+                                     OnRebuildIndex="@RebuildProjectKnowledgeIndexAsync"
+                                     OnAddSuggestedFiles="@AddSuggestedFilesAsync" />
+            </RadzenStack>
+        </RadzenTabsItem>
+
         <RadzenTabsItem Text="Plan" Icon="assignment">
             <RadzenStack Gap="1rem">
                 <RadzenCard>
@@ -267,6 +289,7 @@
     [Inject] private IPatchApplyService PatchApplyService { get; set; } = default!;
     [Inject] private IPatchRollbackService PatchRollbackService { get; set; } = default!;
     [Inject] private ILocalCoderVerificationProfileService LocalCoderVerificationProfileService { get; set; } = default!;
+    [Inject] private IProjectKnowledgeIndexService ProjectKnowledgeIndexService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
@@ -288,6 +311,7 @@
     private IReadOnlyList<AgentRunRecord> agentRunHistory = [];
     private IReadOnlyList<PatchPackage> patchPackages = [];
     private IReadOnlyList<LocalCoderHistoryEntry> historyEntries = [];
+    private ProjectKnowledgeIndex? projectKnowledgeIndex;
     private List<LocalCoderFileContext> fileContexts = [];
     private List<string> selectedFilePaths = [];
     private List<FileSearchItem> selectedFiles = [];
@@ -310,6 +334,8 @@
     private string? selectedPlanTaskId;
     private string? activePlanTaskId;
     private string selectedVerificationProfileId = "quick";
+    private string? knowledgeIndexStatusMessage;
+    private string? knowledgeIndexErrorMessage;
     private string LastPatchRawResponse { get; set; } = string.Empty;
     private string LastPatchTaskText { get; set; } = string.Empty;
     private string LastPatchNormalizedResponse { get; set; } = string.Empty;
@@ -339,6 +365,7 @@
     private bool isVerifying;
     private bool isCommitRunning;
     private bool isBuildDeployRunning;
+    private bool isRebuildingKnowledgeIndex;
     private bool isLoadingHistory;
     private bool isClearingHistory;
 
@@ -380,6 +407,7 @@
             agentModeProfiles = await AgentModeProfiles.GetAllAsync();
             verificationProfiles = await LocalCoderVerificationProfileService.GetAllAsync();
             selectedVerificationProfileId = ResolveVerificationProfileId(selectedVerificationProfileId);
+            await LoadProjectKnowledgeIndexAsync();
             await LoadAgentRunHistoryAsync();
             await LoadPatchQueueAsync();
             await LoadHistoryAsync();
@@ -404,7 +432,7 @@
 
     #region Project actions
 
-    private Task OnProjectPathChanged(object? value)
+    private async Task OnProjectPathChanged(object? value)
     {
         request.ProjectPath = value?.ToString() ?? string.Empty;
         ClearSelectedFiles();
@@ -422,7 +450,99 @@
         selectedPatchPackage = null;
 
         error = null;
-        return Task.CompletedTask;
+        projectKnowledgeIndex = null;
+        knowledgeIndexStatusMessage = null;
+        knowledgeIndexErrorMessage = null;
+        await LoadProjectKnowledgeIndexAsync();
+    }
+
+    private async Task LoadProjectKnowledgeIndexAsync()
+    {
+        if (string.IsNullOrWhiteSpace(request.ProjectPath))
+        {
+            projectKnowledgeIndex = null;
+            knowledgeIndexStatusMessage = null;
+            knowledgeIndexErrorMessage = null;
+            return;
+        }
+
+        try
+        {
+            projectKnowledgeIndex = await ProjectKnowledgeIndexService.GetLatestAsync(request.ProjectPath);
+            knowledgeIndexStatusMessage = projectKnowledgeIndex is null
+                ? "No saved project knowledge index found yet."
+                : $"Loaded index with {projectKnowledgeIndex.Items.Count:N0} files.";
+            knowledgeIndexErrorMessage = null;
+        }
+        catch (Exception exception)
+        {
+            projectKnowledgeIndex = null;
+            knowledgeIndexStatusMessage = null;
+            knowledgeIndexErrorMessage = exception.Message;
+        }
+    }
+
+    private async Task RebuildProjectKnowledgeIndexAsync()
+    {
+        if (string.IsNullOrWhiteSpace(request.ProjectPath))
+        {
+            knowledgeIndexErrorMessage = "Select a project before rebuilding the knowledge index.";
+            knowledgeIndexStatusMessage = null;
+            return;
+        }
+
+        isRebuildingKnowledgeIndex = true;
+        knowledgeIndexErrorMessage = null;
+        knowledgeIndexStatusMessage = "Rebuilding project knowledge index...";
+
+        try
+        {
+            projectKnowledgeIndex = await ProjectKnowledgeIndexService.BuildAsync(request.ProjectPath);
+            knowledgeIndexStatusMessage = $"Rebuilt {projectKnowledgeIndex.Items.Count:N0} indexed files.";
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                "Knowledge index rebuilt",
+                $"Indexed {projectKnowledgeIndex.Items.Count:N0} files for the selected project.");
+        }
+        catch (Exception exception)
+        {
+            knowledgeIndexErrorMessage = exception.Message;
+            knowledgeIndexStatusMessage = null;
+        }
+        finally
+        {
+            isRebuildingKnowledgeIndex = false;
+        }
+    }
+
+    private async Task AddSuggestedFilesAsync(IReadOnlyList<string> relativePaths)
+    {
+        if (isContextLocked || string.IsNullOrWhiteSpace(request.ProjectPath) || relativePaths.Count == 0)
+        {
+            return;
+        }
+
+        var mergedFiles = selectedFiles
+            .Concat(relativePaths.Select(CreateSuggestedFileSearchItem))
+            .DistinctBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        await OnSelectedFilesChanged(mergedFiles);
+    }
+
+    private FileSearchItem CreateSuggestedFileSearchItem(string relativePath)
+    {
+        var fullPath = Path.Combine(request.ProjectPath, relativePath);
+        var sizeBytes = File.Exists(fullPath) ? new System.IO.FileInfo(fullPath).Length : 0;
+
+        return new FileSearchItem
+        {
+            FileName = Path.GetFileName(relativePath),
+            FullPath = fullPath,
+            RelativePath = relativePath,
+            Extension = Path.GetExtension(relativePath),
+            SizeBytes = sizeBytes
+        };
     }
 
     private Task ClearSelectedFilesAsync()

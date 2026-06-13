@@ -1,4 +1,343 @@
-<!-- Coder Knowledge Panel Content -->
-<radzen-panel>
-    <!-- Panel content goes here -->
-</radzen-panel>
+@if (string.IsNullOrWhiteSpace(ProjectPath))
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Project Knowledge Index" TextStyle="TextStyle.H5" />
+            <RadzenText Text="Select a project to rebuild and inspect the project knowledge index."
+                        TextStyle="TextStyle.Body2" />
+        </RadzenStack>
+    </RadzenCard>
+}
+else
+{
+    <RadzenStack Gap="1rem">
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                             JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                    <div>
+                        <RadzenText Text="Project Knowledge Index" TextStyle="TextStyle.H5" />
+                        <RadzenText Text="@ProjectPath" TextStyle="TextStyle.Caption" />
+                    </div>
+                    <RadzenButton Text="Rebuild Index"
+                                  Icon="refresh"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Click="@OnRebuildIndex"
+                                  Disabled="@IsRebuilding" />
+                </RadzenStack>
+
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenText Text="Total indexed files" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@(Index?.Items.Count.ToString() ?? "0")" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenText Text="Filtered files" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@FilteredItems.Count.ToString()" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenText Text="Last rebuilt" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@(Index is null ? "Not rebuilt yet." : Index.RebuiltAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))" />
+                    </RadzenColumn>
+                </RadzenRow>
+
+                @if (!string.IsNullOrWhiteSpace(StatusMessage))
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Lighter">
+                        @StatusMessage
+                    </RadzenAlert>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                        @ErrorMessage
+                    </RadzenAlert>
+                }
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End"
+                             Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                    <div style="min-width: 280px; flex: 1;">
+                        <RadzenText Text="Search" TextStyle="TextStyle.Caption" />
+                        <RadzenTextBox @bind-Value="searchText"
+                                       Placeholder="Search path, name, kind, namespace, or summary"
+                                       Style="width: 100%;" />
+                    </div>
+                    <div style="min-width: 220px;">
+                        <RadzenText Text="Kind" TextStyle="TextStyle.Caption" />
+                        <RadzenDropDown TValue="string"
+                                        @bind-Value="selectedKind"
+                                        Data="@KindOptions"
+                                        Style="width: 100%;" />
+                    </div>
+                    <RadzenButton Text="Suggest Context Files"
+                                  Icon="auto_awesome"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Click="@SuggestContextFilesAsync"
+                                  Disabled="@IsSuggestingDisabled" />
+                </RadzenStack>
+
+                @if (Index is null || Index.Items.Count == 0)
+                {
+                    <RadzenCard>
+                        <RadzenText Text="Rebuild Project Index first." TextStyle="TextStyle.Body2" />
+                    </RadzenCard>
+                }
+                else
+                {
+                    @if (SuggestedItems.Count > 0)
+                    {
+                        <RadzenCard Style="padding: 0.75rem;">
+                            <RadzenStack Gap="0.75rem">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                             JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                    <RadzenText Text="Suggested Context Files" TextStyle="TextStyle.H6" />
+                                    <RadzenButton Text="Add All Suggested"
+                                                  Icon="playlist_add"
+                                                  ButtonStyle="ButtonStyle.Secondary"
+                                                  Click="@AddAllSuggestedAsync"
+                                                  Disabled="@(SuggestedItems.Count == 0)" />
+                                </RadzenStack>
+
+                                <AppDataGrid Data="@SuggestedItems" TItem="SuggestedItem" PageSize="5"
+                                             EmptyText="No suggestions available.">
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="SuggestedItem" Property="RelativePath" Title="Relative Path" />
+                                        <RadzenDataGridColumn TItem="SuggestedItem" Property="Kind" Title="Kind" />
+                                        <RadzenDataGridColumn TItem="SuggestedItem" Title="Match Reason">
+                                            <Template Context="item">@item.MatchReason</Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="SuggestedItem" Title="Actions">
+                                            <Template Context="item">
+                                                <RadzenButton Text="Add to Context"
+                                                              Icon="add"
+                                                              Size="ButtonSize.Small"
+                                                              ButtonStyle="ButtonStyle.Primary"
+                                                              Click="@(() => AddSuggestedAsync(item.RelativePath))"
+                                                              Disabled="@item.IsAlreadySelected" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </AppDataGrid>
+                            </RadzenStack>
+                        </RadzenCard>
+                    }
+
+                    @if (FilteredItems.Count == 0)
+                    {
+                        <RadzenCard>
+                            <RadzenText Text="No indexed files match the current filters." TextStyle="TextStyle.Body2" />
+                        </RadzenCard>
+                    }
+                    else
+                    {
+                        <AppDataGrid Data="@FilteredItems" TItem="ProjectKnowledgeItem" PageSize="10"
+                                     EmptyText="No indexed files match the current filters.">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="ProjectKnowledgeItem" Property="RelativePath" Title="Relative Path" />
+                                <RadzenDataGridColumn TItem="ProjectKnowledgeItem" Property="Kind" Title="Kind" />
+                                <RadzenDataGridColumn TItem="ProjectKnowledgeItem" Property="Name" Title="Name" />
+                                <RadzenDataGridColumn TItem="ProjectKnowledgeItem" Title="Last Modified">
+                                    <Template Context="item">@item.LastModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </AppDataGrid>
+                    }
+                }
+            </RadzenStack>
+        </RadzenCard>
+    </RadzenStack>
+}
+
+@code {
+    [Parameter] public string ProjectPath { get; set; } = string.Empty;
+    [Parameter] public ProjectKnowledgeIndex? Index { get; set; }
+    [Parameter] public IReadOnlyList<string> SelectedFilePaths { get; set; } = [];
+    [Parameter] public string CurrentTaskText { get; set; } = string.Empty;
+    [Parameter] public string? StatusMessage { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public bool IsRebuilding { get; set; }
+    [Parameter] public EventCallback OnRebuildIndex { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<string>> OnAddSuggestedFiles { get; set; }
+
+    private static readonly IReadOnlyList<string> KindOptions =
+    [
+        "All",
+        "RazorPage",
+        "RazorComponent",
+        "Service",
+        "Model",
+        "Controller",
+        "Test",
+        "Config",
+        "Unknown"
+    ];
+
+    private string searchText = string.Empty;
+    private string selectedKind = "All";
+    private IReadOnlyList<SuggestedItem> SuggestedItems { get; set; } = [];
+    private bool IsSuggestingDisabled => Index is null || IsRebuilding;
+
+    private IReadOnlyList<ProjectKnowledgeItem> FilteredItems =>
+        (Index?.Items ?? [])
+            .Where(IncludeItem)
+            .OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private bool IncludeItem(ProjectKnowledgeItem item)
+    {
+        if (!string.Equals(selectedKind, "All", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(item.Kind, selectedKind, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            return true;
+        }
+
+        var query = searchText.Trim();
+        return Contains(item.RelativePath, query) ||
+               Contains(item.Name, query) ||
+               Contains(item.Kind, query) ||
+               Contains(item.Namespace, query) ||
+               Contains(item.Summary, query);
+    }
+
+    private static bool Contains(string? value, string query)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private Task SuggestContextFilesAsync()
+    {
+        if (Index is null)
+        {
+            SuggestedItems = [];
+            return Task.CompletedTask;
+        }
+
+        SuggestedItems = RankSuggestions(Index.Items, CurrentTaskText, SelectedFilePaths)
+            .Take(8)
+            .ToArray();
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AddSuggestedAsync(string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return;
+        }
+
+        await OnAddSuggestedFiles.InvokeAsync([relativePath]);
+    }
+
+    private async Task AddAllSuggestedAsync()
+    {
+        var filePaths = SuggestedItems
+            .Where(item => !item.IsAlreadySelected)
+            .Select(item => item.RelativePath)
+            .ToArray();
+
+        if (filePaths.Length == 0)
+        {
+            return;
+        }
+
+        await OnAddSuggestedFiles.InvokeAsync(filePaths);
+    }
+
+    private static IReadOnlyList<SuggestedItem> RankSuggestions(
+        IReadOnlyList<ProjectKnowledgeItem> items,
+        string taskText,
+        IReadOnlyList<string> selectedFilePaths)
+    {
+        var selected = selectedFilePaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var tokens = Tokenize(taskText);
+        var suggestions = new List<SuggestedItem>();
+
+        foreach (var item in items)
+        {
+            if (selected.Contains(item.RelativePath))
+            {
+                continue;
+            }
+
+            var score = 0;
+            var reasons = new List<string>();
+
+            foreach (var token in tokens)
+            {
+                if (Contains(item.RelativePath, token))
+                {
+                    score += 40;
+                    reasons.Add($"path matches '{token}'");
+                }
+
+                if (Contains(item.Name, token))
+                {
+                    score += 30;
+                    reasons.Add($"name matches '{token}'");
+                }
+
+                if (Contains(item.Kind, token))
+                {
+                    score += 25;
+                    reasons.Add($"kind matches '{token}'");
+                }
+
+                if (Contains(item.Namespace, token))
+                {
+                    score += 15;
+                    reasons.Add($"namespace matches '{token}'");
+                }
+
+                if (Contains(item.Summary, token))
+                {
+                    score += 10;
+                    reasons.Add($"summary matches '{token}'");
+                }
+            }
+
+                if (score == 0)
+                {
+                    continue;
+                }
+
+                var topReason = reasons.FirstOrDefault() ?? "Relevant to the current task.";
+                suggestions.Add(new SuggestedItem(
+                    item.RelativePath,
+                    item.Kind,
+                    topReason,
+                    false,
+                    score));
+            }
+
+        return suggestions
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> Tokenize(string value)
+    {
+        return System.Text.RegularExpressions.Regex.Matches(value ?? string.Empty, "[A-Za-z0-9]{3,}")
+            .Select(match => match.Value.ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private sealed record SuggestedItem(
+        string RelativePath,
+        string Kind,
+        string MatchReason,
+        bool IsAlreadySelected,
+        int Score);
+}
