@@ -27,7 +27,10 @@ public enum PatchIntentMatchStatus
 public sealed class PatchIntent
 {
     public string Goal { get; set; } = string.Empty;
+    public IReadOnlyList<string> AllowedFiles { get; set; } = [];
     public IReadOnlyList<string> AllowedPaths { get; set; } = [];
+    public IReadOnlyList<string> TargetCreatedFiles { get; set; } = [];
+    public IReadOnlyList<string> AllowedCreateFolders { get; set; } = [];
     public IReadOnlyList<string> ProtectedPaths { get; set; } = [];
     public string AllowedScope { get; set; } = string.Empty;
     public PatchPrimaryIntent PrimaryIntent { get; set; } = PatchPrimaryIntent.Unknown;

@@ -10,6 +10,7 @@ public sealed class PatchScopeAnalysis
 {
     public PatchScopeMode Mode { get; set; }
     public IReadOnlyList<string> AllowedFolders { get; set; } = [];
+    public IReadOnlyList<string> AllowedCreateFolders { get; set; } = [];
     public IReadOnlyList<PatchScopeFileResult> Files { get; set; } = [];
     public string WarningMessage { get; set; } = string.Empty;
     public bool IsBlocking { get; set; }

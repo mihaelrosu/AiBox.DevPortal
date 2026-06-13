@@ -219,6 +219,28 @@ public sealed class CoderComponentSmokeTests : TestContext
     }
 
     [Fact]
+    public void CoderDiffViewer_PatchIntent_RendersCreateTargetFile()
+    {
+        var cut = RenderComponent<CoderDiffViewer>(parameters => parameters
+            .Add(component => component.PatchPreview, new LocalCoderPatchPreview
+            {
+                Intent = new PatchIntent
+                {
+                    Goal = "Create Models/ProjectKnowledgeIndex.cs",
+                    PrimaryIntent = PatchPrimaryIntent.Modify,
+                    AllowedScope = "Context Files Only",
+                    AllowedFiles = ["Models/LocalCoderHistoryEntry.cs", "Models/ProjectKnowledgeIndex.cs"],
+                    TargetCreatedFiles = ["Models/ProjectKnowledgeIndex.cs"],
+                    ExpectedChangeType = PatchIntentChangeType.Add,
+                    VerificationCommand = "dotnet build"
+                }
+            }));
+
+        Assert.Contains("Allowed files: Models/LocalCoderHistoryEntry.cs, Models/ProjectKnowledgeIndex.cs", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Target created file: Models/ProjectKnowledgeIndex.cs", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CoderDiffViewer_PatchRepair_RendersSummary()
     {
         var cut = RenderComponent<CoderDiffViewer>(parameters => parameters
@@ -277,10 +299,48 @@ public sealed class CoderComponentSmokeTests : TestContext
     {
         var cut = RenderComponent<CoderHistoryPanel>(parameters => parameters
             .Add(component => component.ShowAgentRunHistory, true)
-            .Add(component => component.ShowTaskHistory, true));
+            .Add(component => component.ShowTaskHistory, true)
+            .Add(component => component.AgentRunHistory,
+            [
+                new AgentRunRecord
+                {
+                    ActionKey = "GeneratePatchPreview",
+                    ProfileMode = AgentMode.PatchBuilder,
+                    Model = "test-model",
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Success = true,
+                    UserRequest = "Generate a patch preview.",
+                    PromptSent = "Prompt",
+                    ResultText = "{}"
+                }
+            ])
+            .Add(component => component.HistoryEntries,
+            [
+                new LocalCoderHistoryEntry
+                {
+                    Id = "history-1",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    ActionType = LocalCoderHistoryActionType.GeneratePatchPreview,
+                    ProjectPath = "/repo",
+                    Model = "test-model",
+                    Task = "Create Models/ProjectKnowledgeIndex.cs",
+                    ContextFileCount = 1,
+                    ContextEstimatedTokens = 42,
+                    Message = "Patch preview created.",
+                    Success = true
+                }
+            ]));
 
         Assert.Contains("Agent Run History", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Task History", cut.Markup, StringComparison.Ordinal);
+
+        var taskHistoryTab = cut.FindAll("button")
+            .First(button => button.TextContent.Contains("Task History", StringComparison.Ordinal));
+        taskHistoryTab.Click();
+
+        Assert.Contains("View", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Use Again", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Restore", cut.Markup, StringComparison.Ordinal);
     }
 
     private void RegisterPageServices()

@@ -30,16 +30,7 @@
                         {
                             <RadzenCard>
                                 <RadzenStack Gap="0.5rem">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                                 JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem" Wrap="FlexWrap.Wrap">
-                                        <RadzenText Text="Selected Run" TextStyle="TextStyle.H6" />
-                                        <CopyToClipboardButton Text="Copy Run"
-                                                               Value="@BuildSelectedAgentRunCopyText()"
-                                                               SuccessTitle="Run copied"
-                                                               SuccessMessage="The selected agent run details were copied to the clipboard."
-                                                               ButtonStyle="ButtonStyle.Light"
-                                                               Size="ButtonSize.Small" />
-                                    </RadzenStack>
+                                    <RadzenText Text="Selected Run" TextStyle="TextStyle.H6" />
                                     <RadzenText Text="@($"Action: {SelectedAgentRun.ActionKey}")" TextStyle="TextStyle.Body1" />
                                     <RadzenText Text="@($"Profile mode: {SelectedAgentRun.ProfileMode}")" TextStyle="TextStyle.Body1" />
                                     <RadzenText Text="@($"Model: {SelectedAgentRun.Model}")" TextStyle="TextStyle.Body1" />
@@ -116,10 +107,10 @@
                             </Columns>
                         </AppDataGrid>
 
-                        <CoderHistoryRunDetails Entry="@SelectedHistoryEntry"
+                        @* <CoderHistoryRunDetails Entry="@SelectedHistoryEntry"
                                                 OnUseAsContext="@OnUseHistoryEntryAsContext"
                                                 OnRestoreContext="@OnRestoreContext"
-                                                ContextRestoreResult="@ContextRestoreResult" />
+                                                ContextRestoreResult="@ContextRestoreResult" /> *@
                     </RadzenStack>
                 </RadzenCard>
             }
@@ -144,29 +135,6 @@
     [Parameter] public LocalCoderContextRestoreResult? ContextRestoreResult { get; set; }
 
     private static string GetStatusText(bool success) => success ? "Success" : "Failed";
-
-    private string BuildSelectedAgentRunCopyText()
-    {
-        if (SelectedAgentRun is null)
-        {
-            return string.Empty;
-        }
-
-        return
-            "Selected Run" + Environment.NewLine +
-            $"Action: {SelectedAgentRun.ActionKey}" + Environment.NewLine +
-            $"Profile mode: {SelectedAgentRun.ProfileMode}" + Environment.NewLine +
-            $"Model: {SelectedAgentRun.Model}" + Environment.NewLine +
-            $"Timestamp: {SelectedAgentRun.Timestamp:O}" + Environment.NewLine +
-            $"Success: {SelectedAgentRun.Success}" + Environment.NewLine +
-            $"Error: {SelectedAgentRun.ErrorMessage}" + Environment.NewLine + Environment.NewLine +
-            "User Request" + Environment.NewLine +
-            SelectedAgentRun.UserRequest + Environment.NewLine + Environment.NewLine +
-            "Prompt Sent" + Environment.NewLine +
-            SelectedAgentRun.PromptSent + Environment.NewLine + Environment.NewLine +
-            "Result Text" + Environment.NewLine +
-            SelectedAgentRun.ResultText;
-    }
 
     private async Task OnUseAgainAsync(string id)
     {

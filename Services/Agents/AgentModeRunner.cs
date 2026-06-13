@@ -58,7 +58,7 @@ public sealed class AgentModeRunner(
             routedRequest,
             BuildSelectedFilePathsText(routedRequest.FileContexts),
             BuildPatchPreviewFileContextText(routedRequest.FileContexts),
-            BuildPatchScopeText(routedRequest.AllowedPatchScope, routedRequest.AllowedPatchFolders),
+            CoderConsoleService.BuildPatchScopeText(routedRequest.AllowedPatchScope, routedRequest.AllowedPatchFolders, routedRequest.AllowedCreateFolders),
             PatchIntentService.BuildPromptText(intent),
             IsXmlDocumentationRequest(routedRequest.Task),
             targetResolution,
@@ -358,7 +358,10 @@ public sealed class AgentModeRunner(
             ProjectPath = request.ProjectPath,
             Model = string.IsNullOrWhiteSpace(profile.Model) ? request.Model : profile.Model,
             Task = request.Task,
-            FileContexts = request.FileContexts.ToList()
+            FileContexts = request.FileContexts.ToList(),
+            AllowedPatchScope = request.AllowedPatchScope,
+            AllowedPatchFolders = request.AllowedPatchFolders.ToList(),
+            AllowedCreateFolders = request.AllowedCreateFolders.ToList()
         };
     }
 

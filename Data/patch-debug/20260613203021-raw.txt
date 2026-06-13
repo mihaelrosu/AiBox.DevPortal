@@ -1,0 +1,11 @@
+{
+  "operations": [
+    {
+      "filePath": "Services/ProjectKnowledgeIndexService.cs",
+      "operation": "create",
+      "oldText": "",
+      "newText": "public sealed class ProjectKnowledgeIndexService {}",
+      "summary": "Create a new project knowledge index service file"
+    }
+  ]
+}

@@ -106,6 +106,28 @@ public sealed class XmlDocumentationWorkflowTests
     }
 
     [Fact]
+    public void BuildGeneratePatchPreviewPrompt_CreateTaskUsesCreateFriendlyContextInstruction()
+    {
+        var request = new LocalCoderRequest
+        {
+            ProjectPath = "/repo",
+            Task = "Create Models/ProjectKnowledgeIndex.cs",
+            Model = "test-model"
+        };
+
+        var prompt = CoderConsoleService.BuildGeneratePatchPreviewPrompt(
+            request,
+            "- Models/LocalCoderHistoryEntry.cs",
+            "FILE: Models/LocalCoderHistoryEntry.cs",
+            "Context Files Only",
+            "goal text",
+            xmlDocumentationMode: false);
+
+        Assert.Contains("Modify only selected context files. New files may be created only when explicitly requested and inside Allowed Create Folders.", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Use only files from the selected file context.", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildGeneratePatchPreviewPrompt_RepairModeIncludesValidationPayload()
     {
         var request = new LocalCoderRequest

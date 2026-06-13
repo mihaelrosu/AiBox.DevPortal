@@ -47,6 +47,8 @@
                                                    AllowedPatchScopeChanged="@(value => request.AllowedPatchScope = value)"
                                                    AllowedPatchFolders="@request.AllowedPatchFolders"
                                                    AllowedPatchFoldersChanged="@(value => request.AllowedPatchFolders = value.ToList())"
+                                                   AllowedCreateFolders="@request.AllowedCreateFolders"
+                                                   AllowedCreateFoldersChanged="@(value => request.AllowedCreateFolders = value.ToList())"
                                                    SelectedFilesChanged="@OnSelectedFilesChanged"
                                                    OnLoadPreset="@LoadPresetAsync"
                                                    OnClearAll="@ClearSelectedFilesAsync"
@@ -237,8 +239,8 @@
                 <CoderHistoryPanel ShowAgentRunHistory="true"
                                    AgentRunHistory="@agentRunHistory"
                                    SelectedAgentRun="@selectedAgentRun"
-                                   OnAgentRunSelected="@OnAgentRunSelected" />
-                <CoderHistoryPanel ShowTaskHistory="true"
+                                   OnAgentRunSelected="@OnAgentRunSelected"
+                                   ShowTaskHistory="true"
                                    HistoryEntries="@historyEntries"
                                    SelectedHistoryEntry="@selectedHistoryEntry"
                                    IsLoadingHistory="@isLoadingHistory"
@@ -474,6 +476,7 @@
         confirmedGeneratedFilePaths.Clear();
         selectedFilePaths = [];
         selectedFiles = [];
+        request.AllowedCreateFolders = [];
         ClearPlanTasks();
         ClearLoadedContext();
         patchPreview = null;
@@ -1380,6 +1383,16 @@
             .Select(file => file.RelativePath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        if (request.AllowedCreateFolders.Count == 0)
+        {
+            request.AllowedCreateFolders = selectedFiles
+                .Select(file => Path.GetDirectoryName(file.RelativePath)?.Replace('\\', '/') ?? string.Empty)
+                .Where(folder => !string.IsNullOrWhiteSpace(folder))
+                .Select(folder => folder.EndsWith('/') ? folder : $"{folder}/")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
         error = null;
         await LoadSelectedFileContextsAsync();
     }
@@ -1461,6 +1474,16 @@
 
                 fileContexts = loadedContexts;
                 request.FileContexts = fileContexts.ToList();
+                if (request.AllowedCreateFolders.Count == 0)
+                {
+                    request.AllowedCreateFolders = selectedFiles
+                        .Select(file => Path.GetDirectoryName(file.RelativePath)?.Replace('\\', '/') ?? string.Empty)
+                        .Where(folder => !string.IsNullOrWhiteSpace(folder))
+                        .Select(folder => folder.EndsWith('/') ? folder : $"{folder}/")
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
             }
 
             return true;
@@ -1987,6 +2010,7 @@
                 PlanText = planText ?? string.Empty,
                 PatchPreviewText = patchPreviewText ?? string.Empty,
                 ScopeAnalysis = patchPreviewSnapshot?.ScopeAnalysis,
+                AllowedCreateFolders = patchPreviewSnapshot?.AllowedCreateFolders?.ToArray() ?? request.AllowedCreateFolders.ToArray(),
                 Intent = patchPreviewSnapshot?.Intent,
                 IntentValidation = patchPreviewSnapshot?.IntentValidation,
                 ContextCoverage = patchPreviewSnapshot?.ContextCoverage,
@@ -2170,7 +2194,8 @@
                 IsGeneratedFile = file.IsGeneratedFile
             }).ToList(),
             AllowedPatchScope = source.AllowedPatchScope,
-            AllowedPatchFolders = source.AllowedPatchFolders.ToList()
+            AllowedPatchFolders = source.AllowedPatchFolders.ToList(),
+            AllowedCreateFolders = source.AllowedCreateFolders.ToList()
         };
     }
 

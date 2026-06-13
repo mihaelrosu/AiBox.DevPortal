@@ -179,6 +179,7 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             PlanText = entry.PlanText,
             PatchPreviewText = entry.PatchPreviewText,
             ScopeAnalysis = CloneScopeAnalysis(entry.ScopeAnalysis),
+            AllowedCreateFolders = [.. entry.AllowedCreateFolders ?? []],
             Intent = CloneIntent(entry.Intent),
             IntentValidation = CloneIntentValidation(entry.IntentValidation),
             ContextCoverage = CloneContextCoverage(entry.ContextCoverage),
@@ -246,6 +247,7 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
         {
             Mode = analysis.Mode,
             AllowedFolders = [.. analysis.AllowedFolders ?? []],
+            AllowedCreateFolders = [.. analysis.AllowedCreateFolders ?? []],
             Files = (analysis.Files ?? [])
                 .Select(file => new PatchScopeFileResult
                 {
@@ -271,7 +273,9 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
         return new PatchIntent
         {
             Goal = intent.Goal,
+            AllowedFiles = [.. intent.AllowedFiles ?? []],
             AllowedPaths = [.. intent.AllowedPaths ?? []],
+            TargetCreatedFiles = [.. intent.TargetCreatedFiles ?? []],
             ProtectedPaths = [.. intent.ProtectedPaths ?? []],
             AllowedScope = intent.AllowedScope,
             PrimaryIntent = intent.PrimaryIntent,

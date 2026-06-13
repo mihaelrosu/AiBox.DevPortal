@@ -349,6 +349,19 @@ public sealed class PatchEditOperationServiceTests
             Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
             await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
 
+            var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+            {
+                ProjectPath = projectRoot,
+                Task = $"Create {createdRelativePath}",
+                FileContexts =
+                [
+                    new LocalCoderFileContext
+                    {
+                        RelativePath = selectedRelativePath,
+                        Content = selectedContent
+                    }
+                ]
+            });
             var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
             var result = await service.BuildAsync(
                 projectRoot,
@@ -366,7 +379,8 @@ public sealed class PatchEditOperationServiceTests
                             newText = createdContent
                         }
                     }
-                }));
+                }),
+                intent);
 
             var change = Assert.Single(result.FileChanges);
             Assert.Equal(createdRelativePath, change.RelativePath);
@@ -384,7 +398,362 @@ public sealed class PatchEditOperationServiceTests
     }
 
     [Fact]
-    public async Task BuildAsync_CreateOutsideRepresentedFolder_FailsValidation()
+    public async Task BuildAsync_CreateAllowedByIntent_ProducesPatch()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-allowed-by-intent-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string createdRelativePath = "Models/ProjectKnowledgeIndex.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+        const string createdContent = "public sealed class ProjectKnowledgeIndex {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var logger = new ListLogger<PatchEditOperationService>();
+            var service = new PatchEditOperationService(logger);
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    operations = new[]
+                    {
+                        new
+                        {
+                            filePath = createdRelativePath,
+                            operation = "create",
+                            anchor = string.Empty,
+                            oldText = string.Empty,
+                            newText = createdContent
+                        }
+                    }
+                }),
+                new PatchIntent
+                {
+                    AllowedFiles = [selectedRelativePath, createdRelativePath],
+                    TargetCreatedFiles = [createdRelativePath],
+                    AllowedCreateFolders = ["Models/"]
+                });
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal(createdRelativePath, change.RelativePath);
+            Assert.Equal(string.Empty, change.OldContent);
+            Assert.Equal(createdContent, change.NewContent);
+            Assert.Contains(logger.Entries, entry => entry.Contains("Validating patch operation.", StringComparison.Ordinal));
+            Assert.Contains(logger.Entries, entry => entry.Contains("filePath: Models/ProjectKnowledgeIndex.cs", StringComparison.Ordinal));
+            Assert.Contains(logger.Entries, entry => entry.Contains("operation: create", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(logger.Entries, entry => entry.Contains("oldText length: 0", StringComparison.Ordinal));
+            Assert.Contains(logger.Entries, entry => entry.Contains("summary:", StringComparison.Ordinal));
+            Assert.Contains(logger.Entries, entry => entry.Contains("Skipping exact-target and oldText validation", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_MultipleCreateOperations_ProducesPatch()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-multiple-create-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+        const string firstCreatedRelativePath = "Services/ProjectKnowledgeIndexService.cs";
+        const string secondCreatedRelativePath = "Components/Coder/CoderKnowledgePanel.razor";
+        const string firstCreatedContent = "public sealed class ProjectKnowledgeIndexService {}";
+        const string secondCreatedContent = "<RadzenPanel />\n";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Services"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Components", "Coder"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var logger = new ListLogger<PatchEditOperationService>();
+            var service = new PatchEditOperationService(logger);
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    operations = new[]
+                    {
+                        new
+                        {
+                            filePath = firstCreatedRelativePath,
+                            operation = "create",
+                            anchor = string.Empty,
+                            oldText = string.Empty,
+                            newText = firstCreatedContent,
+                            summary = "Create project knowledge service"
+                        },
+                        new
+                        {
+                            filePath = secondCreatedRelativePath,
+                            operation = "create",
+                            anchor = string.Empty,
+                            oldText = string.Empty,
+                            newText = secondCreatedContent,
+                            summary = "Create knowledge panel"
+                        }
+                    }
+                }),
+                new PatchIntent
+                {
+                    AllowedFiles = [selectedRelativePath, firstCreatedRelativePath, secondCreatedRelativePath],
+                    TargetCreatedFiles = [firstCreatedRelativePath, secondCreatedRelativePath],
+                    AllowedCreateFolders = ["Services/", "Components/Coder/"]
+                });
+
+            Assert.Equal(2, result.FileChanges.Count);
+            Assert.Contains(result.FileChanges, change => change.RelativePath == firstCreatedRelativePath && change.NewContent == firstCreatedContent);
+            Assert.Contains(result.FileChanges, change => change.RelativePath == secondCreatedRelativePath && change.NewContent == secondCreatedContent);
+            Assert.Equal(2, logger.Entries.Count(entry => entry.Contains("Validating patch operation.", StringComparison.Ordinal)));
+            Assert.Contains(logger.Entries, entry => entry.Contains("filePath: Services/ProjectKnowledgeIndexService.cs", StringComparison.Ordinal));
+            Assert.Contains(logger.Entries, entry => entry.Contains("filePath: Components/Coder/CoderKnowledgePanel.razor", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_SingleCreateOperation_ParsesAndValidates()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-single-create-parse-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+        const string createdRelativePath = "Services/TestService.cs";
+        const string createdContent = "public sealed class TestService {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Services"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var logger = new ListLogger<PatchEditOperationService>();
+            var service = new PatchEditOperationService(logger);
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                """
+                {
+                  "operations": [
+                    {
+                      "filePath": "Services/TestService.cs",
+                      "operation": "create",
+                      "newText": "public sealed class TestService {}",
+                      "summary": "Create test service"
+                    }
+                  ]
+                }
+                """,
+                new PatchIntent
+                {
+                    AllowedFiles = [selectedRelativePath, createdRelativePath],
+                    TargetCreatedFiles = [createdRelativePath],
+                    AllowedCreateFolders = ["Services/"]
+                });
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal(createdRelativePath, change.RelativePath);
+            Assert.Equal(string.Empty, change.OldContent);
+            Assert.Equal(createdContent, change.NewContent);
+            Assert.Contains(logger.Entries, entry => entry.Contains("Patch preview parsed operation count: 1", StringComparison.Ordinal));
+            Assert.Contains(logger.Entries, entry => entry.Contains("Patch preview parsed operation types: create", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_MultipleCreateOperations_ParsesAndValidates()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-multiple-create-parse-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+        const string firstCreatedRelativePath = "Services/ProjectKnowledgeIndexService.cs";
+        const string secondCreatedRelativePath = "Components/Coder/CoderKnowledgePanel.razor";
+        const string firstCreatedContent = "public sealed class ProjectKnowledgeIndexService {}";
+        const string secondCreatedContent = "<RadzenPanel />\n";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Services"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Components", "Coder"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var logger = new ListLogger<PatchEditOperationService>();
+            var service = new PatchEditOperationService(logger);
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                """
+                {
+                  "operations": [
+                    {
+                      "filePath": "Services/ProjectKnowledgeIndexService.cs",
+                      "operation": "create",
+                      "newText": "public sealed class ProjectKnowledgeIndexService {}",
+                      "summary": "Create project knowledge service"
+                    },
+                    {
+                      "filePath": "Components/Coder/CoderKnowledgePanel.razor",
+                      "operation": "create",
+                      "newText": "<RadzenPanel />\n",
+                      "summary": "Create knowledge panel"
+                    }
+                  ]
+                }
+                """,
+                new PatchIntent
+                {
+                    AllowedFiles = [selectedRelativePath, firstCreatedRelativePath, secondCreatedRelativePath],
+                    TargetCreatedFiles = [firstCreatedRelativePath, secondCreatedRelativePath],
+                    AllowedCreateFolders = ["Services/", "Components/Coder/"]
+                });
+
+            Assert.Equal(2, result.FileChanges.Count);
+            Assert.Contains(result.FileChanges, change => change.RelativePath == firstCreatedRelativePath && change.NewContent == firstCreatedContent);
+            Assert.Contains(result.FileChanges, change => change.RelativePath == secondCreatedRelativePath && change.NewContent == secondCreatedContent);
+            Assert.Contains(logger.Entries, entry => entry.Contains("Patch preview parsed operation count: 2", StringComparison.Ordinal));
+            Assert.Contains(logger.Entries, entry => entry.Contains("Patch preview parsed operation types: create, create", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_CreateNotAllowedByIntent_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-not-allowed-by-intent-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = "Models/ProjectKnowledgeIndex.cs",
+                                operation = "create",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = "public sealed class ProjectKnowledgeIndex {}"
+                            }
+                        }
+                    }),
+                    new PatchIntent
+                    {
+                        AllowedFiles = [selectedRelativePath],
+                        TargetCreatedFiles = [],
+                        AllowedCreateFolders = ["Models/"]
+                    }));
+
+            Assert.Contains(
+                "create folder not allowed",
+                string.Join(Environment.NewLine, exception.ValidationErrors),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_CreateInUnrepresentedFolder_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-unrepresented-folder-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Services"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = "Services/ProjectKnowledgeIndexService.cs",
+                                operation = "create",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = "public sealed class ProjectKnowledgeIndexService {}"
+                            }
+                        }
+                    }),
+                    new PatchIntent
+                    {
+                        AllowedFiles = [selectedRelativePath, "Services/ProjectKnowledgeIndexService.cs"],
+                        TargetCreatedFiles = ["Services/ProjectKnowledgeIndexService.cs"],
+                        AllowedCreateFolders = ["Models/"]
+                    }));
+
+            Assert.Contains(
+                "create folder not allowed",
+                string.Join(Environment.NewLine, exception.ValidationErrors),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_CreateOutsideAllowedFolder_FailsValidation()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-outside-represented-folder-test-{Guid.NewGuid():N}");
         const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
@@ -417,10 +786,61 @@ public sealed class PatchEditOperationServiceTests
                         }
                     })));
 
+            Assert.Contains("create folder not allowed", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_CreateInKnowledgeFolderNotAllowed_ShowsExplicitFolderGuidance()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-knowledge-folder-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/CodexTaskExportResult.cs";
+        const string selectedContent = "public sealed class CodexTaskExportResult {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Components", "Knowledge"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = "Components/Knowledge/KnowledgeIndexPanel.razor",
+                                operation = "create",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = "<RadzenCard />"
+                            }
+                        }
+                    }),
+                    new PatchIntent
+                    {
+                        AllowedFiles = [selectedRelativePath, "Components/Knowledge/KnowledgeIndexPanel.razor"],
+                        TargetCreatedFiles = ["Components/Knowledge/KnowledgeIndexPanel.razor"],
+                        AllowedCreateFolders = ["Models/"]
+                    }));
+
             Assert.Contains(
-                "parent folder represented in the selected context",
+                "Create folder not allowed. Add Components/Knowledge/ to Allowed Create Folders.",
                 string.Join(Environment.NewLine, exception.ValidationErrors),
-                StringComparison.OrdinalIgnoreCase);
+                StringComparison.Ordinal);
         }
         finally
         {
@@ -1177,6 +1597,57 @@ public sealed class PatchEditOperationServiceTests
                 projectRoot,
                 [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
                 rawJson);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_CreateInBinFolder_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-bin-folder-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/CodexTaskExportResult.cs";
+        const string selectedContent = "public sealed class CodexTaskExportResult {}";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "bin"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = "bin/Generated.cs",
+                                operation = "create",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = "public sealed class Generated {}"
+                            }
+                        }
+                    }),
+                    new PatchIntent
+                    {
+                        AllowedFiles = [selectedRelativePath, "bin/Generated.cs"],
+                        TargetCreatedFiles = ["bin/Generated.cs"],
+                        AllowedCreateFolders = ["bin/"]
+                    }));
+
+            Assert.Contains("blocked", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

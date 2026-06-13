@@ -8,4 +8,5 @@ public sealed class LocalCoderRequest
     public List<LocalCoderFileContext> FileContexts { get; set; } = [];
     public PatchScopeMode AllowedPatchScope { get; set; } = PatchScopeMode.ContextFilesOnly;
     public List<string> AllowedPatchFolders { get; set; } = [];
+    public List<string> AllowedCreateFolders { get; set; } = [];
 }

@@ -1,0 +1,11 @@
+{
+  "operations": [
+    {
+      "filePath": "Components/Coder/CoderKnowledgePanel.razor",
+      "operation": "create",
+      "oldText": "",
+      "newText": "<!-- Coder Knowledge Panel Content -->\n<radzen-panel>\n    <!-- Panel content goes here -->\n</radzen-panel>",
+      "summary": "Create a new CoderKnowledgePanel component"
+    }
+  ]
+}

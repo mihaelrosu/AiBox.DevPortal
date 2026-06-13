@@ -30,10 +30,12 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         string projectPath,
         IReadOnlyList<LocalCoderFileContext> selectedFileContexts,
         string rawJson,
+        PatchIntent? intent = null,
         CancellationToken cancellationToken = default)
     {
         var rootPath = ValidateProjectRoot(projectPath);
-        var response = ParseResponse(rawJson);
+        var response = ParseResponse(rawJson, out var normalizedResponse);
+        LogParseDiagnostics(rawJson, normalizedResponse, response);
         if (response.Operations.Count == 0 && response.Errors.Count > 0)
         {
             throw new PatchPreviewValidationException(
@@ -41,7 +43,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 response.Errors.ToArray(),
                 rawJson ?? string.Empty,
                 string.Empty,
-                string.Empty,
+                normalizedResponse,
                 response.Errors.ToArray());
         }
 
@@ -84,6 +86,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         foreach (var operation in response.Operations)
         {
+            LogOperationValidation(operation);
             var normalizedOperation = operation.Operation.Trim();
             if (!AllowedOperations.Contains(normalizedOperation))
             {
@@ -94,7 +97,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             var filePath = NormalizeRelativePath(operation.FilePath);
             var isCreate = normalizedOperation.Equals("create", StringComparison.OrdinalIgnoreCase);
 
-            if (!ValidatePath(rootPath, filePath, selectedContextMap, isCreate, validationErrors))
+            if (!ValidatePath(rootPath, filePath, selectedContextMap, intent, isCreate, validationErrors))
             {
                 continue;
             }
@@ -174,6 +177,24 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             FileChanges = fileChanges,
             PatchText = patchText
         };
+    }
+
+    private void LogOperationValidation(PatchEditOperation operation)
+    {
+        logger.LogInformation(
+            "Validating patch operation. filePath: {FilePath}; operation: {Operation}; oldText length: {OldTextLength}; anchor: {Anchor}; summary: {Summary}",
+            operation.FilePath,
+            operation.Operation,
+            operation.OldText?.Length ?? 0,
+            operation.Anchor,
+            operation.Summary);
+
+        if (operation.Operation.Equals("create", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation(
+                "Create operation detected. Skipping exact-target and oldText validation for filePath: {FilePath}",
+                operation.FilePath);
+        }
     }
 
     private string? ApplyOperation(
@@ -745,6 +766,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         string rootPath,
         string relativePath,
         IReadOnlyDictionary<string, string> selectedContextMap,
+        PatchIntent? intent,
         bool allowMissingFileForCreate,
         List<string> validationErrors)
     {
@@ -770,6 +792,12 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return false;
         }
 
+        if (IsBlockedPath(relativePath))
+        {
+            validationErrors.Add($"Patch edit operation file path is blocked: {relativePath}");
+            return false;
+        }
+
         if (!selectedContextMap.ContainsKey(relativePath))
         {
             if (!allowMissingFileForCreate)
@@ -778,9 +806,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 return false;
             }
 
-            if (!HasContextRepresentative(relativePath, selectedContextMap))
+            if (!IsAllowedCreateTarget(relativePath, intent))
             {
-                validationErrors.Add($"Create operation requires a parent folder represented in the selected context: {relativePath}");
+                validationErrors.Add(BuildCreateFolderNotAllowedMessage(relativePath));
                 return false;
             }
         }
@@ -797,21 +825,98 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         return true;
     }
 
-    private static bool HasContextRepresentative(string relativePath, IReadOnlyDictionary<string, string> selectedContextMap)
+    private static bool IsAllowedCreateTarget(
+        string relativePath,
+        PatchIntent? intent)
     {
-        var parentDirectory = GetParentDirectory(relativePath);
-        if (string.IsNullOrWhiteSpace(parentDirectory))
+        if (intent is null)
         {
             return false;
         }
 
-        return selectedContextMap.Keys.Any(contextPath =>
-            string.Equals(GetParentDirectory(contextPath), parentDirectory, StringComparison.OrdinalIgnoreCase));
+        var normalizedPath = NormalizeRelativePath(relativePath);
+        var intentAllowsFile = intent.AllowedFiles.Any(filePath =>
+                string.Equals(NormalizeRelativePath(filePath), normalizedPath, StringComparison.OrdinalIgnoreCase)) ||
+            intent.TargetCreatedFiles.Any(filePath =>
+                string.Equals(NormalizeRelativePath(filePath), normalizedPath, StringComparison.OrdinalIgnoreCase));
+        if (!intentAllowsFile)
+        {
+            return false;
+        }
+
+        return IsUnderAnyAllowedCreateFolder(normalizedPath, intent.AllowedCreateFolders);
     }
 
-    private static PatchEditOperationEnvelope ParseResponse(string rawJson)
+    private static bool IsUnderAnyAllowedCreateFolder(string relativePath, IReadOnlyList<string> allowedCreateFolders)
     {
-        var normalizedJson = ExtractJsonPayload(rawJson);
+        return allowedCreateFolders.Any(folder => IsUnderFolder(relativePath, folder));
+    }
+
+    private static bool IsUnderFolder(string relativePath, string folder)
+    {
+        var normalizedPath = NormalizeRelativePath(relativePath);
+        var normalizedFolder = NormalizeCreateFolder(folder);
+        if (string.IsNullOrWhiteSpace(normalizedPath) || string.IsNullOrWhiteSpace(normalizedFolder))
+        {
+            return false;
+        }
+
+        return normalizedPath.StartsWith(normalizedFolder, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeCreateFolder(string folder)
+    {
+        var normalized = NormalizeRelativePath(folder);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        return normalized.EndsWith("/", StringComparison.Ordinal)
+            ? normalized
+            : $"{normalized}/";
+    }
+
+    private static string BuildCreateFolderNotAllowedMessage(string relativePath)
+    {
+        var parentFolder = GetParentDirectory(relativePath);
+        return string.IsNullOrWhiteSpace(parentFolder)
+            ? "Create folder not allowed. Add a folder to Allowed Create Folders."
+            : $"Create folder not allowed. Add {parentFolder}/ to Allowed Create Folders.";
+    }
+
+    private static bool IsBlockedPath(string relativePath)
+    {
+        var normalized = NormalizeRelativePath(relativePath).ToLowerInvariant();
+        return normalized.Contains("/bin/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.StartsWith("bin/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Contains("/obj/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.StartsWith("obj/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Contains("/.git/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.StartsWith(".git/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Contains("/../", StringComparison.Ordinal) ||
+               normalized.StartsWith("../", StringComparison.Ordinal) ||
+               normalized.EndsWith("/..", StringComparison.Ordinal);
+    }
+
+    private void LogParseDiagnostics(
+        string rawJson,
+        string normalizedResponse,
+        PatchEditOperationEnvelope response)
+    {
+        logger.LogInformation("Patch preview raw model response: {RawResponse}", rawJson ?? string.Empty);
+        logger.LogInformation("Patch preview normalized response: {NormalizedResponse}", normalizedResponse);
+        logger.LogInformation("Patch preview parsed operation count: {OperationCount}", response.Operations.Count);
+        logger.LogInformation(
+            "Patch preview parsed operation types: {OperationTypes}",
+            response.Operations.Count == 0
+                ? string.Empty
+                : string.Join(", ", response.Operations.Select(operation => operation.Operation)));
+    }
+
+    private static PatchEditOperationEnvelope ParseResponse(string rawJson, out string normalizedJson)
+    {
+        normalizedJson = ExtractJsonPayload(rawJson);
         try
         {
             var response = JsonSerializer.Deserialize<PatchEditOperationEnvelope>(normalizedJson, JsonOptions);

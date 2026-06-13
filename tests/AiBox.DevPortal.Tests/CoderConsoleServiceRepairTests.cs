@@ -497,6 +497,88 @@ public sealed class CoderConsoleServiceRepairTests
         }
     }
 
+    [Fact]
+    public async Task GeneratePatchPreviewAsync_CreateAllowedFileInRepresentedFolder_PassesValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-intent-preview-{Guid.NewGuid():N}");
+        var requests = new List<string>();
+        const string selectedRelativePath = "Models/CodexTaskExportResult.cs";
+        const string createdRelativePath = "Models/ProjectKnowledgeIndex.cs";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), "public sealed class CodexTaskExportResult {}");
+
+            var handler = new QueueHandler(
+                requests,
+                """
+                {
+                  "response": "{\"operations\":[{\"filePath\":\"Models/ProjectKnowledgeIndex.cs\",\"operation\":\"create\",\"oldText\":\"\",\"newText\":\"public sealed class ProjectKnowledgeIndex {}\"}]}",
+                  "done": true
+                }
+                """);
+
+            var httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri("http://localhost")
+            };
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["AiBox:LocalCoder:DefaultModel"] = "test-model",
+                    ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
+                })
+                .Build();
+
+            var environment = Substitute.For<IWebHostEnvironment>();
+            environment.ContentRootPath.Returns(projectRoot);
+
+            var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
+            var contextService = Substitute.For<ILocalCoderContextService>();
+
+            var service = new CoderConsoleService(
+                httpClient,
+                configuration,
+                environment,
+                patchEditOperationService,
+                contextService);
+
+            var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
+            {
+                ProjectPath = projectRoot,
+                Model = "test-model",
+                Task = $"Create {createdRelativePath}",
+                AllowedCreateFolders = ["Models/"],
+                FileContexts =
+                [
+                    new LocalCoderFileContext
+                    {
+                        RelativePath = selectedRelativePath,
+                        Content = "public sealed class CodexTaskExportResult {}"
+                    }
+                ]
+            });
+
+            Assert.Single(requests);
+            Assert.Contains("Target created file(s):", requests[0], StringComparison.Ordinal);
+            Assert.Contains("Allowed create folders:", requests[0], StringComparison.Ordinal);
+            Assert.Contains(createdRelativePath, requests[0], StringComparison.Ordinal);
+            Assert.NotNull(preview);
+            Assert.Single(preview.FileChanges);
+            Assert.Equal(createdRelativePath, preview.FileChanges[0].RelativePath);
+            Assert.Contains("Models/ProjectKnowledgeIndex.cs", preview.PatchText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
     private sealed class QueueHandler : HttpMessageHandler
     {
         private readonly Queue<string> responses = new();

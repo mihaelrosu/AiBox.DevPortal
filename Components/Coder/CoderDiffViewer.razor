@@ -375,6 +375,11 @@
                             <RadzenText Text="@($"Goal: {PatchPreview.Intent.Goal}")" TextStyle="TextStyle.Body2" />
                             <RadzenText Text="@($"Primary Intent: {PrimaryIntentText(PatchPreview.Intent.PrimaryIntent)}")" TextStyle="TextStyle.Body2" />
                             <RadzenText Text="@($"Allowed scope: {PatchPreview.Intent.AllowedScope}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@($"Allowed files: {string.Join(", ", PatchPreview.Intent.AllowedFiles.Count > 0 ? PatchPreview.Intent.AllowedFiles : PatchPreview.Intent.AllowedPaths)}")" TextStyle="TextStyle.Body2" />
+                            @if (PatchPreview.Intent.TargetCreatedFiles.Count > 0)
+                            {
+                                <RadzenText Text="@($"Target created file: {string.Join(", ", PatchPreview.Intent.TargetCreatedFiles)}")" TextStyle="TextStyle.Body2" />
+                            }
                             <RadzenText Text="@($"Expected change type: {PatchPreview.Intent.ExpectedChangeType}")" TextStyle="TextStyle.Body2" />
                             <RadzenText Text="@($"Verification: {PatchPreview.Intent.VerificationCommand}")" TextStyle="TextStyle.Body2" />
                         }
@@ -389,7 +394,7 @@
                         {
                             <div>
                                 <RadzenText Text="Debug output" TextStyle="TextStyle.Body2" />
-                                <pre class="coder-output">Scope mode: @PatchPreview.IntentValidation.ScopeMode
+<pre class="coder-output">Scope mode: @PatchPreview.IntentValidation.ScopeMode
 Requested files: @(string.Join(", ", PatchPreview.IntentValidation.RequestedFiles))
 Modified files: @(string.Join(", ", PatchPreview.IntentValidation.ModifiedFiles))
 Context files: @(string.Join(", ", PatchPreview.IntentValidation.ContextFiles))

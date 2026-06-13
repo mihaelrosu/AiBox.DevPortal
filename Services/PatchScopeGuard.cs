@@ -8,16 +8,18 @@ public static class PatchScopeGuard
         PatchScopeMode? mode,
         IReadOnlyList<string> contextFilePaths,
         IReadOnlyList<string> allowedFolders,
+        IReadOnlyList<string> allowedCreateFolders,
         IReadOnlyList<string> changedPaths)
     {
         var effectiveMode = mode ?? PatchScopeMode.AnyProjectFile;
         var normalizedContext = NormalizePaths(contextFilePaths);
         var normalizedFolders = NormalizeFolders(allowedFolders);
+        var normalizedCreateFolders = NormalizeFolders(allowedCreateFolders);
         var results = new List<PatchScopeFileResult>();
 
         foreach (var changedPath in NormalizePaths(changedPaths))
         {
-            var result = AnalyzeFile(effectiveMode, changedPath, normalizedContext, normalizedFolders, isCreate: false);
+            var result = AnalyzeFile(effectiveMode, changedPath, normalizedContext, normalizedFolders, normalizedCreateFolders, isCreate: false);
             results.Add(result);
         }
 
@@ -25,6 +27,7 @@ public static class PatchScopeGuard
         {
             Mode = effectiveMode,
             AllowedFolders = normalizedFolders,
+            AllowedCreateFolders = normalizedCreateFolders,
             Files = results,
             IsBlocking = effectiveMode switch
             {
@@ -50,18 +53,20 @@ public static class PatchScopeGuard
         PatchScopeMode? mode,
         IReadOnlyList<string> contextFilePaths,
         IReadOnlyList<string> allowedFolders,
+        IReadOnlyList<string> allowedCreateFolders,
         IReadOnlyList<PatchFileChange> fileChanges)
     {
         var effectiveMode = mode ?? PatchScopeMode.AnyProjectFile;
         var normalizedContext = NormalizePaths(contextFilePaths);
         var normalizedFolders = NormalizeFolders(allowedFolders);
+        var normalizedCreateFolders = NormalizeFolders(allowedCreateFolders);
         var results = new List<PatchScopeFileResult>();
 
         foreach (var change in fileChanges ?? [])
         {
             var changedPath = NormalizePath(change.RelativePath);
             var isCreate = string.IsNullOrWhiteSpace(change.OldContent) && !string.IsNullOrWhiteSpace(change.NewContent);
-            var result = AnalyzeFile(effectiveMode, changedPath, normalizedContext, normalizedFolders, isCreate);
+            var result = AnalyzeFile(effectiveMode, changedPath, normalizedContext, normalizedFolders, normalizedCreateFolders, isCreate);
             results.Add(result);
         }
 
@@ -69,6 +74,7 @@ public static class PatchScopeGuard
         {
             Mode = effectiveMode,
             AllowedFolders = normalizedFolders,
+            AllowedCreateFolders = normalizedCreateFolders,
             Files = results,
             IsBlocking = effectiveMode switch
             {
@@ -97,6 +103,7 @@ public static class PatchScopeGuard
             package.AllowedPatchScope,
             package.ContextFilePaths ?? [],
             package.AllowedPatchFolders ?? [],
+            package.AllowedCreateFolders ?? [],
             package.FileChanges);
     }
 
@@ -107,6 +114,7 @@ public static class PatchScopeGuard
             preview.AllowedPatchScope,
             preview.FileContexts.Select(context => context.RelativePath).ToArray(),
             preview.AllowedPatchFolders,
+            preview.AllowedCreateFolders,
             preview.FileChanges);
     }
 
@@ -149,7 +157,7 @@ public static class PatchScopeGuard
         return analysis.Mode switch
         {
             PatchScopeMode.ContextFilesOnly =>
-                $"Patch modifies files outside the selected context: {string.Join(", ", outOfScopeFiles)}.",
+                $"Patch modifies files outside the allowed create folders or selected context: {string.Join(", ", outOfScopeFiles)}.",
             PatchScopeMode.SelectedFolders =>
                 $"Patch modifies files outside the allowed folders: {string.Join(", ", outOfScopeFiles)}.",
             _ => "Patch scope validation failed."
@@ -161,12 +169,13 @@ public static class PatchScopeGuard
         string changedPath,
         IReadOnlyList<string> contextPaths,
         IReadOnlyList<string> allowedFolders,
+        IReadOnlyList<string> allowedCreateFolders,
         bool isCreate)
     {
         var representativePath = string.Empty;
         var inScope = mode switch
         {
-            PatchScopeMode.ContextFilesOnly => AnalyzeContextFileScope(changedPath, contextPaths, isCreate, out representativePath),
+            PatchScopeMode.ContextFilesOnly => AnalyzeContextFileScope(changedPath, contextPaths, allowedCreateFolders, isCreate, out representativePath),
             PatchScopeMode.SelectedFolders => allowedFolders.Any(folder => changedPath.StartsWith(folder, StringComparison.OrdinalIgnoreCase)),
             PatchScopeMode.AnyProjectFile => true,
             _ => false
@@ -183,7 +192,7 @@ public static class PatchScopeGuard
                 : mode switch
                 {
                     PatchScopeMode.ContextFilesOnly => isCreate
-                        ? "Parent folder is not represented in the selected context."
+                        ? "Create folder is not allowed."
                         : "Not in selected context.",
                     PatchScopeMode.SelectedFolders => "Not under an allowed folder.",
                     _ => string.Empty
@@ -194,6 +203,7 @@ public static class PatchScopeGuard
     private static bool AnalyzeContextFileScope(
         string changedPath,
         IReadOnlyList<string> contextPaths,
+        IReadOnlyList<string> allowedCreateFolders,
         bool isCreate,
         out string representativePath)
     {
@@ -201,6 +211,7 @@ public static class PatchScopeGuard
 
         if (contextPaths.Contains(changedPath, StringComparer.OrdinalIgnoreCase))
         {
+            representativePath = changedPath;
             return true;
         }
 
@@ -209,15 +220,7 @@ public static class PatchScopeGuard
             return false;
         }
 
-        var parentDirectory = GetParentDirectory(changedPath);
-        if (string.IsNullOrWhiteSpace(parentDirectory))
-        {
-            return false;
-        }
-
-        representativePath = contextPaths.FirstOrDefault(contextPath =>
-            string.Equals(GetParentDirectory(contextPath), parentDirectory, StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
-
+        representativePath = allowedCreateFolders.FirstOrDefault(folder => changedPath.StartsWith(folder, StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
         return !string.IsNullOrWhiteSpace(representativePath);
     }
 

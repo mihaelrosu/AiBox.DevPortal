@@ -1,0 +1,13 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Models/ProjectKnowledgeIndex.cs",
+      "operation": "create",
+      "oldText": "",
+      "newText": "public sealed class ProjectKnowledgeIndex {}",
+      "summary": "Create a new project knowledge index file"
+    }
+  ]
+}
+```

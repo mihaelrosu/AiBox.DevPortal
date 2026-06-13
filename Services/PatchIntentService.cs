@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using AiBox.DevPortal.Models;
 
 namespace AiBox.DevPortal.Services;
@@ -9,18 +10,30 @@ public static class PatchIntentService
         ArgumentNullException.ThrowIfNull(request);
 
         var scopeMode = request.AllowedPatchScope;
+        var contextFiles = request.FileContexts.Select(context => context.RelativePath).ToArray();
+        var createdFiles = ExtractRequestedCreateFiles(request.Task);
+        var allowedCreateFolders = request.AllowedCreateFolders.Count > 0
+            ? NormalizeFolders(request.AllowedCreateFolders).ToArray()
+            : InferCreateFolders(contextFiles);
+        var allowedFiles = contextFiles
+            .Concat(createdFiles)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         var allowedPaths = scopeMode switch
         {
-            PatchScopeMode.ContextFilesOnly => request.FileContexts.Select(context => context.RelativePath).ToArray(),
+            PatchScopeMode.ContextFilesOnly => allowedFiles,
             PatchScopeMode.SelectedFolders => request.AllowedPatchFolders.ToArray(),
             PatchScopeMode.AnyProjectFile => ["Any project file"],
-            _ => request.FileContexts.Select(context => context.RelativePath).ToArray()
+            _ => allowedFiles
         };
 
         return new PatchIntent
         {
             Goal = DeriveGoal(request.Task),
+            AllowedFiles = allowedFiles,
             AllowedPaths = allowedPaths,
+            TargetCreatedFiles = createdFiles,
+            AllowedCreateFolders = allowedCreateFolders,
             ProtectedPaths = [],
             AllowedScope = scopeMode switch
             {
@@ -48,9 +61,12 @@ public static class PatchIntentService
 
         var reasons = new List<string>();
         var detectedChangeType = DetectChangeType(preview);
-        var requestedFiles = NormalizePaths(intent.AllowedPaths).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var requestedFiles = NormalizePaths(intent.AllowedFiles.Count > 0 ? intent.AllowedFiles : intent.AllowedPaths)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         var modifiedFiles = NormalizePaths(preview.FileChanges.Select(change => change.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var contextFiles = NormalizePaths(preview.FileContexts.Select(context => context.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allowedCreateFolders = NormalizeFolders(intent.AllowedCreateFolders).ToArray();
         var scopeFilesByPath = (preview.ScopeAnalysis.Files ?? [])
             .ToDictionary(file => NormalizePath(file.RelativePath), file => file, StringComparer.OrdinalIgnoreCase);
         var scopeFiles = NormalizePaths(preview.ScopeAnalysis.Files
@@ -65,10 +81,9 @@ public static class PatchIntentService
         {
             scopeFilesByPath.TryGetValue(path, out var scopeFile);
             var isCreate = scopeFile?.IsCreate == true;
-            var hasContextRepresentative = !string.IsNullOrWhiteSpace(scopeFile?.ContextRepresentativePath);
             var inContext = contextFiles.Contains(path);
             var inScope = scopeFiles.Contains(path);
-            var matchesRequestedFile = IsUnderAnyRequestedPath(path, requestedFiles) || (isCreate && hasContextRepresentative);
+            var matchesRequestedFile = IsUnderAnyRequestedPath(path, requestedFiles) || (isCreate && IsUnderAnyRequestedPath(path, allowedCreateFolders));
             var explicitlyAllowed = explicitAllowedFiles.Contains(path) || matchesRequestedFile;
             var explicitlyProtected = explicitProtectedFiles.Contains(path) || IsProtectedPath(path);
             var protectedFile = explicitlyProtected;
@@ -171,10 +186,12 @@ public static class PatchIntentService
             FileChanges = package.FileChanges ?? [],
             AllowedPatchScope = package.AllowedPatchScope ?? PatchScopeMode.AnyProjectFile,
             AllowedPatchFolders = package.AllowedPatchFolders ?? [],
+            AllowedCreateFolders = package.AllowedCreateFolders ?? [],
             ScopeAnalysis = PatchScopeGuard.Analyze(
                 package.AllowedPatchScope,
                 package.ContextFilePaths ?? [],
                 package.AllowedPatchFolders ?? [],
+                package.AllowedCreateFolders ?? [],
                 (package.FileChanges ?? []).Select(change => change.RelativePath).ToArray())
         };
 
@@ -183,12 +200,27 @@ public static class PatchIntentService
 
     public static string BuildPromptText(PatchIntent intent)
     {
+        var allowedFiles = intent.AllowedFiles.Count > 0 ? intent.AllowedFiles : intent.AllowedPaths;
         return $"""
         Goal:
         {intent.Goal}
 
-        Allowed files/scope:
-        {string.Join(Environment.NewLine, intent.AllowedPaths.Select(path => $"- {path}"))}
+        Allowed files:
+        {string.Join(Environment.NewLine, allowedFiles.Select(path => $"- {path}"))}
+
+        {(intent.TargetCreatedFiles.Count > 0
+            ? $"""
+        Target created file(s):
+        {string.Join(Environment.NewLine, intent.TargetCreatedFiles.Select(path => $"- {path}"))}
+        """
+            : string.Empty)}
+
+        {(intent.AllowedCreateFolders.Count > 0
+            ? $"""
+        Allowed create folders:
+        {string.Join(Environment.NewLine, intent.AllowedCreateFolders.Select(path => $"- {path}"))}
+        """
+            : string.Empty)}
 
         Expected change type:
         {intent.ExpectedChangeType}
@@ -199,6 +231,32 @@ public static class PatchIntentService
         Verification:
         {intent.VerificationCommand}
         """;
+    }
+
+    internal static IReadOnlyList<string> ExtractRequestedCreateFiles(string task)
+    {
+        var value = task ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        var matches = CreateTaskPathRegex().Matches(value);
+        if (matches.Count == 0)
+        {
+            return [];
+        }
+
+        return matches
+            .Select(match => NormalizePath(match.Groups["path"].Value))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    internal static bool HasExplicitCreateRequest(string task)
+    {
+        return ExtractRequestedCreateFiles(task).Count > 0;
     }
 
     private static string DeriveGoal(string task)
@@ -260,6 +318,12 @@ public static class PatchIntentService
         return "dotnet build";
     }
 
+    private static Regex CreateTaskPathRegex()
+    {
+        return new Regex(@"\bcreate(?:\s+file)?\s+(?<path>(?:[\w.\-]+[\\/])*(?:[\w.\-]+\.[\w.\-]+))",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    }
+
     private static PatchIntentChangeType DetectChangeType(LocalCoderPatchPreview preview)
     {
         if (preview.PatchText.Contains("rename from ", StringComparison.OrdinalIgnoreCase) ||
@@ -317,6 +381,21 @@ public static class PatchIntentService
         return requestedFiles.Any(requestedPath => IsUnderRequestedPath(relativePath, requestedPath));
     }
 
+    private static IReadOnlyList<string> InferCreateFolders(IEnumerable<string> contextFiles)
+    {
+        return contextFiles
+            .Select(NormalizePath)
+            .Select(path =>
+            {
+                var index = path.LastIndexOf('/');
+                return index <= 0 ? string.Empty : $"{path[..index]}/";
+            })
+            .Where(folder => !string.IsNullOrWhiteSpace(folder))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     private static bool IsUnderRequestedPath(string relativePath, string requestedPath)
     {
         var normalizedPath = NormalizePath(relativePath);
@@ -339,6 +418,23 @@ public static class PatchIntentService
     {
         return paths.Select(NormalizePath)
             .Where(path => !string.IsNullOrWhiteSpace(path));
+    }
+
+    private static IEnumerable<string> NormalizeFolders(IEnumerable<string> folders)
+    {
+        return folders.Select(folder =>
+            {
+                var normalized = NormalizePath(folder);
+                if (string.IsNullOrWhiteSpace(normalized))
+                {
+                    return string.Empty;
+                }
+
+                return normalized.EndsWith("/", StringComparison.Ordinal)
+                    ? normalized
+                    : $"{normalized}/";
+            })
+            .Where(folder => !string.IsNullOrWhiteSpace(folder));
     }
 
     private static string NormalizePath(string? relativePath)

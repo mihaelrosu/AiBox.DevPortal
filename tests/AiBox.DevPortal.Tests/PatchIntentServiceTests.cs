@@ -22,11 +22,35 @@ public sealed class PatchIntentServiceTests
         });
 
         Assert.Equal("Move Verify button into its own card", intent.Goal);
+        Assert.Equal(["Components/Pages/Coder.razor", "Components/Coder/CoderPromptPanel.razor"], intent.AllowedFiles);
         Assert.Equal(["Components/Pages/Coder.razor", "Components/Coder/CoderPromptPanel.razor"], intent.AllowedPaths);
+        Assert.Equal(["Components/Coder/", "Components/Pages/"], intent.AllowedCreateFolders);
         Assert.Equal(PatchPrimaryIntent.Modify, intent.PrimaryIntent);
         Assert.Equal(PatchIntentChangeType.Move, intent.ExpectedChangeType);
         Assert.Equal("dotnet build", intent.VerificationCommand);
         Assert.Contains("Patch apply logic", intent.MustNotChange);
+    }
+
+    [Fact]
+    public void BuildIntent_CreateTask_ExtractsTargetFile()
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = "Create Models/ProjectKnowledgeIndex.cs",
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Models/LocalCoderHistoryEntry.cs" }
+            ]
+        });
+
+        Assert.Contains("Models/ProjectKnowledgeIndex.cs", intent.TargetCreatedFiles);
+        Assert.Contains("Models/ProjectKnowledgeIndex.cs", intent.AllowedFiles);
+        Assert.Contains("Models/LocalCoderHistoryEntry.cs", intent.AllowedFiles);
+        Assert.Contains("Models/", intent.AllowedCreateFolders);
+        Assert.Contains("Target created file(s):", PatchIntentService.BuildPromptText(intent), StringComparison.Ordinal);
+        Assert.Contains("Allowed create folders:", PatchIntentService.BuildPromptText(intent), StringComparison.Ordinal);
     }
 
     [Theory]
@@ -151,6 +175,56 @@ public sealed class PatchIntentServiceTests
         Assert.Empty(validation.ProtectedFiles);
         Assert.Contains("Components/Pages/Coder.razor", validation.RequestedFiles);
         Assert.Contains("Components/Pages/Coder.razor", validation.ModifiedFiles);
+    }
+
+    [Fact]
+    public void Evaluate_ExplicitCreateTarget_InRepresentedFolder_MatchesIntent()
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = "Create Models/ProjectKnowledgeIndex.cs",
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Models/LocalCoderHistoryEntry.cs" }
+            ]
+        });
+
+        var preview = new LocalCoderPatchPreview
+        {
+            PatchText = """
+                        diff --git a/Models/ProjectKnowledgeIndex.cs b/Models/ProjectKnowledgeIndex.cs
+                        new file mode 100644
+                        """,
+            FileChanges =
+            [
+                new PatchFileChange { RelativePath = "Models/ProjectKnowledgeIndex.cs", NewContent = "public sealed class ProjectKnowledgeIndex {}" }
+            ],
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Models/LocalCoderHistoryEntry.cs" }
+            ],
+            ScopeAnalysis = new PatchScopeAnalysis
+            {
+                Files =
+                [
+                    new PatchScopeFileResult
+                    {
+                        RelativePath = "Models/ProjectKnowledgeIndex.cs",
+                        Status = PatchScopeStatus.InScope,
+                        IsCreate = true,
+                        ContextRepresentativePath = "Models/"
+                    }
+                ]
+            }
+        };
+
+        var validation = PatchIntentService.Evaluate(intent, preview);
+
+        Assert.Equal(PatchIntentMatchStatus.MatchesIntent, validation.Status);
+        Assert.Contains("Models/ProjectKnowledgeIndex.cs", validation.RequestedFiles);
+        Assert.Contains("Models/ProjectKnowledgeIndex.cs", validation.ModifiedFiles);
     }
 
     [Fact]

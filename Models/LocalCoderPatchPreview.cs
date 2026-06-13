@@ -11,6 +11,7 @@ public sealed class LocalCoderPatchPreview
     public IReadOnlyList<PatchFileChange> FileChanges { get; set; } = [];
     public PatchScopeMode AllowedPatchScope { get; set; } = PatchScopeMode.ContextFilesOnly;
     public IReadOnlyList<string> AllowedPatchFolders { get; set; } = [];
+    public IReadOnlyList<string> AllowedCreateFolders { get; set; } = [];
     public PatchScopeAnalysis ScopeAnalysis { get; set; } = new();
     public PatchIntent? Intent { get; set; }
     public PatchIntentValidation? IntentValidation { get; set; }

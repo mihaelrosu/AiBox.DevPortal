@@ -177,7 +177,7 @@ public sealed class CoderConsoleService(
         if (TryParseExactRemovalTask(request.Task, out var removalText))
         {
             var deterministicPatchText = BuildExactReplacementPatch(request.FileContexts, removalText, string.Empty);
-            var deterministicValidation = ValidatePatchPreview(deterministicPatchText, request.FileContexts, request.Task);
+            var deterministicValidation = ValidatePatchPreview(deterministicPatchText, request.FileContexts, request.Task, intent);
             var deterministicScopePaths = FindExactReplacementTargetPaths(request.FileContexts, removalText);
 
             if (!deterministicValidation.IsValid)
@@ -193,10 +193,12 @@ public sealed class CoderConsoleService(
                 FileContexts = request.FileContexts.ToArray(),
                 AllowedPatchScope = request.AllowedPatchScope,
                 AllowedPatchFolders = request.AllowedPatchFolders.ToArray(),
+                AllowedCreateFolders = intent.AllowedCreateFolders.ToArray(),
                 ScopeAnalysis = PatchScopeGuard.Analyze(
                     request.AllowedPatchScope,
                     request.FileContexts.Select(context => context.RelativePath).ToArray(),
                     request.AllowedPatchFolders,
+                    intent.AllowedCreateFolders,
                     deterministicScopePaths),
                 Intent = intent,
                 PatchText = deterministicPatchText
@@ -210,7 +212,7 @@ public sealed class CoderConsoleService(
         if (TryParseExactReplacementTask(request.Task, out var oldText, out var newText))
         {
             var deterministicPatchText = BuildExactReplacementPatch(request.FileContexts, oldText, newText);
-            var deterministicValidation = ValidatePatchPreview(deterministicPatchText, request.FileContexts, request.Task);
+            var deterministicValidation = ValidatePatchPreview(deterministicPatchText, request.FileContexts, request.Task, intent);
             var deterministicScopePaths = FindExactReplacementTargetPaths(request.FileContexts, oldText);
 
             if (!deterministicValidation.IsValid)
@@ -226,10 +228,12 @@ public sealed class CoderConsoleService(
                 FileContexts = request.FileContexts.ToArray(),
                 AllowedPatchScope = request.AllowedPatchScope,
                 AllowedPatchFolders = request.AllowedPatchFolders.ToArray(),
+                AllowedCreateFolders = intent.AllowedCreateFolders.ToArray(),
                 ScopeAnalysis = PatchScopeGuard.Analyze(
                     request.AllowedPatchScope,
                     request.FileContexts.Select(context => context.RelativePath).ToArray(),
                     request.AllowedPatchFolders,
+                    intent.AllowedCreateFolders,
                     deterministicScopePaths),
                 Intent = intent,
                 PatchText = deterministicPatchText
@@ -243,7 +247,7 @@ public sealed class CoderConsoleService(
         var fileContextText = BuildPatchPreviewFileContextText(request.FileContexts);
         var promptAudit = BuildPatchPromptAudit(request.FileContexts, fileContextText);
         var selectedFilePathsText = BuildSelectedFilePathsText(request.FileContexts);
-        var scopeText = BuildPatchScopeText(request.AllowedPatchScope, request.AllowedPatchFolders);
+        var scopeText = BuildPatchScopeText(request.AllowedPatchScope, request.AllowedPatchFolders, intent.AllowedCreateFolders);
 
         var prompt = BuildGeneratePatchPreviewPrompt(
             request,
@@ -287,7 +291,8 @@ public sealed class CoderConsoleService(
             editResult = await patchEditOperationService.BuildAsync(
                 request.ProjectPath,
                 request.FileContexts,
-                finalNormalizedResponse);
+                finalNormalizedResponse,
+                intent);
         }
         catch (PatchPreviewValidationException exception)
         {
@@ -303,6 +308,7 @@ public sealed class CoderConsoleService(
             var repairOutcome = await TryRepairPatchPreviewAsync(
                 request,
                 profile,
+                intent,
                 intentText,
                 selectedFilePathsText,
                 fileContextText,
@@ -347,7 +353,7 @@ public sealed class CoderConsoleService(
         await SavePatchDebugRawResponseAsync(finalRawResponse);
 
         var patchText = editResult.PatchText;
-        var validation = ValidatePatchPreview(patchText, request.FileContexts, request.Task);
+        var validation = ValidatePatchPreview(patchText, request.FileContexts, request.Task, intent, editResult.FileChanges);
 
         if (!validation.IsValid)
         {
@@ -378,10 +384,12 @@ public sealed class CoderConsoleService(
             FileChanges = editResult.FileChanges,
             AllowedPatchScope = request.AllowedPatchScope,
             AllowedPatchFolders = request.AllowedPatchFolders.ToArray(),
+            AllowedCreateFolders = intent.AllowedCreateFolders.ToArray(),
             ScopeAnalysis = PatchScopeGuard.Analyze(
                 request.AllowedPatchScope,
                 request.FileContexts.Select(context => context.RelativePath).ToArray(),
                 request.AllowedPatchFolders,
+                intent.AllowedCreateFolders,
                 editResult.FileChanges),
             Intent = intent,
             PromptAudit = promptAudit,
@@ -429,7 +437,7 @@ public sealed class CoderConsoleService(
             throw new InvalidOperationException("Patch apply requires PatchText that starts with diff --git.");
         }
 
-        var validation = ValidatePatchPreview(patchText, patchPreview.FileContexts, patchPreview.Task);
+        var validation = ValidatePatchPreview(patchText, patchPreview.FileContexts, patchPreview.Task, patchPreview.Intent, patchPreview.FileChanges);
         if (!validation.IsValid)
         {
             throw new InvalidOperationException($"Patch apply validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", validation.Errors)}");
@@ -1226,6 +1234,13 @@ public sealed class CoderConsoleService(
             ? string.Empty
             : BuildRepairInstructionsText(repairContext);
         var targetResolutionText = BuildPromptTargetResolutionText(targetResolution);
+        var contextInstruction = PatchIntentService.HasExplicitCreateRequest(request.Task)
+            ? """
+        Modify only selected context files. New files may be created only when explicitly requested and inside Allowed Create Folders.
+        """
+            : """
+        Use only files from the selected file context.
+        """;
         return $$"""
         You are a coding assistant generating a patch preview for a C# Blazor/Radzen project.
 
@@ -1239,7 +1254,7 @@ public sealed class CoderConsoleService(
         {{operationGrammar}}
         {{forbiddenExamples}}
         {{missingTextInstruction}}
-        Use only files from the selected file context.
+        {{contextInstruction}}
         Use exact anchors, exact string replacements, and exact text removal.
         {{xmlDocumentationInstructions}}
 
@@ -1531,6 +1546,7 @@ public sealed class CoderConsoleService(
     private async Task<AutoRepairOutcome?> TryRepairPatchPreviewAsync(
         LocalCoderRequest request,
         AgentModeProfile? profile,
+        PatchIntent intent,
         string intentText,
         string selectedFilePathsText,
         string fileContextText,
@@ -1584,7 +1600,8 @@ public sealed class CoderConsoleService(
             var editResult = await patchEditOperationService.BuildAsync(
                 request.ProjectPath,
                 request.FileContexts,
-                repairNormalizedResponse);
+                repairNormalizedResponse,
+                intent);
 
             return new AutoRepairOutcome(
                 editResult,
@@ -1999,7 +2016,10 @@ public sealed class CoderConsoleService(
         return string.Join(Environment.NewLine, fileContexts.Select(fileContext => $"- {fileContext.RelativePath}"));
     }
 
-    private static string BuildPatchScopeText(PatchScopeMode scopeMode, IReadOnlyList<string> allowedFolders)
+    internal static string BuildPatchScopeText(
+        PatchScopeMode scopeMode,
+        IReadOnlyList<string> allowedFolders,
+        IReadOnlyList<string> allowedCreateFolders)
     {
         return scopeMode switch
         {
@@ -2014,7 +2034,9 @@ public sealed class CoderConsoleService(
             PatchScopeMode.SelectedFolders => "Selected Folders (no folders configured)",
             PatchScopeMode.AnyProjectFile => "Any Project File",
             _ => "Context Files Only"
-        };
+        } + (allowedCreateFolders.Count > 0
+            ? $"{Environment.NewLine}{Environment.NewLine}Allowed Create Folders:{Environment.NewLine}{string.Join(Environment.NewLine, allowedCreateFolders.Select(folder => $"- {folder}"))}"
+            : string.Empty);
     }
 
     internal static PatchPromptTargetResolution? ResolveDeterministicTargetResolution(
@@ -2500,7 +2522,9 @@ public sealed class CoderConsoleService(
     private static LocalCoderPatchValidationResult ValidatePatchPreview(
         string patchText,
         IReadOnlyList<LocalCoderFileContext> fileContexts,
-        string task)
+        string task,
+        PatchIntent? intent = null,
+        IReadOnlyList<PatchFileChange>? fileChanges = null)
     {
         if (string.IsNullOrWhiteSpace(patchText))
         {
@@ -2514,7 +2538,6 @@ public sealed class CoderConsoleService(
         var selectedPaths = new HashSet<string>(
             fileContexts.Select(fileContext => NormalizePreviewPath(fileContext.RelativePath)),
             StringComparer.OrdinalIgnoreCase);
-
         if (selectedPaths.Count == 0)
         {
             return new LocalCoderPatchValidationResult
@@ -2604,8 +2627,24 @@ public sealed class CoderConsoleService(
 
         foreach (var fileDiff in fileDiffs)
         {
-            ValidatePreviewPath(fileDiff.OldPath, selectedPaths, errors, allowUnselected: IsDevNullPath(fileDiff.OldPath));
-            ValidatePreviewPath(fileDiff.NewPath, selectedPaths, errors, allowUnselected: IsDevNullPath(fileDiff.OldPath));
+            var isCreateTarget = fileChanges is not null && fileChanges.Any(change =>
+                string.Equals(NormalizePreviewPath(change.RelativePath), fileDiff.NewPath, StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(change.OldContent) &&
+                !string.IsNullOrWhiteSpace(change.NewContent));
+            ValidatePreviewPath(
+                fileDiff.OldPath,
+                selectedPaths,
+                intent,
+                errors,
+                allowUnselected: isCreateTarget,
+                isCreateTarget: false);
+            ValidatePreviewPath(
+                fileDiff.NewPath,
+                selectedPaths,
+                intent,
+                errors,
+                allowUnselected: false,
+                isCreateTarget: isCreateTarget);
         }
 
         return new LocalCoderPatchValidationResult
@@ -3032,8 +3071,10 @@ public sealed class CoderConsoleService(
     private static void ValidatePreviewPath(
         string path,
         IReadOnlySet<string> selectedPaths,
+        PatchIntent? intent,
         List<string> errors,
-        bool allowUnselected)
+        bool allowUnselected,
+        bool isCreateTarget)
     {
         if (string.IsNullOrWhiteSpace(path) || IsDevNullPath(path))
         {
@@ -3042,16 +3083,82 @@ public sealed class CoderConsoleService(
 
         if (Path.IsPathRooted(path) ||
             path.StartsWith("/", StringComparison.Ordinal) ||
-            path.Contains("..", StringComparison.Ordinal))
+            path.Contains("..", StringComparison.Ordinal) ||
+            IsBlockedPreviewPath(path))
         {
             errors.Add($"Patch preview references an invalid file path: {path}");
             return;
         }
 
-        if (!allowUnselected && !selectedPaths.Contains(path))
+        if (selectedPaths.Contains(path))
         {
-            errors.Add($"Patch preview references a file path not present in the selected file context: {path}");
+            return;
         }
+
+        if (allowUnselected)
+        {
+            return;
+        }
+
+        if (isCreateTarget)
+        {
+            if (IsCreatedFileAllowedByPatchIntent(intent, path) && IsAllowedCreateFolder(intent, path))
+            {
+                return;
+            }
+
+            var parentFolder = Path.GetDirectoryName(path)?.Replace('\\', '/') ?? string.Empty;
+            errors.Add(string.IsNullOrWhiteSpace(parentFolder)
+                ? "Create folder not allowed. Add a folder to Allowed Create Folders."
+                : $"Create folder not allowed. Add {parentFolder}/ to Allowed Create Folders.");
+            return;
+        }
+
+        errors.Add($"Patch preview references a file path not present in the selected file context: {path}");
+    }
+
+    private static bool IsCreatedFileAllowedByPatchIntent(PatchIntent? intent, string path)
+    {
+        if (intent is null)
+        {
+            return false;
+        }
+
+        return intent.AllowedFiles.Any(filePath => string.Equals(NormalizePreviewPath(filePath), path, StringComparison.OrdinalIgnoreCase)) ||
+               intent.TargetCreatedFiles.Any(filePath => string.Equals(NormalizePreviewPath(filePath), path, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsAllowedCreateFolder(PatchIntent? intent, string path)
+    {
+        if (intent is null)
+        {
+            return false;
+        }
+
+        var parentFolder = Path.GetDirectoryName(path)?.Replace('\\', '/') ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(parentFolder))
+        {
+            return false;
+        }
+
+        var normalizedParent = parentFolder.EndsWith("/", StringComparison.Ordinal)
+            ? parentFolder
+            : $"{parentFolder}/";
+
+        return intent.AllowedCreateFolders.Any(folder =>
+            string.Equals(NormalizePreviewPath(folder), normalizedParent, StringComparison.OrdinalIgnoreCase) ||
+            normalizedParent.StartsWith(NormalizePreviewPath(folder), StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsBlockedPreviewPath(string path)
+    {
+        var normalized = NormalizePreviewPath(path);
+        return normalized.Contains("/bin/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.StartsWith("bin/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Contains("/obj/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.StartsWith("obj/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Contains("/.git/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.StartsWith(".git/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<DiffFilePaths> ExtractChangedFilePathsFromDiffHeaders(IReadOnlyList<string> lines)

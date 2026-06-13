@@ -1,0 +1,141 @@
+{
+  "id": "d3cec9d2ed4e441781c0c871e676d499",
+  "createdAt": "2026-06-13T20:30:21.3732173+00:00",
+  "updatedAt": "2026-06-13T20:30:35.234948+00:00",
+  "backupFolder": "Data/patch-backups/20260613203035",
+  "appliedAt": "2026-06-13T20:30:35.2347196+00:00",
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Create Services/ProjectKnowledgeIndexService.cs",
+  "model": "qwen2.5-coder:7b",
+  "patchText": "diff --git a/Services/ProjectKnowledgeIndexService.cs b/Services/ProjectKnowledgeIndexService.cs\nindex e69de29..235fa43 100644\n--- a/Services/ProjectKnowledgeIndexService.cs\n\u002B\u002B\u002B b/Services/ProjectKnowledgeIndexService.cs\n@@ -0,0 \u002B1 @@\n\u002Bpublic sealed class ProjectKnowledgeIndexService {}\n\\ No newline at end of file",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [
+    "Services/"
+  ],
+  "contextFilePaths": [
+    "Services/CoderConsoleService.cs"
+  ],
+  "intent": {
+    "goal": "Create Services/ProjectKnowledgeIndexService",
+    "allowedFiles": [
+      "Services/CoderConsoleService.cs",
+      "Services/ProjectKnowledgeIndexService.cs"
+    ],
+    "allowedPaths": [
+      "Services/CoderConsoleService.cs",
+      "Services/ProjectKnowledgeIndexService.cs"
+    ],
+    "targetCreatedFiles": [
+      "Services/ProjectKnowledgeIndexService.cs"
+    ],
+    "allowedCreateFolders": [
+      "Services/"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet build"
+  },
+  "intentValidation": {
+    "status": "partiallyMatches",
+    "detectedChangeType": "Update",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Services/CoderConsoleService.cs",
+      "Services/ProjectKnowledgeIndexService.cs"
+    ],
+    "modifiedFiles": [
+      "Services/ProjectKnowledgeIndexService.cs"
+    ],
+    "contextFiles": [
+      "Services/CoderConsoleService.cs"
+    ],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Services/ProjectKnowledgeIndexService.cs",
+        "inContext": false,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [
+      "Expected Add but detected Update."
+    ],
+    "isBlocking": false
+  },
+  "status": "applied",
+  "statusMessage": "Applied with 0 backup file(s).",
+  "approvalGateResults": [
+    {
+      "gateKey": "patch-intent-partial",
+      "message": "Expected Add but detected Update.",
+      "filePath": "",
+      "passed": true,
+      "blocking": false,
+      "warning": true
+    },
+    {
+      "gateKey": "patch-has-files",
+      "message": "Patch contains 1 file change(s).",
+      "filePath": "",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "file-path-not-empty",
+      "message": "File path provided: Services/ProjectKnowledgeIndexService.cs.",
+      "filePath": "Services/ProjectKnowledgeIndexService.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "target-file-inside-project-root",
+      "message": "Services/ProjectKnowledgeIndexService.cs resolves to /opt/ai-box/dev/projects/AiBox.DevPortal/Services/ProjectKnowledgeIndexService.cs.",
+      "filePath": "Services/ProjectKnowledgeIndexService.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "restricted-path",
+      "message": "Services/ProjectKnowledgeIndexService.cs is not inside a restricted folder.",
+      "filePath": "Services/ProjectKnowledgeIndexService.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "original-content-match",
+      "message": "Services/ProjectKnowledgeIndexService.cs matches the current file content.",
+      "filePath": "Services/ProjectKnowledgeIndexService.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    }
+  ],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Services/ProjectKnowledgeIndexService.cs",
+      "oldContent": "",
+      "newContent": "public sealed class ProjectKnowledgeIndexService {}"
+    }
+  ]
+}

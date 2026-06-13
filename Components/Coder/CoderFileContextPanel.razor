@@ -103,6 +103,45 @@
                     }
                 </RadzenStack>
             }
+            else if (AllowedPatchScope == PatchScopeMode.ContextFilesOnly)
+            {
+                <RadzenStack Gap="0.5rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End"
+                                 Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <RadzenTextBox @bind-Value="allowedCreateFolderInput"
+                                       Placeholder="Components/Coder/"
+                                       Style="min-width: 16rem; flex: 1;" />
+                        <RadzenButton Text="Add Folder" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                                      Click="@AddAllowedCreateFolderAsync"
+                                      Disabled="@(string.IsNullOrWhiteSpace(allowedCreateFolderInput))" />
+                        <RadzenButton Text="Use Context Folders" Icon="folder_copy" ButtonStyle="ButtonStyle.Light"
+                                      Click="@InferAllowedCreateFoldersAsync"
+                                      Disabled="@(SelectedFiles.Count == 0)" />
+                    </RadzenStack>
+
+                    @if (AllowedCreateFolders.Count == 0)
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                            Add at least one allowed create folder before generating or applying a patch that creates files.
+                        </RadzenAlert>
+                    }
+                    else
+                    {
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                            @foreach (var folder in AllowedCreateFolders)
+                            {
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                             Gap="0.25rem"
+                                             Style="padding: 0.2rem 0.45rem; border: 1px solid var(--rz-base-300); border-radius: 999px;">
+                                    <RadzenText Text="@folder" TextStyle="TextStyle.Body2" />
+                                    <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                                  Click="@(() => RemoveAllowedCreateFolderAsync(folder))" />
+                                </RadzenStack>
+                            }
+                        </RadzenStack>
+                    }
+                </RadzenStack>
+            }
             else if (AllowedPatchScope == PatchScopeMode.AnyProjectFile)
             {
                 <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
@@ -225,6 +264,8 @@
     [Parameter] public EventCallback<PatchScopeMode> AllowedPatchScopeChanged { get; set; }
     [Parameter] public IReadOnlyList<string> AllowedPatchFolders { get; set; } = [];
     [Parameter] public EventCallback<IReadOnlyList<string>> AllowedPatchFoldersChanged { get; set; }
+    [Parameter] public IReadOnlyList<string> AllowedCreateFolders { get; set; } = [];
+    [Parameter] public EventCallback<IReadOnlyList<string>> AllowedCreateFoldersChanged { get; set; }
     [Parameter] public EventCallback<IReadOnlyList<FileSearchItem>> SelectedFilesChanged { get; set; }
     [Parameter] public EventCallback<IReadOnlyList<FileSearchItem>> OnLoadPreset { get; set; }
     [Parameter] public EventCallback OnClearAll { get; set; }
@@ -236,6 +277,7 @@
     private bool isResolvingPreset;
     private string? presetError;
     private string allowedFolderInput = string.Empty;
+    private string allowedCreateFolderInput = string.Empty;
     private LocalCoderContextPreset selectedPreset = LocalCoderContextPreset.CurrentPage;
     private LocalCoderPresetPreview? presetPreview;
     private readonly IReadOnlyList<ContextPresetOption> presetOptions =
@@ -328,6 +370,49 @@
             .Where(item => !item.Equals(folder, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         await AllowedPatchFoldersChanged.InvokeAsync(updatedFolders);
+    }
+
+    private async Task AddAllowedCreateFolderAsync()
+    {
+        var normalizedFolder = NormalizeFolderInput(allowedCreateFolderInput);
+        if (string.IsNullOrWhiteSpace(normalizedFolder))
+        {
+            return;
+        }
+
+        if (AllowedCreateFolders.Any(folder => folder.Equals(normalizedFolder, StringComparison.OrdinalIgnoreCase)))
+        {
+            allowedCreateFolderInput = string.Empty;
+            return;
+        }
+
+        var updatedFolders = AllowedCreateFolders
+            .Concat([normalizedFolder])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        await AllowedCreateFoldersChanged.InvokeAsync(updatedFolders);
+        allowedCreateFolderInput = string.Empty;
+    }
+
+    private async Task RemoveAllowedCreateFolderAsync(string folder)
+    {
+        var updatedFolders = AllowedCreateFolders
+            .Where(item => !item.Equals(folder, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        await AllowedCreateFoldersChanged.InvokeAsync(updatedFolders);
+    }
+
+    private async Task InferAllowedCreateFoldersAsync()
+    {
+        var inferredFolders = SelectedFiles
+            .Select(file => NormalizeFolderInput(Path.GetDirectoryName(file.RelativePath)?.Replace('\\', '/') ?? string.Empty))
+            .Where(folder => !string.IsNullOrWhiteSpace(folder))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        await AllowedCreateFoldersChanged.InvokeAsync(inferredFolders);
     }
 
     private async Task PreviewPresetAsync()

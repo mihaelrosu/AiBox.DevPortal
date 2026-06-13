@@ -37,6 +37,8 @@ public sealed class LocalCoderHistoryEntry
 
     public PatchScopeAnalysis? ScopeAnalysis { get; set; }
 
+    public IReadOnlyList<string> AllowedCreateFolders { get; set; } = [];
+
     public PatchIntent? Intent { get; set; }
 
     public PatchIntentValidation? IntentValidation { get; set; }

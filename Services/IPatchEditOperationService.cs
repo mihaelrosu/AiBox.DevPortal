@@ -8,5 +8,6 @@ public interface IPatchEditOperationService
         string projectPath,
         IReadOnlyList<LocalCoderFileContext> selectedFileContexts,
         string rawJson,
+        PatchIntent? intent = null,
         CancellationToken cancellationToken = default);
 }
