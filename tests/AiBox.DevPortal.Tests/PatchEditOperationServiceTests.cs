@@ -1,8 +1,10 @@
+using System.Net;
 using AiBox.DevPortal.Models;
 using AiBox.DevPortal.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -10,6 +12,25 @@ namespace AiBox.DevPortal.Tests;
 
 public sealed class PatchEditOperationServiceTests
 {
+    private static CoderConsoleService CreateConsoleService(IConfiguration configuration)
+    {
+        var httpClient = new HttpClient(new StubHandler());
+        var environment = Substitute.For<IWebHostEnvironment>();
+        environment.ContentRootPath.Returns(Directory.GetCurrentDirectory());
+        var contextService = new LocalCoderContextService();
+        var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
+
+        return new CoderConsoleService(
+            httpClient,
+            configuration,
+            environment,
+            patchEditOperationService,
+            contextService,
+            new SelectedContextValidator(),
+            new PatchPreviewRepairService(new StubOllamaService(), patchEditOperationService, configuration),
+            new AgentInstructionService(environment));
+    }
+
     [Fact]
     public async Task BuildAsync_HtmlAnchorFallsBackToRadzenText_ProducesPatchAndLogsStrategy()
     {
@@ -116,7 +137,7 @@ public sealed class PatchEditOperationServiceTests
                 ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
             })
             .Build();
-        var service = new CoderConsoleService(null!, configuration, null!, null!, new LocalCoderContextService(), new AgentInstructionService(Substitute.For<IWebHostEnvironment>()));
+        var service = CreateConsoleService(configuration);
 
         var contexts = await service.ReadFileContextsAsync(projectRoot, ["Components/Coder/CoderPatchQueuePanel.razor"]);
 
@@ -1703,5 +1724,26 @@ public sealed class PatchEditOperationServiceTests
         {
             Entries.Add(formatter(state, exception));
         }
+    }
+}
+
+internal sealed class StubOllamaService : IOllamaService
+{
+    public Task<ServiceHealth> GetHealthAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ServiceHealth("Ollama", "stub", true, "Online"));
+    }
+
+    public Task<string> GenerateAsync(string model, string prompt, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(string.Empty);
+    }
+}
+
+internal sealed class StubHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
     }
 }

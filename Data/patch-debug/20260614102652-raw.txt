@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Components/Coder/CoderKnowledgePanel.razor",
+      "operation": "insert_after",
+      "anchor": "<RadzenRow Gap=\"1rem\">",
+      "oldText": "",
+      "newText": "                    <RadzenColumn Size=\"12\" SizeMD=\"4\">\n                        <RadzenText Text=\"Search\" TextStyle=\"TextStyle.Caption\" />\n                        <RadzenTextBox @bind-Value=\"searchText\"\n                                       Placeholder=\"Search path, name, kind, namespace, or summary\"\n                                       Style=\"width: 100%;\" />\n                    </RadzenColumn>\n                    <RadzenColumn Size=\"12\" SizeMD=\"4\">\n                        <RadzenText Text=\"Kind\" TextStyle=\"TextStyle.Caption\" />\n                        <RadzenDropDown TValue=\"string\"\n                                        @bind-Value=\"selectedKind\"\n                                        Data=@KindOptions\n                                        Style=\"width: 100%;\" />\n                    </RadzenColumn>\n                    <RadzenButton Text=\"Suggest Context Files\"\n                                  Icon=\"auto_awesome\"\n                                  ButtonStyle=\"ButtonStyle.Primary\"\n                                  Click=@SuggestContextFilesAsync\n                                  Disabled=@IsSuggestingDisabled />\n",
+      "summary": "Add search filtering to CoderKnowledgePanel"
+    }
+  ]
+}
+```

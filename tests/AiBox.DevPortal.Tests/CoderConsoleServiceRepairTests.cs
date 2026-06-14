@@ -13,6 +13,29 @@ namespace AiBox.DevPortal.Tests;
 
 public sealed class CoderConsoleServiceRepairTests
 {
+    private static CoderConsoleService CreateService(
+        HttpClient httpClient,
+        IConfiguration configuration,
+        IWebHostEnvironment environment,
+        IPatchEditOperationService patchEditOperationService,
+        ILocalCoderContextService contextService)
+    {
+        var repairService = new PatchPreviewRepairService(
+            new OllamaService(httpClient),
+            patchEditOperationService,
+            configuration);
+
+        return new CoderConsoleService(
+            httpClient,
+            configuration,
+            environment,
+            patchEditOperationService,
+            contextService,
+            new SelectedContextValidator(),
+            repairService,
+            new AgentInstructionService(environment));
+    }
+
     [Fact]
     public async Task GeneratePatchPreviewAsync_AutoRepairsMalformedReplaceOldText()
     {
@@ -59,13 +82,7 @@ public sealed class CoderConsoleServiceRepairTests
             var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
             var contextService = Substitute.For<ILocalCoderContextService>();
 
-            var service = new CoderConsoleService(
-                httpClient,
-                configuration,
-                environment,
-                patchEditOperationService,
-                contextService,
-                new AgentInstructionService(environment));
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
 
             var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
             {
@@ -154,12 +171,7 @@ public sealed class CoderConsoleServiceRepairTests
             var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
             var contextService = Substitute.For<ILocalCoderContextService>();
 
-            var service = new CoderConsoleService(
-                httpClient,
-                configuration,
-                environment,
-                patchEditOperationService,
-                contextService);
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
 
             var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
             {
@@ -240,12 +252,7 @@ public sealed class CoderConsoleServiceRepairTests
             var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
             var contextService = Substitute.For<ILocalCoderContextService>();
 
-            var service = new CoderConsoleService(
-                httpClient,
-                configuration,
-                environment,
-                patchEditOperationService,
-                contextService);
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
 
             var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
             {
@@ -319,12 +326,7 @@ public sealed class CoderConsoleServiceRepairTests
             var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
             var contextService = Substitute.For<ILocalCoderContextService>();
 
-            var service = new CoderConsoleService(
-                httpClient,
-                configuration,
-                environment,
-                patchEditOperationService,
-                contextService);
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
 
             await Assert.ThrowsAsync<PatchPreviewValidationException>(() => service.GeneratePatchPreviewAsync(new LocalCoderRequest
             {
@@ -390,12 +392,7 @@ public sealed class CoderConsoleServiceRepairTests
             var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
             var contextService = Substitute.For<ILocalCoderContextService>();
 
-            var service = new CoderConsoleService(
-                httpClient,
-                configuration,
-                environment,
-                patchEditOperationService,
-                contextService);
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
 
             var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
             {
@@ -461,12 +458,7 @@ public sealed class CoderConsoleServiceRepairTests
             var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
             var contextService = Substitute.For<ILocalCoderContextService>();
 
-            var service = new CoderConsoleService(
-                httpClient,
-                configuration,
-                environment,
-                patchEditOperationService,
-                contextService);
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
 
             var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() => service.GeneratePatchPreviewAsync(new LocalCoderRequest
             {
@@ -539,12 +531,7 @@ public sealed class CoderConsoleServiceRepairTests
             var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
             var contextService = Substitute.For<ILocalCoderContextService>();
 
-            var service = new CoderConsoleService(
-                httpClient,
-                configuration,
-                environment,
-                patchEditOperationService,
-                contextService);
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
 
             var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
             {

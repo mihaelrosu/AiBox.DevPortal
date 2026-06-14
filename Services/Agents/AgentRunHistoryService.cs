@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AiBox.DevPortal.Models;
 using AiBox.DevPortal.Models.Agents;
 
 namespace AiBox.DevPortal.Services.Agents;
@@ -99,7 +100,8 @@ public sealed class AgentRunHistoryService(IWebHostEnvironment environment) : IA
             PromptSent = record.PromptSent,
             ResultText = record.ResultText,
             Success = record.Success,
-            ErrorMessage = record.ErrorMessage
+            ErrorMessage = record.ErrorMessage,
+            PatchVerificationResult = record.PatchVerificationResult
         };
     }
 }

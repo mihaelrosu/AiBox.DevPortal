@@ -1,3 +1,5 @@
+using AiBox.DevPortal.Models;
+
 namespace AiBox.DevPortal.Models.Agents;
 
 public sealed class AgentRunRecord
@@ -12,4 +14,5 @@ public sealed class AgentRunRecord
     public string ResultText { get; set; } = string.Empty;
     public bool Success { get; set; }
     public string ErrorMessage { get; set; } = string.Empty;
+    public PatchVerificationResult? PatchVerificationResult { get; set; }
 }

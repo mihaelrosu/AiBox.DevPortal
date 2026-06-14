@@ -1,0 +1,12 @@
+{
+  "operations": [
+    {
+      "filePath": "Components/App.razor",
+      "operation": "insert_before",
+      "anchor": "<script>",
+      "oldText": "",
+      "newText": "<script src=\"_content/AiBox.Services/SearchFilter.js\"></script>",
+      "summary": "Add search filtering script"
+    }
+  ]
+}

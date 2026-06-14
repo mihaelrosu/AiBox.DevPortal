@@ -290,6 +290,7 @@
     [Inject] private IPatchRollbackService PatchRollbackService { get; set; } = default!;
     [Inject] private ILocalCoderVerificationProfileService LocalCoderVerificationProfileService { get; set; } = default!;
     [Inject] private IProjectKnowledgeIndexService ProjectKnowledgeIndexService { get; set; } = default!;
+    [Inject] private PlannerContextSelectionService PlannerContextSelectionService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
@@ -643,6 +644,7 @@
 
             contextSnapshot = CreateContextSnapshot(LocalCoderHistoryActionType.CreatePlan);
             currentTask = await AgentModeRunner.CreatePlanAsync(request, profile);
+            await ApplyPlannerContextSelectionAsync(currentTask!.Plan);
             InitializePlanTasks(currentTask!.Plan);
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.CreatePlan,
@@ -677,6 +679,59 @@
         {
             isPlanning = false;
             await LoadAgentRunHistoryAsync();
+        }
+    }
+
+    private async Task ApplyPlannerContextSelectionAsync(string planText)
+    {
+        if (string.IsNullOrWhiteSpace(planText) || projectKnowledgeIndex is null)
+        {
+            return;
+        }
+
+        PlannerResult? plannerResult;
+
+        try
+        {
+            plannerResult = System.Text.Json.JsonSerializer.Deserialize<PlannerResult>(
+                planText,
+                new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        }
+        catch
+        {
+            return;
+        }
+
+        if (plannerResult is null)
+        {
+            return;
+        }
+
+        var selection = PlannerContextSelectionService.SelectContextFiles(plannerResult, projectKnowledgeIndex);
+        if (selection.EditableFiles.Count > 0)
+        {
+            var selectedPlannerFiles = selection.EditableFiles
+                .Select(CreateSuggestedFileSearchItem)
+                .ToArray();
+
+            await OnSelectedFilesChanged(selectedPlannerFiles);
+            NotificationService.Notify(
+                NotificationSeverity.Info,
+                "Planner context applied",
+                $"Planner selected {selection.EditableFiles.Count:N0} editable file(s) and {selection.InstructionFiles.Count:N0} instruction file(s).");
+        }
+
+        if (selection.MissingFiles.Count > 0)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "Planner context missing files",
+                $"Planner referenced {selection.MissingFiles.Count:N0} file(s) missing from the project knowledge index.");
+        }
+
+        foreach (var warning in selection.Warnings)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Planner context warning", warning);
         }
     }
 
@@ -892,7 +947,7 @@
         }
         catch (PatchPreviewValidationException exception)
         {
-            error = exception.Message;
+            error = null;
             LastPatchRepairSummary = exception.RepairSummary;
             LastPatchPromptAudit = exception.PromptAudit;
             LastPatchPromptTargetResolution = exception.PromptTargetResolution;
@@ -2311,6 +2366,7 @@
                 RelativePath = file.RelativePath,
                 FullPath = file.FullPath,
                 Content = file.Content,
+                IsTruncated = file.IsTruncated,
                 IsGeneratedFile = file.IsGeneratedFile
             }).ToList(),
             AllowedPatchScope = source.AllowedPatchScope,

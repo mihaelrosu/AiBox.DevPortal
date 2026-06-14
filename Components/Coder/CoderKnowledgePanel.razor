@@ -28,7 +28,25 @@ else
                                   Disabled="@IsRebuilding" />
                 </RadzenStack>
 
-                <RadzenRow Gap="1rem">
+                <RadzenRow Gap="1rem">                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenText Text="Search" TextStyle="TextStyle.Caption" />
+                        <RadzenTextBox @bind-Value="searchText"
+                                       Placeholder="Search path, name, kind, namespace, or summary"
+                                       Style="width: 100%;" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenText Text="Kind" TextStyle="TextStyle.Caption" />
+                        <RadzenDropDown TValue="string"
+                                        @bind-Value="selectedKind"
+                                        Data=@KindOptions
+                                        Style="width: 100%;" />
+                    </RadzenColumn>
+                    <RadzenButton Text="Suggest Context Files"
+                                  Icon="auto_awesome"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Click=@SuggestContextFilesAsync
+                                  Disabled=@IsSuggestingDisabled />
+
                     <RadzenColumn Size="12" SizeMD="4">
                         <RadzenText Text="Total indexed files" TextStyle="TextStyle.Caption" />
                         <RadzenText Text="@(Index?.Items.Count.ToString() ?? "0")" />

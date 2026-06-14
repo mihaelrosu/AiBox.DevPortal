@@ -143,6 +143,7 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
                 RelativePath = normalizedRelativePath.Replace(Path.DirectorySeparatorChar, '/'),
                 FullPath = fullPath,
                 Content = content,
+                IsTruncated = false,
                 IsGeneratedFile = IsGeneratedPath(normalizedRelativePath)
             });
         }
@@ -205,7 +206,8 @@ public sealed class LocalCoderContextService : ILocalCoderContextService
                 {
                     RelativePath = normalizedPath.Replace(Path.DirectorySeparatorChar, '/'),
                     FullPath = fullPath,
-                    Content = content
+                    Content = content,
+                    IsTruncated = false
                 });
                 result.Restored = true;
                 result.ModifiedSinceRun = !hash.Equals(snapshot.ContentHash, StringComparison.OrdinalIgnoreCase);

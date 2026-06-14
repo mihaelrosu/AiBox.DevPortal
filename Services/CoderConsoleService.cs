@@ -15,6 +15,9 @@ public sealed class CoderConsoleService(
     IWebHostEnvironment environment,
     IPatchEditOperationService patchEditOperationService,
     ILocalCoderContextService localCoderContextService,
+    PatchVerificationService patchVerificationService,
+    SelectedContextValidator selectedContextValidator,
+    PatchPreviewRepairService patchPreviewRepairService,
     AgentInstructionService? agentInstructionService = null) : ICoderConsoleService
 {
     private const long MaxProjectFileSizeBytes = 200 * 1024;
@@ -157,6 +160,15 @@ public sealed class CoderConsoleService(
         request.FileContexts = (request.FileContexts ?? [])
             .ToList();
         RecordPatchPreviewAttempt();
+        try
+        {
+            selectedContextValidator.ValidateForPatchPreview(request.FileContexts);
+        }
+        catch (PatchPreviewValidationException)
+        {
+            RecordPatchPreviewFailure();
+            throw;
+        }
         var intent = PatchIntentService.BuildIntent(request);
         var intentText = PatchIntentService.BuildPromptText(intent);
         var xmlDocumentationMode = IsXmlDocumentationRequest(request.Task);
@@ -340,10 +352,20 @@ public sealed class CoderConsoleService(
                 throw;
             }
 
+            if (!repairOutcome.Success || repairOutcome.EditResult is null)
+            {
+                var validationException = repairOutcome.ValidationException ?? originalValidationException ?? exception;
+                validationException.PromptAudit = promptAudit;
+                validationException.PromptTargetResolution = deterministicTargetResolution;
+                validationException.RepairSummary = repairOutcome.RepairSummary;
+                RecordPatchPreviewFailure();
+                throw validationException;
+            }
+
             editResult = repairOutcome.EditResult;
             repairSummary = repairOutcome.RepairSummary;
-            finalRawResponse = repairOutcome.RawResponse;
-            finalNormalizedResponse = repairOutcome.NormalizedResponse;
+            finalRawResponse = repairOutcome.RepairRawResponse;
+            finalNormalizedResponse = repairOutcome.RepairNormalizedResponse;
         }
         catch (Exception exception)
         {
@@ -363,25 +385,43 @@ public sealed class CoderConsoleService(
 
         var patchText = editResult.PatchText;
         var validation = ValidatePatchPreview(patchText, request.FileContexts, request.Task, intent, editResult.FileChanges);
+        var finalValidationException = CreatePatchPreviewValidationException(validation, finalRawResponse, patchText, finalNormalizedResponse);
 
         if (!validation.IsValid)
         {
             if (originalValidationException is not null && repairSummary is not null)
             {
                 repairSummary.RepairResult = "Failed";
-                repairSummary.ValidationError = originalValidationException.Message;
-                originalValidationException.PromptAudit = promptAudit;
-                originalValidationException.PromptTargetResolution = deterministicTargetResolution;
-                originalValidationException.RepairSummary = repairSummary;
+                repairSummary.ValidationError = string.Join(
+                    Environment.NewLine,
+                    originalValidationException.ValidationErrors.Concat(validation.Errors).Distinct(StringComparer.OrdinalIgnoreCase));
+
+                var combinedErrors = originalValidationException.ValidationErrors
+                    .Concat(validation.Errors)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                var combinedMessage = $"Patch preview validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", combinedErrors)}";
+                var combinedException = new PatchPreviewValidationException(
+                    combinedMessage,
+                    combinedErrors,
+                    finalRawResponse,
+                    patchText,
+                    finalNormalizedResponse,
+                    finalValidationException.OperationGrammarErrors,
+                    finalValidationException.Guidance,
+                    finalValidationException.ReplaceDiagnostics,
+                    finalValidationException.SuggestedTargetDiagnostics);
+                combinedException.PromptAudit = promptAudit;
+                combinedException.PromptTargetResolution = deterministicTargetResolution;
+                combinedException.RepairSummary = repairSummary;
                 RecordPatchPreviewFailure();
-                throw originalValidationException;
+                throw combinedException;
             }
 
             RecordPatchPreviewFailure();
-            var validationException = CreatePatchPreviewValidationException(validation, finalRawResponse, patchText, finalNormalizedResponse);
-            validationException.PromptAudit = promptAudit;
-            validationException.PromptTargetResolution = deterministicTargetResolution;
-            throw validationException;
+            finalValidationException.PromptAudit = promptAudit;
+            finalValidationException.PromptTargetResolution = deterministicTargetResolution;
+            throw finalValidationException;
         }
 
         var patchPreview = new LocalCoderPatchPreview
@@ -612,23 +652,32 @@ public sealed class CoderConsoleService(
                 };
             }
 
-            var buildResult = await RunFixedCommandAsync(rootPath, "dotnet", ["build"], "dotnet build");
-            var testResult = await RunFixedCommandAsync(rootPath, "dotnet", ["test"], "dotnet test");
-            var verificationPassed = buildResult.ExitCode == 0 && testResult.ExitCode == 0;
+            var verification = await patchVerificationService.VerifyAsync(rootPath);
+            var verificationResults = verification.Commands
+                .Select(command => new CommandRunResult
+                {
+                    Command = command.Command,
+                    ExitCode = command.ExitCode,
+                    Output = command.Output,
+                    Error = command.Error,
+                    Started = command.StartedAt,
+                    Finished = command.FinishedAt
+                })
+                .ToArray();
 
             return new LocalCoderPatchApplyResult
             {
                 Applied = true,
-                VerificationPassed = verificationPassed,
-                Message = verificationPassed
-                    ? $"Patch applied to {rootPath} and verification passed."
-                    : $"Patch applied to {rootPath}, but build or test verification failed. Review the verification results and backups.",
+                VerificationPassed = verification.Passed,
+                Message = verification.Passed
+                    ? $"Patch applied successfully.{Environment.NewLine}{Environment.NewLine}{verification.Summary}"
+                    : $"Patch applied successfully.{Environment.NewLine}{Environment.NewLine}{verification.Summary}",
                 GitApplyResult = applyResult,
                 GitDiffStatResult = diffStatResult,
                 ChangedFilesDiffResult = changedFilesDiffResult,
                 ChangedFiles = changedFiles,
                 BackupFiles = backupFiles,
-                VerificationResults = [diffStatResult, changedFilesDiffResult, buildResult, testResult]
+                VerificationResults = [diffStatResult, changedFilesDiffResult, ..verificationResults]
             };
         }
         finally
@@ -1560,7 +1609,7 @@ public sealed class CoderConsoleService(
         return false;
     }
 
-    private async Task<AutoRepairOutcome?> TryRepairPatchPreviewAsync(
+    private async Task<PatchPreviewRepairResult?> TryRepairPatchPreviewAsync(
         LocalCoderRequest request,
         AgentModeProfile? profile,
         PatchIntent intent,
@@ -1581,63 +1630,20 @@ public sealed class CoderConsoleService(
             originalException.ReplaceDiagnostics.ToArray(),
             originalException.SuggestedTargetDiagnostics.ToArray());
 
-        var repairPrompt = BuildGeneratePatchPreviewPrompt(
+        return await patchPreviewRepairService.RepairAsync(
             request,
+            intent,
+            intentText,
             selectedFilePathsText,
             fileContextText,
             scopeText,
-            intentText,
             xmlDocumentationMode,
             targetResolution,
             repairContext,
-            profile,
-            agentInstructionsText);
-
-        var repairRequest = new OllamaGenerateRequest
-        {
-            Model = string.IsNullOrWhiteSpace(request.Model)
-                ? configuration["AiBox:LocalCoder:DefaultModel"] ?? "qwen2.5-coder:7b"
-                : request.Model,
-            Prompt = repairPrompt,
-            Stream = false
-        };
-
-        using var repairResponse = await httpClient.PostAsJsonAsync("/api/generate", repairRequest);
-        repairResponse.EnsureSuccessStatusCode();
-
-        var repairResult = await repairResponse.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
-        var repairRawResponse = repairResult?.Response ?? string.Empty;
-        var repairNormalizedResponse = NormalizePatchPreviewModelResponse(repairRawResponse);
-
-        try
-        {
-            if (xmlDocumentationMode)
-            {
-                ValidateXmlDocumentationOperationModes(repairNormalizedResponse);
-            }
-
-            var editResult = await patchEditOperationService.BuildAsync(
-                request.ProjectPath,
-                request.FileContexts,
-                repairNormalizedResponse,
-                intent);
-
-            return new AutoRepairOutcome(
-                editResult,
-                new PatchPreviewRepairSummary
-                {
-                    OriginalOperation = repairPlan.OriginalOperation,
-                    RepairAttempt = editResult.Operations.FirstOrDefault()?.Operation ?? repairPlan.RepairAttempt,
-                    RepairResult = "Success",
-                    ValidationError = string.Empty
-                },
-                repairRawResponse,
-                repairNormalizedResponse);
-        }
-        catch
-        {
-            return null;
-        }
+            agentInstructionsText,
+            repairPlan.OriginalOperation,
+            repairPlan.RepairAttempt,
+            profile);
     }
 
     private void RecordPatchPreviewAttempt()
@@ -1659,12 +1665,6 @@ public sealed class CoderConsoleService(
     {
         Interlocked.Increment(ref patchPreviewRepairedPreviews);
     }
-
-    private sealed record AutoRepairOutcome(
-        PatchEditOperationResult EditResult,
-        PatchPreviewRepairSummary RepairSummary,
-        string RawResponse,
-        string NormalizedResponse);
 
     private sealed record PatchPreviewRepairPlan(string OriginalOperation, string RepairAttempt);
 
