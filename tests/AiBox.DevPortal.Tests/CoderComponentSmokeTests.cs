@@ -418,6 +418,20 @@ public sealed class CoderComponentSmokeTests : TestContext
         runHistoryService.GetAllAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<AgentRunRecord>>([]));
 
+        var projectKnowledgeIndexService = Substitute.For<IProjectKnowledgeIndexService>();
+        projectKnowledgeIndexService.GetLatestAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ProjectKnowledgeIndex?>(new ProjectKnowledgeIndex
+            {
+                ProjectPath = Path.GetTempPath(),
+                Items = []
+            }));
+        projectKnowledgeIndexService.BuildAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ProjectKnowledgeIndex
+            {
+                ProjectPath = Path.GetTempPath(),
+                Items = []
+            }));
+
         var patchPackageService = Substitute.For<IPatchPackageService>();
         patchPackageService.GetAllAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PatchPackage>>([]));
@@ -443,6 +457,8 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(profileService);
         Services.AddSingleton(verificationProfileService);
         Services.AddSingleton(runHistoryService);
+        Services.AddSingleton(projectKnowledgeIndexService);
+        Services.AddSingleton(new PlannerContextSelectionService());
         Services.AddSingleton(patchPackageService);
         Services.AddSingleton(Substitute.For<IPatchApplyService>());
         Services.AddSingleton(Substitute.For<IPatchRollbackService>());

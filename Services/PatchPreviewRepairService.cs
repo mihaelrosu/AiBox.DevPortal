@@ -217,7 +217,7 @@ public sealed class PatchPreviewRepairService(
         """;
     }
 
-    private static string NormalizeModelResponse(string rawResponse)
+    internal static string NormalizeModelResponse(string? rawResponse)
     {
         var trimmed = (rawResponse ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
@@ -228,7 +228,30 @@ public sealed class PatchPreviewRepairService(
         var fencedBlock = TryExtractMarkdownFence(trimmed);
         return !string.IsNullOrWhiteSpace(fencedBlock)
             ? fencedBlock
-            : trimmed;
+            : TryExtractJsonSubstring(trimmed) ?? trimmed;
+    }
+
+    internal static IReadOnlyList<string> GetJsonParseCandidates(string? rawResponse)
+    {
+        var trimmed = (rawResponse ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return [trimmed];
+        }
+
+        var candidates = new List<string> { trimmed };
+        AddCandidate(candidates, TryExtractMarkdownFence(trimmed));
+        AddCandidate(candidates, TryExtractJsonSubstring(trimmed));
+        return candidates;
+    }
+
+    private static void AddCandidate(List<string> candidates, string? candidate)
+    {
+        if (!string.IsNullOrWhiteSpace(candidate) &&
+            !candidates.Contains(candidate, StringComparer.Ordinal))
+        {
+            candidates.Add(candidate);
+        }
     }
 
     private static string? TryExtractMarkdownFence(string text)
@@ -274,5 +297,18 @@ public sealed class PatchPreviewRepairService(
         }
 
         return text[(openingLineEnd + 1)..closingLineStart].Trim();
+    }
+
+    internal static string? TryExtractJsonSubstring(string text)
+    {
+        var firstBrace = text.IndexOf('{');
+        var lastBrace = text.LastIndexOf('}');
+
+        if (firstBrace < 0 || lastBrace <= firstBrace)
+        {
+            return null;
+        }
+
+        return text[firstBrace..(lastBrace + 1)].Trim();
     }
 }

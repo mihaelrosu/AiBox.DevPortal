@@ -57,8 +57,8 @@ public sealed class XmlDocumentationWorkflowTests
 
         var prompt = CoderConsoleService.BuildGeneratePatchPreviewPrompt(
             request,
-            "- Components/Pages/Coder.razor",
-            "FILE: Components/Pages/Coder.razor",
+            "- Example.cs",
+            "FILE: Example.cs",
             "Context Files Only",
             "goal text",
             xmlDocumentationMode: true);
@@ -66,10 +66,12 @@ public sealed class XmlDocumentationWorkflowTests
         Assert.Contains("XML documentation mode is active.", prompt, StringComparison.Ordinal);
         Assert.Contains("If XML documentation already exists, use replace with exact oldText.", prompt, StringComparison.Ordinal);
         Assert.Contains("If XML documentation does not exist, use insert_before with the exact class or member declaration as anchor.", prompt, StringComparison.Ordinal);
-        Assert.Contains("Models/LocalCoderHistoryEntry.cs", prompt, StringComparison.Ordinal);
+        Assert.Contains("<existing file>", prompt, StringComparison.Ordinal);
+        Assert.Contains("<existing declaration>", prompt, StringComparison.Ordinal);
+        Assert.Contains("<new content>", prompt, StringComparison.Ordinal);
         Assert.Contains("\"operation\": \"insert_before\"", prompt, StringComparison.Ordinal);
-        Assert.Contains("public sealed class LocalCoderHistoryEntry", prompt, StringComparison.Ordinal);
-        Assert.Contains("Add XML documentation to LocalCoderHistoryEntry class", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Models/ProjectKnowledgeIndex.cs", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Components/Pages/Coder.razor", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("Generate replace operations only.", prompt, StringComparison.Ordinal);
     }
 
@@ -85,8 +87,8 @@ public sealed class XmlDocumentationWorkflowTests
 
         var prompt = CoderConsoleService.BuildGeneratePatchPreviewPrompt(
             request,
-            "- Components/Pages/Coder.razor",
-            "FILE: Components/Pages/Coder.razor",
+            "- Example.cs",
+            "FILE: Example.cs",
             "Context Files Only",
             "goal text",
             xmlDocumentationMode: false);
@@ -102,6 +104,12 @@ public sealed class XmlDocumentationWorkflowTests
         Assert.Contains("Forbidden examples:", prompt, StringComparison.Ordinal);
         Assert.Contains("invented anchors", prompt, StringComparison.Ordinal);
         Assert.Contains("code fences around JSON", prompt, StringComparison.Ordinal);
+        Assert.Contains("<target file>", prompt, StringComparison.Ordinal);
+        Assert.Contains("<existing file>", prompt, StringComparison.Ordinal);
+        Assert.Contains("<existing anchor>", prompt, StringComparison.Ordinal);
+        Assert.Contains("Do not copy file paths from examples. Use only Allowed files and Target created file(s).", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Models/ProjectKnowledgeIndex.cs", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Components/Pages/Coder.razor", prompt, StringComparison.Ordinal);
         Assert.Contains("If exact oldText or anchor cannot be found, return:", prompt, StringComparison.Ordinal);
     }
 

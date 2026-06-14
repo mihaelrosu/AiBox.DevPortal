@@ -717,10 +717,15 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
     private static async Task<string> RunGitDiffAsync(string originalPath, string updatedPath, CancellationToken cancellationToken)
     {
+        var workingDirectory = Path.GetDirectoryName(originalPath)
+            ?? Path.GetDirectoryName(updatedPath)
+            ?? Path.GetTempPath();
+
         var processStartInfo = new ProcessStartInfo
         {
             FileName = "git",
             Arguments = $"diff --no-index --no-ext-diff --no-color --unified=3 \"{EscapeArgument(originalPath)}\" \"{EscapeArgument(updatedPath)}\"",
+            WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -916,91 +921,40 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
     private static PatchEditOperationEnvelope ParseResponse(string rawJson, out string normalizedJson)
     {
-        normalizedJson = ExtractJsonPayload(rawJson);
-        try
+        normalizedJson = rawJson ?? string.Empty;
+        JsonException? lastException = null;
+
+        foreach (var candidate in PatchPreviewRepairService.GetJsonParseCandidates(rawJson))
         {
-            var response = JsonSerializer.Deserialize<PatchEditOperationEnvelope>(normalizedJson, JsonOptions);
-            if (response is null)
+            normalizedJson = candidate;
+
+            try
             {
-                throw new JsonException("JSON payload was empty.");
+                var response = JsonSerializer.Deserialize<PatchEditOperationEnvelope>(candidate, JsonOptions);
+                if (response is null)
+                {
+                    throw new JsonException("JSON payload was empty.");
+                }
+
+                response.Operations ??= [];
+                response.Errors ??= [];
+                return response;
             }
-
-            response.Operations ??= [];
-            response.Errors ??= [];
-            return response;
-        }
-        catch (JsonException exception)
-        {
-            throw new PatchPreviewValidationException(
-                $"Patch preview validation failed:{Environment.NewLine}- JSON parse error: {exception.Message}",
-                [$"JSON parse error: {exception.Message}"],
-                rawJson ?? string.Empty,
-                string.Empty,
-                normalizedJson,
-                ["JSON parse error"]);
-        }
-    }
-
-    private static string ExtractJsonPayload(string rawJson)
-    {
-        var trimmed = (rawJson ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            return trimmed;
+            catch (JsonException exception)
+            {
+                lastException = exception;
+            }
         }
 
-        var fencedBlock = TryExtractMarkdownFence(trimmed);
-        if (!string.IsNullOrWhiteSpace(fencedBlock))
-        {
-            return fencedBlock;
-        }
-
-        return trimmed;
-    }
-
-    private static string? TryExtractMarkdownFence(string text)
-    {
-        var fenceStart = text.IndexOf("```", StringComparison.Ordinal);
-        if (fenceStart < 0)
-        {
-            return null;
-        }
-
-        var openingLineEnd = text.IndexOf('\n', fenceStart);
-        if (openingLineEnd < 0)
-        {
-            return null;
-        }
-
-        var openingFence = text[fenceStart..openingLineEnd].TrimEnd('\r');
-        if (!openingFence.Equals("```", StringComparison.Ordinal) &&
-            !openingFence.Equals("```json", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var closingFenceStart = text.LastIndexOf("```", StringComparison.Ordinal);
-        if (closingFenceStart <= openingLineEnd)
-        {
-            return null;
-        }
-
-        var closingLineStart = text.LastIndexOf('\n', closingFenceStart);
-        if (closingLineStart < 0)
-        {
-            return null;
-        }
-
-        var closingLineEnd = text.IndexOf('\n', closingFenceStart);
-        closingLineEnd = closingLineEnd < 0 ? text.Length : closingLineEnd;
-
-        var closingFence = text[(closingLineStart + 1)..closingLineEnd].TrimEnd('\r').Trim();
-        if (!closingFence.Equals("```", StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        return text[(openingLineEnd + 1)..closingLineStart].Trim();
+        var failedJson = normalizedJson ?? string.Empty;
+        var exceptionMessage = lastException?.Message ?? "JSON payload was empty.";
+        throw new PatchPreviewValidationException(
+            $"Patch preview validation failed:{Environment.NewLine}- JSON parse error: {exceptionMessage}",
+            [$"JSON parse error: {exceptionMessage}"],
+            rawJson ?? string.Empty,
+            string.Empty,
+            failedJson,
+            ["JSON parse error"]);
     }
 
     private static PatchPreviewValidationException BuildValidationException(

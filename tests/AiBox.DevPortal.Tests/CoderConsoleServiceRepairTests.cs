@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text;
 using AiBox.DevPortal.Models;
 using AiBox.DevPortal.Services;
+using AiBox.DevPortal.Services.Agents;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -31,6 +32,7 @@ public sealed class CoderConsoleServiceRepairTests
             environment,
             patchEditOperationService,
             contextService,
+            new PatchVerificationService(new AgentRunHistoryService(environment)),
             new SelectedContextValidator(),
             repairService,
             new AgentInstructionService(environment));
@@ -58,7 +60,7 @@ public sealed class CoderConsoleServiceRepairTests
                 """,
                 """
                 {
-                  "response": "{\"operations\":[{\"filePath\":\"Example.cs\",\"operation\":\"insert_before\",\"anchor\":\"public class Example {}\",\"oldText\":\"\",\"newText\":\"// note\\n\"}]}",
+                  "response": "Here is the repaired patch:\n\n```json\n{\"operations\":[{\"filePath\":\"Example.cs\",\"operation\":\"insert_before\",\"anchor\":\"public class Example {}\",\"oldText\":\"\",\"newText\":\"// note\\n\"}]}\n```\n\nThanks.",
                   "done": true
                 }
                 """);
@@ -342,6 +344,79 @@ public sealed class CoderConsoleServiceRepairTests
                     }
                 ]
             }));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task GeneratePatchPreviewAsync_CreateOnlyTask_AllowsValidCreateTargetsWithoutEditableContext()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-only-test-{Guid.NewGuid():N}");
+        var requests = new List<string>();
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "AGENTS.md"), "# root instructions");
+
+            var handler = new QueueHandler(
+                requests,
+                """
+                {
+                  "response": "{\"operations\":[{\"filePath\":\"Models/ProjectKnowledgeIndex.cs\",\"operation\":\"create\",\"oldText\":\"\",\"newText\":\"public sealed class ProjectKnowledgeIndex {}\"}]}",
+                  "done": true
+                }
+                """);
+
+            var httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri("http://localhost")
+            };
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["AiBox:LocalCoder:DefaultModel"] = "test-model",
+                    ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
+                })
+                .Build();
+
+            var environment = Substitute.For<IWebHostEnvironment>();
+            environment.ContentRootPath.Returns(projectRoot);
+
+            var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
+            var contextService = Substitute.For<ILocalCoderContextService>();
+
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
+
+            var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
+            {
+                ProjectPath = projectRoot,
+                Model = "test-model",
+                Task = "Create Models/ProjectKnowledgeIndex.cs",
+                FileContexts =
+                [
+                    new LocalCoderFileContext
+                    {
+                        RelativePath = "AGENTS.md",
+                        Content = "# root instructions"
+                    }
+                ]
+            });
+
+            Assert.NotNull(preview);
+            var change = Assert.Single(preview.FileChanges);
+            Assert.Equal("Models/ProjectKnowledgeIndex.cs", change.RelativePath);
+            Assert.Contains("public sealed class ProjectKnowledgeIndex {}", change.NewContent, StringComparison.Ordinal);
+            Assert.NotNull(preview.IntentValidation);
+            Assert.NotEqual(PatchIntentMatchStatus.DoesNotMatch, preview.IntentValidation!.Status);
+            Assert.Single(requests);
         }
         finally
         {

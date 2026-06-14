@@ -11,18 +11,11 @@ public sealed class SelectedContextValidatorTests
     [Fact]
     public void ValidateForPatchPreview_IgnoresAgentsFiles()
     {
-        var intent = new PatchIntent
-        {
-            TargetCreatedFiles = [],
-            AllowedCreateFolders = []
-        };
-
         var exception = Assert.Throws<PatchPreviewValidationException>(() => validator.ValidateForPatchPreview(
             [
                 new LocalCoderFileContext { RelativePath = "AGENTS.md", Content = "# root" },
                 new LocalCoderFileContext { RelativePath = "Components/AGENTS.md", Content = "# components" }
-            ],
-            intent));
+            ]));
 
         Assert.Equal("No editable source files selected and no valid create targets were detected.", exception.Message);
         Assert.Equal(["No editable source files selected and no valid create targets were detected."], exception.ValidationErrors);
@@ -31,8 +24,6 @@ public sealed class SelectedContextValidatorTests
     [Fact]
     public void ValidateForPatchPreview_RejectsTruncatedEditableFiles()
     {
-        var intent = new PatchIntent();
-
         var exception = Assert.Throws<PatchPreviewValidationException>(() => validator.ValidateForPatchPreview(
             [
                 new LocalCoderFileContext
@@ -41,8 +32,7 @@ public sealed class SelectedContextValidatorTests
                     Content = "<div />",
                     IsTruncated = true
                 }
-            ],
-            intent));
+            ]));
 
         Assert.Equal("Selected file context is incomplete. Patch preview requires full file contents.", exception.Message);
         Assert.Equal(["Selected file context is incomplete. Patch preview requires full file contents."], exception.ValidationErrors);
@@ -51,8 +41,6 @@ public sealed class SelectedContextValidatorTests
     [Fact]
     public void ValidateForPatchPreview_AllowsCompleteEditableFiles()
     {
-        var intent = new PatchIntent();
-
         validator.ValidateForPatchPreview(
             [
                 new LocalCoderFileContext
@@ -60,24 +48,6 @@ public sealed class SelectedContextValidatorTests
                     RelativePath = "Components/Pages/Coder.razor",
                     Content = "<div />"
                 }
-            ],
-            intent);
-    }
-
-    [Fact]
-    public void ValidateForPatchPreview_AllowsCreateOnlyTargetsWithoutEditableFiles()
-    {
-        var intent = new PatchIntent
-        {
-            TargetCreatedFiles = ["Models/ProjectKnowledgeIndex.cs"],
-            AllowedCreateFolders = ["Models/"]
-        };
-
-        validator.ValidateForPatchPreview(
-            [
-                new LocalCoderFileContext { RelativePath = "AGENTS.md", Content = "# root" },
-                new LocalCoderFileContext { RelativePath = "Components/AGENTS.md", Content = "# components" }
-            ],
-            intent);
+            ]);
     }
 }

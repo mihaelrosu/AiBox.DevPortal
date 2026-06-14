@@ -159,17 +159,17 @@ public sealed class CoderConsoleService(
 
         request.FileContexts = (request.FileContexts ?? [])
             .ToList();
+        var intent = PatchIntentService.BuildIntent(request);
         RecordPatchPreviewAttempt();
         try
         {
-            selectedContextValidator.ValidateForPatchPreview(request.FileContexts);
+            selectedContextValidator.ValidateForPatchPreview(request.FileContexts, intent);
         }
         catch (PatchPreviewValidationException)
         {
             RecordPatchPreviewFailure();
             throw;
         }
-        var intent = PatchIntentService.BuildIntent(request);
         var intentText = PatchIntentService.BuildPromptText(intent);
         var xmlDocumentationMode = IsXmlDocumentationRequest(request.Task);
         var deterministicTargetResolution = ResolveDeterministicTargetResolution(
@@ -1202,11 +1202,11 @@ public sealed class CoderConsoleService(
         {
           "operations": [
             {
-              "filePath": "Models/LocalCoderHistoryEntry.cs",
+              "filePath": "<existing file>",
               "operation": "insert_before",
-              "anchor": "public sealed class LocalCoderHistoryEntry",
-              "newText": "/// <summary>\n/// Represents one saved Local Coder history entry.\n/// </summary>\n",
-              "summary": "Add XML documentation to LocalCoderHistoryEntry class"
+              "anchor": "<existing declaration>",
+              "newText": "<new content>",
+              "summary": "Add XML documentation"
             }
           ]
         }
@@ -1215,27 +1215,27 @@ public sealed class CoderConsoleService(
         {
           "operations": [
             {
-              "filePath": "Models/ProjectKnowledgeIndex.cs",
+              "filePath": "<target file>",
               "operation": "create",
               "oldText": "",
-              "newText": "public sealed class ProjectKnowledgeIndex {}",
-              "summary": "Create a new project knowledge index file"
+              "newText": "<new content>",
+              "summary": "Create a new file"
             },
             {
-              "filePath": "Components/Pages/Coder.razor",
+              "filePath": "<existing file>",
               "operation": "insert_after",
-              "anchor": "<h3>Patch Queue</h3>",
+              "anchor": "<existing anchor>",
               "oldText": "",
-              "newText": "<RadzenAlert ...>...</RadzenAlert>",
-              "summary": "Add patch approval info alert"
+              "newText": "<new content>",
+              "summary": "Insert content after an existing anchor"
             },
             {
-              "filePath": "Components/Pages/Coder.razor",
+              "filePath": "<existing file>",
               "operation": "remove",
               "anchor": "",
-              "oldText": "@* Documentation placeholder *@",
+              "oldText": "<existing text>",
               "newText": "",
-              "summary": "Remove placeholder comment"
+              "summary": "Remove existing text"
             }
           ]
         }
@@ -1315,6 +1315,7 @@ public sealed class CoderConsoleService(
         Output format:
         {{operationExample}}
         {{operationGrammar}}
+        Do not copy file paths from examples. Use only Allowed files and Target created file(s).
         {{forbiddenExamples}}
         {{missingTextInstruction}}
         {{contextInstruction}}

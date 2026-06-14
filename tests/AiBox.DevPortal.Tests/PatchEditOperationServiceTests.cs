@@ -1,6 +1,7 @@
 using System.Net;
 using AiBox.DevPortal.Models;
 using AiBox.DevPortal.Services;
+using AiBox.DevPortal.Services.Agents;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ public sealed class PatchEditOperationServiceTests
             environment,
             patchEditOperationService,
             contextService,
+            new PatchVerificationService(new AgentRunHistoryService(environment)),
             new SelectedContextValidator(),
             new PatchPreviewRepairService(new StubOllamaService(), patchEditOperationService, configuration),
             new AgentInstructionService(environment));
@@ -177,6 +179,137 @@ public sealed class PatchEditOperationServiceTests
                   ]
                 }
                 ```
+                """);
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal($"{content}{Environment.NewLine}// Added", change.NewContent);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_RawJson_ParsesOperations()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-raw-json-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        var filePath = Path.Combine(projectRoot, relativePath);
+        const string content = "public class Example {}";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    operations = new[]
+                    {
+                        new
+                        {
+                            filePath = relativePath,
+                            operation = "insert_after",
+                            anchor = "public class Example {}",
+                            newText = "\n// Added"
+                        }
+                    }
+                }));
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal($"{content}{Environment.NewLine}// Added", change.NewContent);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_TextBeforeJson_ParsesOperations()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-json-prefix-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        var filePath = Path.Combine(projectRoot, relativePath);
+        const string content = "public class Example {}";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                """
+                Here is the patch preview:
+
+                {
+                  "operations": [
+                    {
+                      "filePath": "Example.cs",
+                      "operation": "insert_after",
+                      "anchor": "public class Example {}",
+                      "newText": "\n// Added"
+                    }
+                  ]
+                }
+                """);
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Equal($"{content}{Environment.NewLine}// Added", change.NewContent);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_TextAfterJson_ParsesOperations()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-json-suffix-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        var filePath = Path.Combine(projectRoot, relativePath);
+        const string content = "public class Example {}";
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(filePath, content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                """
+                {
+                  "operations": [
+                    {
+                      "filePath": "Example.cs",
+                      "operation": "insert_after",
+                      "anchor": "public class Example {}",
+                      "newText": "\n// Added"
+                    }
+                  ]
+                }
+
+                Thanks.
                 """);
 
             var change = Assert.Single(result.FileChanges);
@@ -958,7 +1091,7 @@ public sealed class PatchEditOperationServiceTests
     }
 
     [Fact]
-    public async Task BuildAsync_UnclosedMarkdownFence_FailsJsonValidation()
+    public async Task BuildAsync_MalformedJson_FailsJsonValidation()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-malformed-fence-test-{Guid.NewGuid():N}");
 
@@ -972,59 +1105,10 @@ public sealed class PatchEditOperationServiceTests
                     projectRoot,
                     [new LocalCoderFileContext { RelativePath = "Example.cs", Content = "content" }],
                     """
-                    ```json
-                    {
-                      "operations": []
-                    }
+                    This is not valid JSON.
                     """));
 
             Assert.Contains("JSON parse error", exception.Message, StringComparison.Ordinal);
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
-                Directory.Delete(projectRoot, recursive: true);
-            }
-        }
-    }
-
-    [Fact]
-    public async Task BuildAsync_MarkdownFencedJson_WithWrapperText_ParsesOperations()
-    {
-        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-fenced-json-wrapper-test-{Guid.NewGuid():N}");
-
-        try
-        {
-            Directory.CreateDirectory(projectRoot);
-            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Example.cs"), "Hello");
-            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
-
-            var result = await service.BuildAsync(
-                projectRoot,
-                [new LocalCoderFileContext { RelativePath = "Example.cs", Content = "Hello" }],
-                """
-                Here is the patch preview:
-
-                ```json
-                {
-                  "operations": [
-                    {
-                      "filePath": "Example.cs",
-                      "operation": "replace",
-                      "anchor": "",
-                      "oldText": "Hello",
-                      "newText": "Hi"
-                    }
-                  ]
-                }
-                ```
-
-                Thanks.
-                """);
-
-            var change = Assert.Single(result.FileChanges);
-            Assert.Equal("Hi", change.NewContent);
         }
         finally
         {

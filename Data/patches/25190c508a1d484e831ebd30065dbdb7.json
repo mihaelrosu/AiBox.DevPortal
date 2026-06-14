@@ -1,0 +1,203 @@
+{
+  "id": "25190c508a1d484e831ebd30065dbdb7",
+  "createdAt": "2026-06-14T11:49:51.3669622+00:00",
+  "updatedAt": "2026-06-14T11:50:06.2191339+00:00",
+  "backupFolder": "Data/patch-backups/20260614115006",
+  "appliedAt": "2026-06-14T11:50:06.2173799+00:00",
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Fix SelectedContextValidator create-only validation.\n\nModify only:\n- Services/SelectedContextValidator.cs\n- tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs\n\nDo not modify AGENTS.md files.\n\nIn Services/SelectedContextValidator.cs:\n- Keep AGENTS.md excluded from editable source files.\n- Replace the zero editable files check with:\n  editable files exist OR allowed create targets exist.\n- Use create target information already available in LocalCoderFileContext.\n- If the current model does not expose create target information, return an empty patch with:\n  \u0022LocalCoderFileContext does not contain create target information.\u0022\n\nUpdate error text:\n\u0022No editable source files selected and no valid create targets were detected.\u0022\n\nIn tests:\n- Update existing AGENTS.md-only failure test to expect the new error.\n- Add tests for create-only Models/ and Services/ if LocalCoderFileContext supports create targets.\n\nGenerate patch preview only.\nDo not apply changes.",
+  "model": "qwen2.5-coder:7b",
+  "patchText": "diff --git a/Services/SelectedContextValidator.cs b/Services/SelectedContextValidator.cs\nindex 70ad4fe..da2e463 100644\n--- a/Services/SelectedContextValidator.cs\n\u002B\u002B\u002B b/Services/SelectedContextValidator.cs\n@@ -19,7 \u002B19,7 @@ public sealed class SelectedContextValidator\n             .Where(IsEditableSourceFile)\n             .ToArray();\n \n-        if (editableFiles.Length == 0)\n\u002B        if (!editableFiles.Any() \u0026\u0026 !LocalCoderFileContext.CreateTargets.Any())\n         {\n             throw CreateValidationException(\u0022No editable source files selected.\u0022);\n         }\ndiff --git a/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs b/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs\nindex b8b1a43..b0d6d52 100644\n--- a/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs\n\u002B\u002B\u002B b/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs\n@@ -17,12 \u002B17,19 @@ public sealed class SelectedContextValidatorTests\n                 new LocalCoderFileContext { RelativePath = \u0022Components/AGENTS.md\u0022, Content = \u0022# components\u0022 }\n             ]));\n \n-        Assert.Equal(\u0022No editable source files selected.\u0022, exception.Message);\n\u002B        Assert.Equal(\u0022No editable source files selected and no valid create targets were detected.\u0022, exception.Message);\n         Assert.Equal([\u0022No editable source files selected.\u0022], exception.ValidationErrors);\n     }\n \n     [Fact]\n-    public void ValidateForPatchPreview_RejectsTruncatedEditableFiles()\n\u002B    public void ValidateForPatchPreview_RejectsTruncatedEditableFiles()        [Fact]\n\u002B        public void ValidateForPatchPreview_AllowsCreateOnlyTargets()\n\u002B        {\n\u002B            validator.ValidateForPatchPreview(\n\u002B                [\n\u002B                    new LocalCoderFileContext { RelativePath = \u0022Services/ProjectKnowledgeIndex.cs\u0022, Content = \u0022public sealed class ProjectKnowledgeIndex {}\u0022 }\n\u002B                ]);\n\u002B        }\n     {\n         var exception = Assert.Throws\u003CPatchPreviewValidationException\u003E(() =\u003E validator.ValidateForPatchPreview(\n             [",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [
+    "Services/"
+  ],
+  "contextFilePaths": [
+    "AGENTS.md",
+    "Models/AGENTS.md",
+    "Services/AGENTS.md",
+    "Services/SelectedContextValidator.cs",
+    "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs"
+  ],
+  "intent": {
+    "goal": "Fix SelectedContextValidator create-only validation",
+    "allowedFiles": [
+      "AGENTS.md",
+      "Models/AGENTS.md",
+      "Services/AGENTS.md",
+      "Services/SelectedContextValidator.cs",
+      "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs"
+    ],
+    "allowedPaths": [
+      "AGENTS.md",
+      "Models/AGENTS.md",
+      "Services/AGENTS.md",
+      "Services/SelectedContextValidator.cs",
+      "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs"
+    ],
+    "targetCreatedFiles": [],
+    "allowedCreateFolders": [
+      "Services/"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet test"
+  },
+  "intentValidation": {
+    "status": "partiallyMatches",
+    "detectedChangeType": "Refactor",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "AGENTS.md",
+      "Models/AGENTS.md",
+      "Services/AGENTS.md",
+      "Services/SelectedContextValidator.cs",
+      "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs"
+    ],
+    "modifiedFiles": [
+      "Services/SelectedContextValidator.cs",
+      "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs"
+    ],
+    "contextFiles": [
+      "AGENTS.md",
+      "Models/AGENTS.md",
+      "Services/AGENTS.md",
+      "Services/SelectedContextValidator.cs",
+      "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs"
+    ],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Services/SelectedContextValidator.cs",
+        "inContext": true,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      },
+      {
+        "relativePath": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs",
+        "inContext": true,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [
+      "Expected Add but detected Refactor."
+    ],
+    "isBlocking": false
+  },
+  "status": "applied",
+  "statusMessage": "Applied with 2 backup file(s).",
+  "approvalGateResults": [
+    {
+      "gateKey": "patch-intent-partial",
+      "message": "Expected Add but detected Refactor.",
+      "filePath": "",
+      "passed": true,
+      "blocking": false,
+      "warning": true
+    },
+    {
+      "gateKey": "patch-has-files",
+      "message": "Patch contains 2 file change(s).",
+      "filePath": "",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "file-path-not-empty",
+      "message": "File path provided: Services/SelectedContextValidator.cs.",
+      "filePath": "Services/SelectedContextValidator.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "target-file-inside-project-root",
+      "message": "Services/SelectedContextValidator.cs resolves to /opt/ai-box/dev/projects/AiBox.DevPortal/Services/SelectedContextValidator.cs.",
+      "filePath": "Services/SelectedContextValidator.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "restricted-path",
+      "message": "Services/SelectedContextValidator.cs is not inside a restricted folder.",
+      "filePath": "Services/SelectedContextValidator.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "original-content-match",
+      "message": "Services/SelectedContextValidator.cs matches the current file content.",
+      "filePath": "Services/SelectedContextValidator.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "file-path-not-empty",
+      "message": "File path provided: tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs.",
+      "filePath": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "target-file-inside-project-root",
+      "message": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs resolves to /opt/ai-box/dev/projects/AiBox.DevPortal/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs.",
+      "filePath": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "restricted-path",
+      "message": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs is not inside a restricted folder.",
+      "filePath": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "original-content-match",
+      "message": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs matches the current file content.",
+      "filePath": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    }
+  ],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Services/SelectedContextValidator.cs",
+      "oldContent": "using AiBox.DevPortal.Models;\n\nnamespace AiBox.DevPortal.Services;\n\npublic sealed class SelectedContextValidator\n{\n    private static readonly HashSet\u003Cstring\u003E EditableExtensions = new(StringComparer.OrdinalIgnoreCase)\n    {\n        \u0022.cs\u0022, \u0022.razor\u0022, \u0022.json\u0022, \u0022.yml\u0022, \u0022.yaml\u0022, \u0022.css\u0022, \u0022.html\u0022, \u0022.js\u0022, \u0022.md\u0022, \u0022.csproj\u0022, \u0022.sln\u0022, \u0022.props\u0022, \u0022.targets\u0022\n    };\n\n    public void ValidateForPatchPreview(IEnumerable\u003CLocalCoderFileContext\u003E fileContexts)\n    {\n        var contexts = (fileContexts ?? [])\n            .Where(file =\u003E file is not null)\n            .ToArray();\n\n        var editableFiles = contexts\n            .Where(IsEditableSourceFile)\n            .ToArray();\n\n        if (editableFiles.Length == 0)\n        {\n            throw CreateValidationException(\u0022No editable source files selected.\u0022);\n        }\n\n        if (editableFiles.Any(file =\u003E file.IsTruncated))\n        {\n            throw CreateValidationException(\u0022Selected file context is incomplete. Patch preview requires full file contents.\u0022);\n        }\n    }\n\n    private static bool IsEditableSourceFile(LocalCoderFileContext file)\n    {\n        if (file is null || string.IsNullOrWhiteSpace(file.RelativePath))\n        {\n            return false;\n        }\n\n        if (file.IsGeneratedFile)\n        {\n            return false;\n        }\n\n        if (IsAgentInstructionsFile(file.RelativePath))\n        {\n            return false;\n        }\n\n        return EditableExtensions.Contains(Path.GetExtension(file.RelativePath));\n    }\n\n    private static bool IsAgentInstructionsFile(string relativePath)\n    {\n        return Path.GetFileName(relativePath).Equals(\u0022AGENTS.md\u0022, StringComparison.OrdinalIgnoreCase);\n    }\n\n    private static PatchPreviewValidationException CreateValidationException(string message)\n    {\n        return new PatchPreviewValidationException(\n            message,\n            [message],\n            string.Empty,\n            string.Empty,\n            string.Empty);\n    }\n}\n",
+      "newContent": "using AiBox.DevPortal.Models;\n\nnamespace AiBox.DevPortal.Services;\n\npublic sealed class SelectedContextValidator\n{\n    private static readonly HashSet\u003Cstring\u003E EditableExtensions = new(StringComparer.OrdinalIgnoreCase)\n    {\n        \u0022.cs\u0022, \u0022.razor\u0022, \u0022.json\u0022, \u0022.yml\u0022, \u0022.yaml\u0022, \u0022.css\u0022, \u0022.html\u0022, \u0022.js\u0022, \u0022.md\u0022, \u0022.csproj\u0022, \u0022.sln\u0022, \u0022.props\u0022, \u0022.targets\u0022\n    };\n\n    public void ValidateForPatchPreview(IEnumerable\u003CLocalCoderFileContext\u003E fileContexts)\n    {\n        var contexts = (fileContexts ?? [])\n            .Where(file =\u003E file is not null)\n            .ToArray();\n\n        var editableFiles = contexts\n            .Where(IsEditableSourceFile)\n            .ToArray();\n\n        if (!editableFiles.Any() \u0026\u0026 !LocalCoderFileContext.CreateTargets.Any())\n        {\n            throw CreateValidationException(\u0022No editable source files selected.\u0022);\n        }\n\n        if (editableFiles.Any(file =\u003E file.IsTruncated))\n        {\n            throw CreateValidationException(\u0022Selected file context is incomplete. Patch preview requires full file contents.\u0022);\n        }\n    }\n\n    private static bool IsEditableSourceFile(LocalCoderFileContext file)\n    {\n        if (file is null || string.IsNullOrWhiteSpace(file.RelativePath))\n        {\n            return false;\n        }\n\n        if (file.IsGeneratedFile)\n        {\n            return false;\n        }\n\n        if (IsAgentInstructionsFile(file.RelativePath))\n        {\n            return false;\n        }\n\n        return EditableExtensions.Contains(Path.GetExtension(file.RelativePath));\n    }\n\n    private static bool IsAgentInstructionsFile(string relativePath)\n    {\n        return Path.GetFileName(relativePath).Equals(\u0022AGENTS.md\u0022, StringComparison.OrdinalIgnoreCase);\n    }\n\n    private static PatchPreviewValidationException CreateValidationException(string message)\n    {\n        return new PatchPreviewValidationException(\n            message,\n            [message],\n            string.Empty,\n            string.Empty,\n            string.Empty);\n    }\n}\n"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs",
+      "oldContent": "using AiBox.DevPortal.Models;\nusing AiBox.DevPortal.Services;\nusing Xunit;\n\nnamespace AiBox.DevPortal.Tests;\n\npublic sealed class SelectedContextValidatorTests\n{\n    private readonly SelectedContextValidator validator = new();\n\n    [Fact]\n    public void ValidateForPatchPreview_IgnoresAgentsFiles()\n    {\n        var exception = Assert.Throws\u003CPatchPreviewValidationException\u003E(() =\u003E validator.ValidateForPatchPreview(\n            [\n                new LocalCoderFileContext { RelativePath = \u0022AGENTS.md\u0022, Content = \u0022# root\u0022 },\n                new LocalCoderFileContext { RelativePath = \u0022Components/AGENTS.md\u0022, Content = \u0022# components\u0022 }\n            ]));\n\n        Assert.Equal(\u0022No editable source files selected.\u0022, exception.Message);\n        Assert.Equal([\u0022No editable source files selected.\u0022], exception.ValidationErrors);\n    }\n\n    [Fact]\n    public void ValidateForPatchPreview_RejectsTruncatedEditableFiles()\n    {\n        var exception = Assert.Throws\u003CPatchPreviewValidationException\u003E(() =\u003E validator.ValidateForPatchPreview(\n            [\n                new LocalCoderFileContext { RelativePath = \u0022Components/Pages/Coder.razor\u0022, Content = \u0022\u003Cdiv /\u003E\u0022, IsTruncated = true }\n            ]));\n\n        Assert.Equal(\u0022Selected file context is incomplete. Patch preview requires full file contents.\u0022, exception.Message);\n        Assert.Equal([\u0022Selected file context is incomplete. Patch preview requires full file contents.\u0022], exception.ValidationErrors);\n    }\n\n    [Fact]\n    public void ValidateForPatchPreview_AllowsCompleteEditableFiles()\n    {\n        validator.ValidateForPatchPreview(\n            [\n                new LocalCoderFileContext { RelativePath = \u0022Components/Pages/Coder.razor\u0022, Content = \u0022\u003Cdiv /\u003E\u0022 }\n            ]);\n    }\n}\n",
+      "newContent": "using AiBox.DevPortal.Models;\nusing AiBox.DevPortal.Services;\nusing Xunit;\n\nnamespace AiBox.DevPortal.Tests;\n\npublic sealed class SelectedContextValidatorTests\n{\n    private readonly SelectedContextValidator validator = new();\n\n    [Fact]\n    public void ValidateForPatchPreview_IgnoresAgentsFiles()\n    {\n        var exception = Assert.Throws\u003CPatchPreviewValidationException\u003E(() =\u003E validator.ValidateForPatchPreview(\n            [\n                new LocalCoderFileContext { RelativePath = \u0022AGENTS.md\u0022, Content = \u0022# root\u0022 },\n                new LocalCoderFileContext { RelativePath = \u0022Components/AGENTS.md\u0022, Content = \u0022# components\u0022 }\n            ]));\n\n        Assert.Equal(\u0022No editable source files selected and no valid create targets were detected.\u0022, exception.Message);\n        Assert.Equal([\u0022No editable source files selected.\u0022], exception.ValidationErrors);\n    }\n\n    [Fact]\n    public void ValidateForPatchPreview_RejectsTruncatedEditableFiles()        [Fact]\r\n        public void ValidateForPatchPreview_AllowsCreateOnlyTargets()\r\n        {\r\n            validator.ValidateForPatchPreview(\r\n                [\r\n                    new LocalCoderFileContext { RelativePath = \u0022Services/ProjectKnowledgeIndex.cs\u0022, Content = \u0022public sealed class ProjectKnowledgeIndex {}\u0022 }\r\n                ]);\r\n        }\n    {\n        var exception = Assert.Throws\u003CPatchPreviewValidationException\u003E(() =\u003E validator.ValidateForPatchPreview(\n            [\n                new LocalCoderFileContext { RelativePath = \u0022Components/Pages/Coder.razor\u0022, Content = \u0022\u003Cdiv /\u003E\u0022, IsTruncated = true }\n            ]));\n\n        Assert.Equal(\u0022Selected file context is incomplete. Patch preview requires full file contents.\u0022, exception.Message);\n        Assert.Equal([\u0022Selected file context is incomplete. Patch preview requires full file contents.\u0022], exception.ValidationErrors);\n    }\n\n    [Fact]\n    public void ValidateForPatchPreview_AllowsCompleteEditableFiles()\n    {\n        validator.ValidateForPatchPreview(\n            [\n                new LocalCoderFileContext { RelativePath = \u0022Components/Pages/Coder.razor\u0022, Content = \u0022\u003Cdiv /\u003E\u0022 }\n            ]);\n    }\n}\n"
+    }
+  ]
+}

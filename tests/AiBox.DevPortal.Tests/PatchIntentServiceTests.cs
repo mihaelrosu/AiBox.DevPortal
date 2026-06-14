@@ -53,6 +53,113 @@ public sealed class PatchIntentServiceTests
         Assert.Contains("Allowed create folders:", PatchIntentService.BuildPromptText(intent), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void BuildIntent_CreateTargetInModels_OverridesAllowedCreateFolders()
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = "Create Models/ProjectKnowledgeIndex.cs",
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            AllowedCreateFolders = ["Components/"],
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Models/LocalCoderHistoryEntry.cs" }
+            ]
+        });
+
+        Assert.Equal(["Models/"], intent.AllowedCreateFolders);
+    }
+
+    [Fact]
+    public void BuildIntent_CreateTargetInNestedFolder_UsesNestedFolder()
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = "Create Features/Admin/ProjectKnowledgeIndex.cs",
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            AllowedCreateFolders = ["Models/"],
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Components/Pages/Coder.razor" }
+            ]
+        });
+
+        Assert.Equal(["Features/Admin/"], intent.AllowedCreateFolders);
+    }
+
+    [Fact]
+    public void BuildIntent_CreateTargetsInMultipleFolders_UsesAllTargetFolders()
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = "Create Models/ProjectKnowledgeIndex.cs and Features/Admin/ProjectAudit.cs",
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            AllowedCreateFolders = ["Components/"],
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Components/Pages/Coder.razor" }
+            ]
+        });
+
+        Assert.Equal(["Features/Admin/", "Models/"], intent.AllowedCreateFolders);
+    }
+
+    [Fact]
+    public void BuildIntent_CreateBulletList_ExtractsMultipleTargets()
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = """
+                   Create:
+                   - Models/TaskPlan.cs
+                   - Features/Admin/AdminPanel.razor
+                   - Data/ProjectIndex.json
+                   - App/App.csproj
+                   """,
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Components/Pages/Coder.razor" }
+            ]
+        });
+
+        Assert.Equal(4, intent.AllowedCreateFolders.Count);
+        Assert.Contains("App/", intent.AllowedCreateFolders);
+        Assert.Contains("Data/", intent.AllowedCreateFolders);
+        Assert.Contains("Features/Admin/", intent.AllowedCreateFolders);
+        Assert.Contains("Models/", intent.AllowedCreateFolders);
+
+        Assert.Equal(4, intent.TargetCreatedFiles.Count);
+        Assert.Contains("App/App.csproj", intent.TargetCreatedFiles);
+        Assert.Contains("Data/ProjectIndex.json", intent.TargetCreatedFiles);
+        Assert.Contains("Features/Admin/AdminPanel.razor", intent.TargetCreatedFiles);
+        Assert.Contains("Models/TaskPlan.cs", intent.TargetCreatedFiles);
+    }
+
+    [Fact]
+    public void BuildIntent_NoCreateTargets_UsesExistingBehavior()
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = "Update the verify card layout.",
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            AllowedCreateFolders = ["Services/"],
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Components/Pages/Coder.razor" },
+                new LocalCoderFileContext { RelativePath = "Components/Coder/CoderPromptPanel.razor" }
+            ]
+        });
+
+        Assert.Equal(["Services/"], intent.AllowedCreateFolders);
+        Assert.DoesNotContain("Target created file(s):", PatchIntentService.BuildPromptText(intent), StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("Read file and add comment")]
     [InlineData("Inspect file and create method")]

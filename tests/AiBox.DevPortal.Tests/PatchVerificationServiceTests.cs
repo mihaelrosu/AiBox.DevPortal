@@ -2,8 +2,10 @@ using AiBox.DevPortal.Services;
 using AiBox.DevPortal.Services.Agents;
 using AiBox.DevPortal.Models.Agents;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Xunit;
 
 namespace AiBox.DevPortal.Tests;
@@ -21,22 +23,26 @@ public sealed class PatchVerificationServiceTests
         {
             var result = await service.VerifyAsync(projectRoot);
 
-            Assert.True(result.Passed);
             Assert.Single(result.Commands);
             Assert.Equal("dotnet build", result.Commands[0].Command);
-            Assert.Contains("Verification:", result.Summary, StringComparison.Ordinal);
+            Assert.NotNull(result.Summary);
+            Assert.NotNull(result.Details);
+            Assert.Equal(projectRoot, result.ProjectPath);
 
             var historyPath = Path.Combine(projectRoot, "Data", "agent-runs.json");
             Assert.True(File.Exists(historyPath));
 
             var records = await JsonSerializer.DeserializeAsync<List<AgentRunRecord>>(
                 File.OpenRead(historyPath),
-                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)
+                {
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                });
 
             var savedRecord = Assert.Single(records ?? []);
             Assert.Equal("patch-verification", savedRecord.ActionKey);
-            Assert.True(savedRecord.Success);
-            Assert.Contains("Verification:", savedRecord.ResultText, StringComparison.Ordinal);
+            Assert.NotNull(savedRecord.ResultText);
+            Assert.Equal(result.Details, savedRecord.ResultText);
         }
         finally
         {

@@ -12,9 +12,11 @@ public static class PatchIntentService
         var scopeMode = request.AllowedPatchScope;
         var contextFiles = request.FileContexts.Select(context => context.RelativePath).ToArray();
         var createdFiles = ExtractRequestedCreateFiles(request.Task);
-        var allowedCreateFolders = request.AllowedCreateFolders.Count > 0
-            ? NormalizeFolders(request.AllowedCreateFolders).ToArray()
-            : InferCreateFolders(contextFiles);
+        var allowedCreateFolders = createdFiles.Count > 0
+            ? DeriveCreateFolders(createdFiles)
+            : request.AllowedCreateFolders.Count > 0
+                ? NormalizeFolders(request.AllowedCreateFolders).ToArray()
+                : InferCreateFolders(contextFiles);
         var allowedFiles = contextFiles
             .Concat(createdFiles)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -241,15 +243,35 @@ public static class PatchIntentService
             return [];
         }
 
-        var matches = CreateTaskPathRegex().Matches(value);
-        if (matches.Count == 0)
+        var normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var createdFiles = new List<string>();
+        var inCreateSection = false;
+
+        foreach (var line in normalized.Split('\n'))
         {
-            return [];
+            var trimmed = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                inCreateSection = false;
+                continue;
+            }
+
+            if (TryConsumeCreateHeader(trimmed, out var remainder))
+            {
+                inCreateSection = true;
+                AddCreatePaths(createdFiles, remainder);
+                continue;
+            }
+
+            if (!inCreateSection)
+            {
+                continue;
+            }
+
+            AddCreatePaths(createdFiles, trimmed);
         }
 
-        return matches
-            .Select(match => NormalizePath(match.Groups["path"].Value))
-            .Where(path => !string.IsNullOrWhiteSpace(path))
+        return createdFiles
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -318,9 +340,45 @@ public static class PatchIntentService
         return "dotnet build";
     }
 
+    private static void AddCreatePaths(List<string> createdFiles, string text)
+    {
+        foreach (Match match in CreateTaskPathRegex().Matches(text ?? string.Empty))
+        {
+            AddCreatePath(createdFiles, match.Groups["path"].Value);
+        }
+    }
+
+    private static void AddCreatePath(List<string> createdFiles, string path)
+    {
+        var normalized = NormalizePath(path);
+        if (!string.IsNullOrWhiteSpace(normalized))
+        {
+            createdFiles.Add(normalized);
+        }
+    }
+
+    private static bool TryConsumeCreateHeader(string line, out string remainder)
+    {
+        var match = CreateTaskHeaderRegex().Match(line);
+        if (!match.Success)
+        {
+            remainder = string.Empty;
+            return false;
+        }
+
+        remainder = match.Groups["rest"].Value;
+        return true;
+    }
+
+    private static Regex CreateTaskHeaderRegex()
+    {
+        return new Regex(@"\bcreate(?:\s+file)?\s*:?\s*(?<rest>.*)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    }
+
     private static Regex CreateTaskPathRegex()
     {
-        return new Regex(@"\bcreate(?:\s+file)?\s+(?<path>(?:[\w.\-]+[\\/])*(?:[\w.\-]+\.[\w.\-]+))",
+        return new Regex(@"(?<path>(?:[\w.\-]+[\\/])*(?:[\w.\-]+\.[\w.\-]+))",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
     }
 
@@ -383,7 +441,12 @@ public static class PatchIntentService
 
     private static IReadOnlyList<string> InferCreateFolders(IEnumerable<string> contextFiles)
     {
-        return contextFiles
+        return DeriveCreateFolders(contextFiles);
+    }
+
+    private static IReadOnlyList<string> DeriveCreateFolders(IEnumerable<string> filePaths)
+    {
+        return filePaths
             .Select(NormalizePath)
             .Select(path =>
             {

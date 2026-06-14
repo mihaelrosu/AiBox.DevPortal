@@ -1,0 +1,24 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Models/TaskPlan.cs",
+      "operation": "create",
+      "newText": "using System;\r\n\r\ndomain namespace AiBox.DevPortal.Models {\r\n    public class TaskPlan {\r\n        public string OriginalRequest { get; set; }\r\n        public List<TaskSlice> Slices { get; set; }\r\n        public DateTime CreatedAtUtc { get; set; }\r\n    }\r\n}",
+      "summary": "Create a new file"
+    },
+    {
+      "filePath": "Models/TaskSlice.cs",
+      "operation": "create",
+      "newText": "using System;\r\n\r\ndomain namespace AiBox.DevPortal.Models {\r\n    public class TaskSlice {\r\n        public string Title { get; set; }\r\n        public string Goal { get; set; }\r\n        public List<string> TargetFiles { get; set; }\r\n        public List<string> InstructionFiles { get; set; }\r\n        public AllowedChangeType AllowedChangeType { get; set; }\r\n        public List<string> MustNotChange { get; set; }\r\n        public List<string> VerificationCommands { get; set; }\r\n    }\r\n}",
+      "summary": "Create a new file"
+    },
+    {
+      "filePath": "Services/TaskDecompositionService.cs",
+      "operation": "create",
+      "newText": "using System;\r\nusing System.Collections.Generic;\r\ndomain namespace AiBox.DevPortal.Services {\r\n    public class TaskDecompositionService {\r\n        public TaskPlan BuildPlan(string originalRequest) {\r\n            var plan = new TaskPlan {\r\n                OriginalRequest = originalRequest,\r\n                Slices = new List<TaskSlice>(),\r\n                CreatedAtUtc = DateTime.UtcNow\r\n            };\r\n\r\n            // Example slice\r\n            var taskSlice = new TaskSlice {\r\n                Title = \"Create task decomposition models and service\",\r\n                Goal = \"Decompose the task into manageable pieces\",\r\n                TargetFiles = new List<string> { \"Models/TaskPlan.cs\", \"Models/TaskSlice.cs\", \"Services/TaskDecompositionService.cs\" },\r\n                InstructionFiles = new List<string>(),\r\n                AllowedChangeType = AllowedChangeType.Add,\r\n                MustNotChange = new List<string>(),\r\n                VerificationCommands = new List<string> { \"dotnet build\" }\r\n            };\r\n\r\n            plan.Slices.Add(taskSlice);\r\n\r\n            return plan;\r\n        }\r\n    }\r\n}",
+      "summary": "Create a new file"
+    }
+  ]
+}
+```
