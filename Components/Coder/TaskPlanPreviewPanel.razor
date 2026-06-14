@@ -1,0 +1,73 @@
+@using AiBox.DevPortal.Models
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenText Text="Task Plan Preview" TextStyle="TextStyle.H5" />
+
+        @if (Plan is null)
+        {
+            <RadzenCard Style="margin: 0;">
+                <RadzenText Text="No task decomposition preview yet." TextStyle="TextStyle.Body2" />
+            </RadzenCard>
+        }
+        else
+        {
+            <RadzenCard Style="margin: 0;">
+                <RadzenStack Gap="0.25rem">
+                    <RadzenText Text="Original Request" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@Plan.OriginalRequest" TextStyle="TextStyle.Body2" />
+                    <RadzenText Text="@($"Created at UTC: {Plan.CreatedAtUtc:O}")" TextStyle="TextStyle.Caption" />
+                    <RadzenBadge Text="@($"{Plan.Slices.Count} slices")" BadgeStyle="BadgeStyle.Info" />
+                </RadzenStack>
+            </RadzenCard>
+
+            @foreach (var slice in Plan.Slices)
+            {
+                <RadzenCard Style="margin: 0;">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenText Text="@slice.Title" TextStyle="TextStyle.Body1" />
+                            <RadzenBadge Text="@slice.AllowedChangeType.ToString()" BadgeStyle="BadgeStyle.Secondary" />
+                        </RadzenStack>
+
+                        <RadzenText Text="@slice.Goal" TextStyle="TextStyle.Body2" />
+
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenText Text="Target Files" TextStyle="TextStyle.Caption" />
+                            @if (slice.TargetFiles.Count == 0)
+                            {
+                                <RadzenText Text="None" TextStyle="TextStyle.Body2" />
+                            }
+                            else
+                            {
+                                @foreach (var targetFile in slice.TargetFiles)
+                                {
+                                    <RadzenText Text="@targetFile" TextStyle="TextStyle.Body2" />
+                                }
+                            }
+                        </RadzenStack>
+
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenText Text="Verification Commands" TextStyle="TextStyle.Caption" />
+                            @if (slice.VerificationCommands.Count == 0)
+                            {
+                                <RadzenText Text="None" TextStyle="TextStyle.Body2" />
+                            }
+                            else
+                            {
+                                @foreach (var command in slice.VerificationCommands)
+                                {
+                                    <RadzenText Text="@command" TextStyle="TextStyle.Body2" />
+                                }
+                            }
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public TaskPlan? Plan { get; set; }
+}

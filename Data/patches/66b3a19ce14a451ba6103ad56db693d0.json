@@ -1,0 +1,134 @@
+{
+  "id": "66b3a19ce14a451ba6103ad56db693d0",
+  "createdAt": "2026-06-14T15:30:38.6941431+00:00",
+  "updatedAt": "2026-06-14T15:31:10.5492387+00:00",
+  "backupFolder": "",
+  "appliedAt": null,
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Register TaskDecompositionService in dependency injection.\n\nModify only:\n- Program.cs\n\nAdd:\nbuilder.Services.AddScoped\u003CTaskDecompositionService\u003E();\n\nDo not modify unrelated service registrations.\nDo not change middleware.\nDo not change authentication.\nGenerate patch preview only.\nDo not apply changes.",
+  "model": "qwen2.5-coder:7b",
+  "patchText": "diff --git a/Program.cs b/Program.cs\nindex d129991..3b4f397 100644\n--- a/Program.cs\n\u002B\u002B\u002B b/Program.cs\n@@ -11,6 \u002B11,7 @@ using Radzen;\n var builder = WebApplication.CreateBuilder(args);\n \n // Add services to the container.\n\u002Bbuilder.Services.AddScoped\u003CTaskDecompositionService\u003E();\n builder.Services.AddRazorComponents()\n     .AddInteractiveServerComponents();",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [],
+  "contextFilePaths": [
+    "Program.cs"
+  ],
+  "intent": {
+    "goal": "Register TaskDecompositionService in dependency injection",
+    "allowedFiles": [
+      "Program.cs"
+    ],
+    "allowedPaths": [
+      "Program.cs"
+    ],
+    "targetCreatedFiles": [],
+    "allowedCreateFolders": [],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet build"
+  },
+  "intentValidation": {
+    "status": "doesNotMatch",
+    "detectedChangeType": "Update",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Program.cs"
+    ],
+    "modifiedFiles": [
+      "Program.cs"
+    ],
+    "contextFiles": [
+      "Program.cs"
+    ],
+    "protectedFiles": [
+      "Program.cs"
+    ],
+    "fileEvaluations": [
+      {
+        "relativePath": "Program.cs",
+        "inContext": true,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": true,
+        "protected": true
+      }
+    ],
+    "reasons": [
+      "Patch touches protected files: Program.cs."
+    ],
+    "isBlocking": true
+  },
+  "status": "reviewed",
+  "statusMessage": "Approval gates failed with 1 blocking issue(s).",
+  "approvalGateResults": [
+    {
+      "gateKey": "patch-intent-mismatch",
+      "message": "Patch touches protected files: Program.cs.",
+      "filePath": "",
+      "passed": false,
+      "blocking": true,
+      "warning": false
+    },
+    {
+      "gateKey": "patch-has-files",
+      "message": "Patch contains 1 file change(s).",
+      "filePath": "",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "file-path-not-empty",
+      "message": "File path provided: Program.cs.",
+      "filePath": "Program.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "target-file-inside-project-root",
+      "message": "Program.cs resolves to /opt/ai-box/dev/projects/AiBox.DevPortal/Program.cs.",
+      "filePath": "Program.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "restricted-path",
+      "message": "Program.cs is not inside a restricted folder.",
+      "filePath": "Program.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "original-content-match",
+      "message": "Program.cs matches the current file content.",
+      "filePath": "Program.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    }
+  ],
+  "approvalGatesPassed": false,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Program.cs",
+      "oldContent": "using AiBox.DevPortal.Api;\nusing AiBox.DevPortal.Components;\nusing AiBox.DevPortal.Services;\nusing AiBox.DevPortal.Services.Agents;\nusing AiBox.DevPortal.Services.Browser;\nusing AiBox.DevPortal.Services.Repositories;\nusing Microsoft.AspNetCore.DataProtection;\nusing Microsoft.AspNetCore.Http.Features;\nusing Radzen;\n\nvar builder = WebApplication.CreateBuilder(args);\n\n// Add services to the container.\nbuilder.Services.AddRazorComponents()\n    .AddInteractiveServerComponents();\n\nbuilder.Services.AddDataProtection()\n    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, \u0022Data\u0022, \u0022DataProtection-Keys\u0022)))\n    .SetApplicationName(\u0022AiBox.DevPortal\u0022);\n\nbuilder.Services.Configure\u003CFormOptions\u003E(options =\u003E\n{\n    options.MultipartBodyLengthLimit = 100 * 1024 * 1024;\n});\nbuilder.WebHost.ConfigureKestrel(options =\u003E\n{\n    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;\n});\n\nbuilder.Services.AddRadzenComponents();\nbuilder.Services.AddScoped\u003CIClipboardService, ClipboardService\u003E();\nbuilder.Services.AddScoped\u003CIAgentRegistryService, AgentRegistryService\u003E();\nbuilder.Services.AddScoped\u003CIAgentModeProfileService, AgentModeProfileService\u003E();\nbuilder.Services.AddScoped\u003CIAgentRunHistoryService, AgentRunHistoryService\u003E();\nbuilder.Services.AddScoped\u003CIAgentModeRunner, AgentModeRunner\u003E();\nbuilder.Services.AddScoped\u003CAgentInstructionService\u003E();\nbuilder.Services.AddScoped\u003CPlannerContextSelectionService\u003E();\nbuilder.Services.AddScoped\u003CPatchVerificationService\u003E();\nbuilder.Services.AddScoped\u003CSelectedContextValidator\u003E();\nbuilder.Services.AddScoped\u003CPatchPreviewRepairService\u003E();\nbuilder.Services.AddScoped\u003CIPatchApprovalGateService, PatchApprovalGateService\u003E();\nbuilder.Services.AddScoped\u003CIPatchEditOperationService, PatchEditOperationService\u003E();\nbuilder.Services.AddScoped\u003CIPatchPackageService, PatchPackageService\u003E();\nbuilder.Services.AddScoped\u003CIPatchApplyService, PatchApplyService\u003E();\nbuilder.Services.AddScoped\u003CIPatchRollbackService, PatchRollbackService\u003E();\nbuilder.Services.AddScoped\u003CICoderConsoleService, CoderConsoleService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderContextService, LocalCoderContextService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderVerificationProfileService, LocalCoderVerificationProfileService\u003E();\nbuilder.Services.AddScoped\u003CAiBox.DevPortal.Services.ILocalCoderHistoryService, AiBox.DevPortal.Services.LocalCoderHistoryService\u003E();\nbuilder.Services.AddScoped\u003CAiBox.DevPortal.Services.Agents.ILocalCoderHistoryService, AiBox.DevPortal.Services.Agents.LocalCoderHistoryService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderMarkdownService, LocalCoderMarkdownService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderPatchService, LocalCoderPatchService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderBuildService, LocalCoderBuildService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderReviewService, LocalCoderReviewService\u003E();\nbuilder.Services.AddScoped\u003CIRepositoryScannerService, RepositoryScannerService\u003E();\nbuilder.Services.AddScoped\u003CIRepositoryFileContextService, RepositoryFileContextService\u003E();\nbuilder.Services.AddScoped\u003CIExecutionPermissionProfileService, ExecutionPermissionProfileService\u003E();\nbuilder.Services.AddScoped\u003CIExecutionEngineService, ExecutionEngineService\u003E();\nbuilder.Services.AddScoped\u003CIFileOperationService, FileOperationService\u003E();\nbuilder.Services.AddScoped\u003CIFileSearchService, FileSearchService\u003E();\nbuilder.Services.AddScoped\u003CIGitOperationService, GitOperationService\u003E();\nbuilder.Services.AddScoped\u003CIDockerOperationService, DockerOperationService\u003E();\nbuilder.Services.AddScoped\u003CIComfyUiOperationService, ComfyUiOperationService\u003E();\nbuilder.Services.AddScoped\u003CIVerificationService, VerificationService\u003E();\nbuilder.Services.AddScoped\u003CIOrchestrationDashboardService, OrchestrationDashboardService\u003E();\nbuilder.Services.AddScoped\u003CIProjectRegistryService, ProjectRegistryService\u003E();\nbuilder.Services.AddScoped\u003CIProjectKnowledgeIndexService, ProjectKnowledgeIndexService\u003E();\nbuilder.Services.AddScoped\u003CIWorkflowRegistryService, WorkflowRegistryService\u003E();\nbuilder.Services.AddScoped\u003CIWorkflowTemplateService, WorkflowTemplateService\u003E();\nbuilder.Services.AddScoped\u003CIWorkflowRunPreviewService, WorkflowRunPreviewService\u003E();\nbuilder.Services.AddScoped\u003CIWorkflowRunHistoryService, WorkflowRunHistoryService\u003E();\nbuilder.Services.AddScoped\u003CIDockerService, DockerService\u003E();\nbuilder.Services.AddScoped\u003CIGeneratedImageHistoryService, GeneratedImageHistoryService\u003E();\nbuilder.Services.AddScoped\u003CIImageToolService, ImageToolService\u003E();\nbuilder.Services.AddHttpClient\u003CIToolStatusService, ToolStatusService\u003E(client =\u003E\n{\n    client.Timeout = TimeSpan.FromSeconds(2);\n});\nbuilder.Services.AddHttpClient\u003CIComfyUiService, ComfyUiService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetComfyBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003CISdxlTextToImageService, SdxlTextToImageService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetComfyBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003CIOllamaService, OllamaService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003CILocalLlmService, OllamaLocalLlmService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003CIPromptEnhancerService, PromptEnhancerService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003C\n    ICoderConsoleService,\n    CoderConsoleService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration[\u0022AiBox:OllamaUrl\u0022] ?? \u0022http://localhost:11434\u0022);\n    client.Timeout = TimeSpan.FromMinutes(10);\n});\nbuilder.Services.AddScoped\u003CILocalCoderService, LocalCoderService\u003E();\nvar app = builder.Build();\n\n// Configure the HTTP request pipeline.\nif (!app.Environment.IsDevelopment())\n{\n    app.UseExceptionHandler(\u0022/Error\u0022, createScopeForErrors: true);\n    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.\n    app.UseHsts();\n}\n\nif (!app.Environment.IsDevelopment())\n{\n    app.UseHttpsRedirection();\n}\n\n\napp.UseAntiforgery();\n\napp.MapStaticAssets();\napp.MapAgentEndpoints();\napp.MapExecutionPermissionProfileEndpoints();\napp.MapExecutionEndpoints();\napp.MapFileEndpoints();\napp.MapGitEndpoints();\napp.MapDockerOperationEndpoints();\napp.MapComfyUiOperationEndpoints();\napp.MapOrchestrationEndpoints();\napp.MapProjectEndpoints();\napp.MapWorkflowEndpoints();\napp.MapWorkflowTemplateEndpoints();\napp.MapWorkflowRunEndpoints();\napp.MapImageToolEndpoints();\napp.MapRazorComponents\u003CApp\u003E()\n    .AddInteractiveServerRenderMode();\n\napp.Run();\n",
+      "newContent": "using AiBox.DevPortal.Api;\nusing AiBox.DevPortal.Components;\nusing AiBox.DevPortal.Services;\nusing AiBox.DevPortal.Services.Agents;\nusing AiBox.DevPortal.Services.Browser;\nusing AiBox.DevPortal.Services.Repositories;\nusing Microsoft.AspNetCore.DataProtection;\nusing Microsoft.AspNetCore.Http.Features;\nusing Radzen;\n\nvar builder = WebApplication.CreateBuilder(args);\n\n// Add services to the container.\nbuilder.Services.AddScoped\u003CTaskDecompositionService\u003E();\nbuilder.Services.AddRazorComponents()\n    .AddInteractiveServerComponents();\n\nbuilder.Services.AddDataProtection()\n    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, \u0022Data\u0022, \u0022DataProtection-Keys\u0022)))\n    .SetApplicationName(\u0022AiBox.DevPortal\u0022);\n\nbuilder.Services.Configure\u003CFormOptions\u003E(options =\u003E\n{\n    options.MultipartBodyLengthLimit = 100 * 1024 * 1024;\n});\nbuilder.WebHost.ConfigureKestrel(options =\u003E\n{\n    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;\n});\n\nbuilder.Services.AddRadzenComponents();\nbuilder.Services.AddScoped\u003CIClipboardService, ClipboardService\u003E();\nbuilder.Services.AddScoped\u003CIAgentRegistryService, AgentRegistryService\u003E();\nbuilder.Services.AddScoped\u003CIAgentModeProfileService, AgentModeProfileService\u003E();\nbuilder.Services.AddScoped\u003CIAgentRunHistoryService, AgentRunHistoryService\u003E();\nbuilder.Services.AddScoped\u003CIAgentModeRunner, AgentModeRunner\u003E();\nbuilder.Services.AddScoped\u003CAgentInstructionService\u003E();\nbuilder.Services.AddScoped\u003CPlannerContextSelectionService\u003E();\nbuilder.Services.AddScoped\u003CPatchVerificationService\u003E();\nbuilder.Services.AddScoped\u003CSelectedContextValidator\u003E();\nbuilder.Services.AddScoped\u003CPatchPreviewRepairService\u003E();\nbuilder.Services.AddScoped\u003CIPatchApprovalGateService, PatchApprovalGateService\u003E();\nbuilder.Services.AddScoped\u003CIPatchEditOperationService, PatchEditOperationService\u003E();\nbuilder.Services.AddScoped\u003CIPatchPackageService, PatchPackageService\u003E();\nbuilder.Services.AddScoped\u003CIPatchApplyService, PatchApplyService\u003E();\nbuilder.Services.AddScoped\u003CIPatchRollbackService, PatchRollbackService\u003E();\nbuilder.Services.AddScoped\u003CICoderConsoleService, CoderConsoleService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderContextService, LocalCoderContextService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderVerificationProfileService, LocalCoderVerificationProfileService\u003E();\nbuilder.Services.AddScoped\u003CAiBox.DevPortal.Services.ILocalCoderHistoryService, AiBox.DevPortal.Services.LocalCoderHistoryService\u003E();\nbuilder.Services.AddScoped\u003CAiBox.DevPortal.Services.Agents.ILocalCoderHistoryService, AiBox.DevPortal.Services.Agents.LocalCoderHistoryService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderMarkdownService, LocalCoderMarkdownService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderPatchService, LocalCoderPatchService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderBuildService, LocalCoderBuildService\u003E();\nbuilder.Services.AddScoped\u003CILocalCoderReviewService, LocalCoderReviewService\u003E();\nbuilder.Services.AddScoped\u003CIRepositoryScannerService, RepositoryScannerService\u003E();\nbuilder.Services.AddScoped\u003CIRepositoryFileContextService, RepositoryFileContextService\u003E();\nbuilder.Services.AddScoped\u003CIExecutionPermissionProfileService, ExecutionPermissionProfileService\u003E();\nbuilder.Services.AddScoped\u003CIExecutionEngineService, ExecutionEngineService\u003E();\nbuilder.Services.AddScoped\u003CIFileOperationService, FileOperationService\u003E();\nbuilder.Services.AddScoped\u003CIFileSearchService, FileSearchService\u003E();\nbuilder.Services.AddScoped\u003CIGitOperationService, GitOperationService\u003E();\nbuilder.Services.AddScoped\u003CIDockerOperationService, DockerOperationService\u003E();\nbuilder.Services.AddScoped\u003CIComfyUiOperationService, ComfyUiOperationService\u003E();\nbuilder.Services.AddScoped\u003CIVerificationService, VerificationService\u003E();\nbuilder.Services.AddScoped\u003CIOrchestrationDashboardService, OrchestrationDashboardService\u003E();\nbuilder.Services.AddScoped\u003CIProjectRegistryService, ProjectRegistryService\u003E();\nbuilder.Services.AddScoped\u003CIProjectKnowledgeIndexService, ProjectKnowledgeIndexService\u003E();\nbuilder.Services.AddScoped\u003CIWorkflowRegistryService, WorkflowRegistryService\u003E();\nbuilder.Services.AddScoped\u003CIWorkflowTemplateService, WorkflowTemplateService\u003E();\nbuilder.Services.AddScoped\u003CIWorkflowRunPreviewService, WorkflowRunPreviewService\u003E();\nbuilder.Services.AddScoped\u003CIWorkflowRunHistoryService, WorkflowRunHistoryService\u003E();\nbuilder.Services.AddScoped\u003CIDockerService, DockerService\u003E();\nbuilder.Services.AddScoped\u003CIGeneratedImageHistoryService, GeneratedImageHistoryService\u003E();\nbuilder.Services.AddScoped\u003CIImageToolService, ImageToolService\u003E();\nbuilder.Services.AddHttpClient\u003CIToolStatusService, ToolStatusService\u003E(client =\u003E\n{\n    client.Timeout = TimeSpan.FromSeconds(2);\n});\nbuilder.Services.AddHttpClient\u003CIComfyUiService, ComfyUiService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetComfyBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003CISdxlTextToImageService, SdxlTextToImageService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetComfyBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003CIOllamaService, OllamaService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003CILocalLlmService, OllamaLocalLlmService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003CIPromptEnhancerService, PromptEnhancerService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration.GetOllamaBaseUrl());\n});\nbuilder.Services.AddHttpClient\u003C\n    ICoderConsoleService,\n    CoderConsoleService\u003E((serviceProvider, client) =\u003E\n{\n    var configuration = serviceProvider.GetRequiredService\u003CIConfiguration\u003E();\n    client.BaseAddress = new Uri(configuration[\u0022AiBox:OllamaUrl\u0022] ?? \u0022http://localhost:11434\u0022);\n    client.Timeout = TimeSpan.FromMinutes(10);\n});\nbuilder.Services.AddScoped\u003CILocalCoderService, LocalCoderService\u003E();\nvar app = builder.Build();\n\n// Configure the HTTP request pipeline.\nif (!app.Environment.IsDevelopment())\n{\n    app.UseExceptionHandler(\u0022/Error\u0022, createScopeForErrors: true);\n    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.\n    app.UseHsts();\n}\n\nif (!app.Environment.IsDevelopment())\n{\n    app.UseHttpsRedirection();\n}\n\n\napp.UseAntiforgery();\n\napp.MapStaticAssets();\napp.MapAgentEndpoints();\napp.MapExecutionPermissionProfileEndpoints();\napp.MapExecutionEndpoints();\napp.MapFileEndpoints();\napp.MapGitEndpoints();\napp.MapDockerOperationEndpoints();\napp.MapComfyUiOperationEndpoints();\napp.MapOrchestrationEndpoints();\napp.MapProjectEndpoints();\napp.MapWorkflowEndpoints();\napp.MapWorkflowTemplateEndpoints();\napp.MapWorkflowRunEndpoints();\napp.MapImageToolEndpoints();\napp.MapRazorComponents\u003CApp\u003E()\n    .AddInteractiveServerRenderMode();\n\napp.Run();\n"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Program.cs",
+      "operation": "insert_after",
+      "anchor": "// Add services to the container.",
+      "oldText": "",
+      "newText": "\nbuilder.Services.AddScoped<TaskDecompositionService>();",
+      "summary": "Insert TaskDecompositionService registration after service addition comment"
+    }
+  ]
+}
+```
