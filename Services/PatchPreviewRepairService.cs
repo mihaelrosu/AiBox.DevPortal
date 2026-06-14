@@ -208,6 +208,7 @@ public sealed class PatchPreviewRepairService(
         - Do not invent new changes.
         - Do not invent new files, operations, or targets.
         - Only fix JSON shape, operation names, missing required fields, or anchors using existing context.
+        - XML documentation comments must end with a newline before the member declaration.
         - Return corrected JSON only.
 
         Allowed files:

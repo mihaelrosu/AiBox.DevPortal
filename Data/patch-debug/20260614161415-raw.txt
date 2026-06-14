@@ -1,0 +1,83 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "public sealed class AgentInstructionService(IWebHostEnvironment environment)",
+      "newText": "\n/// <summary>\n/// Manages agent instructions and builds context based on file paths.\n/// </summary>",
+      "summary": "Add XML documentation for the class"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "public async Task<AgentInstructionContext> BuildContextAsync(IEnumerable<string> filePaths)",
+      "newText": "\n/// <summary>\n/// Builds context for agent instructions asynchronously.\n/// </summary>\n/// <param name=\"filePaths\">List of file paths to include in the context.</param>\n/// <returns>A task that represents the asynchronous operation, containing an AgentInstructionContext.</returns>",
+      "summary": "Add XML documentation for the BuildContextAsync method"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "public async Task<AgentInstructionContext> BuildContextAsync(string projectRoot, IEnumerable<string> filePaths)",
+      "newText": "\n/// <summary>\n/// Builds context for agent instructions asynchronously with a specified project root.\n/// </summary>\n/// <param name=\"projectRoot\">Project root directory.</param>\n/// <param name=\"filePaths\">List of file paths to include in the context.</param>\n/// <returns>A task that represents the asynchronous operation, containing an AgentInstructionContext.</returns>",
+      "summary": "Add XML documentation for the BuildContextAsync method with project root"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "public Task<List<string>> FindRelevantAgentFilesAsync(IEnumerable<string> filePaths)",
+      "newText": "\n/// <summary>\n/// Finds relevant agent files based on the provided file paths.\n/// </summary>\n/// <param name=\"filePaths\">List of file paths to consider.</param>\n/// <returns>A task that represents the asynchronous operation, containing a list of relevant agent file paths.</returns>",
+      "summary": "Add XML documentation for the FindRelevantAgentFilesAsync method"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "public Task<List<string>> FindRelevantAgentFilesAsync(string projectRoot, IEnumerable<string> filePaths)",
+      "newText": "\n/// <summary>\n/// Finds relevant agent files based on the provided file paths and project root.\n/// </summary>\n/// <param name=\"projectRoot\">Project root directory.</param>\n/// <param name=\"filePaths\">List of file paths to consider.</param>\n/// <returns>A task that represents the asynchronous operation, containing a list of relevant agent file paths.</returns>",
+      "summary": "Add XML documentation for the FindRelevantAgentFilesAsync method with project root"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "private string GetRootPath()",
+      "newText": "\n/// <summary>\n/// Retrieves the application content root path.\n/// </summary>\n/// <returns>The full path of the application content root.</returns>",
+      "summary": "Add XML documentation for the GetRootPath method"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "private static string GetRootPath(string? rootPath)",
+      "newText": "\n/// <summary>\n/// Retrieves the absolute path of the specified root path.\n/// </summary>\n/// <param name=\"rootPath\">The project root directory.</param>\n/// <returns>The full path of the specified root path.</returns>",
+      "summary": "Add XML documentation for the GetRootPath method with project root"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "private static string NormalizeRelativePath(string rootPath, string filePath)",
+      "newText": "\n/// <summary>\n/// Normalizes the relative path to ensure it is within the project root.\n/// </summary>\n/// <param name=\"rootPath\">The project root directory.</param>\n/// <param name=\"filePath\">The file path to normalize.</param>\n/// <returns>The normalized relative path.</returns>",
+      "summary": "Add XML documentation for the NormalizeRelativePath method"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "private static IEnumerable<string> EnumerateAgentFileCandidates(string relativeFilePath)",
+      "newText": "\n/// <summary>\n/// Enumerates agent file candidates based on the provided relative file path.\n/// </summary>\n/// <param name=\"relativeFilePath\">The relative file path.</param>\n/// <returns>An enumerable list of candidate agent file paths.</returns>",
+      "summary": "Add XML documentation for the EnumerateAgentFileCandidates method"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "private static int GetPathDepth(string path)",
+      "newText": "\n/// <summary>\n/// Retrieves the depth of a path by counting the segments.\n/// </summary>\n/// <param name=\"path\">The path to analyze.</param>\n/// <returns>The depth of the path.</returns>",
+      "summary": "Add XML documentation for the GetPathDepth method"
+    },
+    {
+      "filePath": "Services/AgentInstructionService.cs",
+      "operation": "insert_before",
+      "anchor": "private static string BuildCombinedText(IReadOnlyList<AgentInstructionFile> files)",
+      "newText": "\n/// <summary>\n/// Builds a combined text representation of agent instruction files.\n/// </summary>\n/// <param name=\"files\">List of agent instruction files.</param>\n/// <returns>The combined text representation.</returns>",
+      "summary": "Add XML documentation for the BuildCombinedText method"
+    }
+  ]
+}
+```

@@ -459,6 +459,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(runHistoryService);
         Services.AddSingleton(projectKnowledgeIndexService);
         Services.AddSingleton(new PlannerContextSelectionService());
+        Services.AddSingleton(new TaskDecompositionService());
         Services.AddSingleton(patchPackageService);
         Services.AddSingleton(Substitute.For<IPatchApplyService>());
         Services.AddSingleton(Substitute.For<IPatchRollbackService>());

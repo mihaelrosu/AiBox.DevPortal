@@ -58,6 +58,13 @@
                         </ContextContent>
                     </CoderPromptPanel>
                 </CoderProjectSelector>
+
+                <RadzenStack Gap="0.5rem">
+                    <RadzenButton Text="Decompose Task" Icon="call_split" ButtonStyle="ButtonStyle.Light"
+                                  Click="@DecomposeTask"
+                                  Disabled="@string.IsNullOrWhiteSpace(request.Task)" />
+                    <TaskPlanPreviewPanel Plan="@taskPlanPreview" />
+                </RadzenStack>
             </RadzenStack>
         </RadzenTabsItem>
 
@@ -291,6 +298,7 @@
     [Inject] private ILocalCoderVerificationProfileService LocalCoderVerificationProfileService { get; set; } = default!;
     [Inject] private IProjectKnowledgeIndexService ProjectKnowledgeIndexService { get; set; } = default!;
     [Inject] private PlannerContextSelectionService PlannerContextSelectionService { get; set; } = default!;
+    [Inject] private TaskDecompositionService TaskDecompositionService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
@@ -319,6 +327,7 @@
     private readonly HashSet<string> confirmedGeneratedFilePaths = new(StringComparer.OrdinalIgnoreCase);
     private int contextLoadVersion;
     private readonly List<LocalCoderPlanTask> planTasks = [];
+    private TaskPlan? taskPlanPreview;
 
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
     private LocalCoderPatchPreview? patchPreview;
@@ -615,6 +624,11 @@
         applyResult = null;
         rollbackResult = null;
         ClearPatchDebug();
+    }
+
+    private void DecomposeTask()
+    {
+        taskPlanPreview = TaskDecompositionService.BuildPlan(request.Task);
     }
 
     #endregion

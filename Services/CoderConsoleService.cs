@@ -1291,6 +1291,12 @@ public sealed class CoderConsoleService(
         If XML documentation already exists, use replace with exact oldText.
         If XML documentation does not exist, use insert_before with the exact class or member declaration as anchor.
         Use exact text replacement for existing documentation comments and exact declaration anchors for new documentation.
+        XML documentation comments must end with a newline before the member declaration.
+        Example:
+        /// <summary>
+        /// Describes the member.
+        /// </summary>
+        public void ExistingMember()
         """
             : string.Empty;
         var repairInstructions = repairContext is null

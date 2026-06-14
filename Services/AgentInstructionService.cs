@@ -3,13 +3,27 @@ using AiBox.DevPortal.Models;
 
 namespace AiBox.DevPortal.Services;
 
+/// <summary>
+/// Manages agent instructions and builds context based on file paths.
+/// </summary>
 public sealed class AgentInstructionService(IWebHostEnvironment environment)
 {
+    /// <summary>
+    /// Builds context for agent instructions asynchronously.
+    /// </summary>
+    /// <param name="filePaths">List of file paths to include in the context.</param>
+    /// <returns>A task that represents the asynchronous operation, containing an AgentInstructionContext.</returns>
     public async Task<AgentInstructionContext> BuildContextAsync(IEnumerable<string> filePaths)
     {
         return await BuildContextAsync(GetRootPath(), filePaths);
     }
 
+    /// <summary>
+    /// Builds context for agent instructions asynchronously with a specified project root.
+    /// </summary>
+    /// <param name="projectRoot">Project root directory.</param>
+    /// <param name="filePaths">List of file paths to include in the context.</param>
+    /// <returns>A task that represents the asynchronous operation, containing an AgentInstructionContext.</returns>
     public async Task<AgentInstructionContext> BuildContextAsync(string projectRoot, IEnumerable<string> filePaths)
     {
         var rootPath = GetRootPath(projectRoot);
@@ -36,11 +50,22 @@ public sealed class AgentInstructionService(IWebHostEnvironment environment)
         };
     }
 
+    /// <summary>
+    /// Finds relevant agent files based on the provided file paths.
+    /// </summary>
+    /// <param name="filePaths">List of file paths to consider.</param>
+    /// <returns>A task that represents the asynchronous operation, containing a list of relevant agent file paths.</returns>
     public Task<List<string>> FindRelevantAgentFilesAsync(IEnumerable<string> filePaths)
     {
         return FindRelevantAgentFilesAsync(GetRootPath(), filePaths);
     }
 
+    /// <summary>
+    /// Finds relevant agent files based on the provided file paths and project root.
+    /// </summary>
+    /// <param name="projectRoot">Project root directory.</param>
+    /// <param name="filePaths">List of file paths to consider.</param>
+    /// <returns>A task that represents the asynchronous operation, containing a list of relevant agent file paths.</returns>
     public Task<List<string>> FindRelevantAgentFilesAsync(string projectRoot, IEnumerable<string> filePaths)
     {
         ArgumentNullException.ThrowIfNull(filePaths);
@@ -70,11 +95,20 @@ public sealed class AgentInstructionService(IWebHostEnvironment environment)
         return Task.FromResult(ordered);
     }
 
+    /// <summary>
+    /// Retrieves the application content root path.
+    /// </summary>
+    /// <returns>The full path of the application content root.</returns>
     private string GetRootPath()
     {
         return GetRootPath(environment.ContentRootPath);
     }
 
+    /// <summary>
+    /// Retrieves the absolute path of the specified root path.
+    /// </summary>
+    /// <param name="rootPath">The project root directory.</param>
+    /// <returns>The full path of the specified root path.</returns>
     private static string GetRootPath(string? rootPath)
     {
         if (string.IsNullOrWhiteSpace(rootPath))
@@ -85,6 +119,12 @@ public sealed class AgentInstructionService(IWebHostEnvironment environment)
         return Path.GetFullPath(rootPath);
     }
 
+    /// <summary>
+    /// Normalizes the relative path to ensure it is within the project root.
+    /// </summary>
+    /// <param name="rootPath">The project root directory.</param>
+    /// <param name="filePath">The file path to normalize.</param>
+    /// <returns>The normalized relative path.</returns>
     private static string NormalizeRelativePath(string rootPath, string filePath)
     {
         var trimmedPath = filePath.Trim();
@@ -99,6 +139,11 @@ public sealed class AgentInstructionService(IWebHostEnvironment environment)
         return Path.GetRelativePath(rootPath, fullPath).Replace(Path.DirectorySeparatorChar, '/');
     }
 
+    /// <summary>
+    /// Enumerates agent file candidates based on the provided relative file path.
+    /// </summary>
+    /// <param name="relativeFilePath">The relative file path.</param>
+    /// <returns>An enumerable list of candidate agent file paths.</returns>
     private static IEnumerable<string> EnumerateAgentFileCandidates(string relativeFilePath)
     {
         yield return "AGENTS.md";
@@ -119,6 +164,11 @@ public sealed class AgentInstructionService(IWebHostEnvironment environment)
         }
     }
 
+    /// <summary>
+    /// Retrieves the depth of a path by counting the segments.
+    /// </summary>
+    /// <param name="path">The path to analyze.</param>
+    /// <returns>The depth of the path.</returns>
     private static int GetPathDepth(string path)
     {
         return path.Equals("AGENTS.md", StringComparison.OrdinalIgnoreCase)
@@ -126,6 +176,11 @@ public sealed class AgentInstructionService(IWebHostEnvironment environment)
             : path.Count(character => character == '/');
     }
 
+    /// <summary>
+    /// Builds a combined text representation of agent instruction files.
+    /// </summary>
+    /// <param name="files">List of agent instruction files.</param>
+    /// <returns>The combined text representation.</returns>
     private static string BuildCombinedText(IReadOnlyList<AgentInstructionFile> files)
     {
         if (files.Count == 0)
