@@ -4,17 +4,35 @@ using AiBox.DevPortal.Models.Agents;
 
 namespace AiBox.DevPortal.Services.Agents;
 
+
+/// <summary>
+/// Manages agent mode profiles.
+/// </summary>
 public sealed class AgentModeProfileService(IWebHostEnvironment environment) : IAgentModeProfileService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    
+    /// <summary>
+    /// JSON serialization options.
+    /// </summary>
+private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    private static readonly SemaphoreSlim FileLock = new(1, 1);
+    
+    /// <summary>
+    /// Semaphore to lock file operations.
+    /// </summary>
+private static readonly SemaphoreSlim FileLock = new(1, 1);
 
-    public async Task<IReadOnlyList<AgentModeProfile>> GetAllAsync(CancellationToken cancellationToken = default)
+    
+    /// <summary>
+    /// Gets all agent mode profiles.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation and returns a list of agent mode profiles.</returns>
+public async Task<IReadOnlyList<AgentModeProfile>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         await FileLock.WaitAsync(cancellationToken);
 
@@ -31,7 +49,14 @@ public sealed class AgentModeProfileService(IWebHostEnvironment environment) : I
         }
     }
 
-    public async Task<AgentModeProfile?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+    
+    /// <summary>
+    /// Gets an agent mode profile by ID.
+    /// </summary>
+    /// <param name="id">The ID of the agent mode profile.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation and returns an agent mode profile or null if not found.</returns>
+public async Task<AgentModeProfile?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         await FileLock.WaitAsync(cancellationToken);
 
@@ -47,7 +72,14 @@ public sealed class AgentModeProfileService(IWebHostEnvironment environment) : I
         }
     }
 
-    public async Task<AgentModeProfile?> GetByModeAsync(AgentMode mode, CancellationToken cancellationToken = default)
+    
+    /// <summary>
+    /// Gets an agent mode profile by mode.
+    /// </summary>
+    /// <param name="mode">The mode of the agent mode profile.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation and returns an agent mode profile or null if not found.</returns>
+public async Task<AgentModeProfile?> GetByModeAsync(AgentMode mode, CancellationToken cancellationToken = default)
     {
         await FileLock.WaitAsync(cancellationToken);
 
@@ -63,7 +95,13 @@ public sealed class AgentModeProfileService(IWebHostEnvironment environment) : I
         }
     }
 
-    private async Task<List<AgentModeProfile>> LoadAsync(CancellationToken cancellationToken)
+    
+    /// <summary>
+    /// Loads agent mode profiles from storage.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation and returns a list of agent mode profiles.</returns>
+private async Task<List<AgentModeProfile>> LoadAsync(CancellationToken cancellationToken)
     {
         var path = GetRegistryPath();
 
@@ -78,7 +116,14 @@ public sealed class AgentModeProfileService(IWebHostEnvironment environment) : I
         return await JsonSerializer.DeserializeAsync<List<AgentModeProfile>>(stream, JsonOptions, cancellationToken) ?? [];
     }
 
-    private async Task SaveAsync(List<AgentModeProfile> profiles, CancellationToken cancellationToken)
+    
+    /// <summary>
+    /// Saves agent mode profiles to storage.
+    /// </summary>
+    /// <param name="profiles">The list of agent mode profiles.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+private async Task SaveAsync(List<AgentModeProfile> profiles, CancellationToken cancellationToken)
     {
         var path = GetRegistryPath();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -87,12 +132,22 @@ public sealed class AgentModeProfileService(IWebHostEnvironment environment) : I
         await JsonSerializer.SerializeAsync(stream, profiles, JsonOptions, cancellationToken);
     }
 
-    private string GetRegistryPath()
+    
+    /// <summary>
+    /// Gets the registry path for agent mode profiles.
+    /// </summary>
+    /// <returns>The registry path.</returns>
+private string GetRegistryPath()
     {
         return Path.Combine(environment.ContentRootPath, "Data", "agent-mode-profiles.json");
     }
 
-    private static List<AgentModeProfile> CreateDefaultProfiles()
+    
+    /// <summary>
+    /// Creates default agent mode profiles.
+    /// </summary>
+    /// <returns>The list of default agent mode profiles.</returns>
+private static List<AgentModeProfile> CreateDefaultProfiles()
     {
         return
         [
@@ -139,7 +194,13 @@ public sealed class AgentModeProfileService(IWebHostEnvironment environment) : I
         ];
     }
 
-    private static AgentModeProfile Clone(AgentModeProfile profile)
+    
+    /// <summary>
+    /// Clones an agent mode profile.
+    /// </summary>
+    /// <param name="profile">The agent mode profile to clone.</param>
+    /// <returns>A new instance of the cloned agent mode profile.</returns>
+private static AgentModeProfile Clone(AgentModeProfile profile)
     {
         return new AgentModeProfile
         {

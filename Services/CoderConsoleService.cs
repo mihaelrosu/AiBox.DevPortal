@@ -1290,6 +1290,12 @@ public sealed class CoderConsoleService(
         XML documentation mode is active.
         If XML documentation already exists, use replace with exact oldText.
         If XML documentation does not exist, use insert_before with the exact class or member declaration as anchor.
+        Document every class, public member, and private method in the selected file unless it already has XML documentation.
+        For each undocumented declaration, emit one insert_before operation.
+        Do not stop after documenting the first declaration.
+        Each insert_before anchor must be the exact declaration line from the selected context.
+        Each newText must end with a newline.
+        Do not include the declaration in newText. Only include the XML documentation comment.
         Use exact text replacement for existing documentation comments and exact declaration anchors for new documentation.
         XML documentation comments must end with a newline before the member declaration.
         Example:

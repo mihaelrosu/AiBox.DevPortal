@@ -2,10 +2,6 @@ using AiBox.DevPortal.Models.Agents;
 
 namespace AiBox.DevPortal.Services.Agents;
 
-
-/// <summary>
-/// Represents the action profiles for different agent operations.
-/// </summary>
 public static class AgentActionProfiles
 {
     public const string CreatePlanActionKey = "create-plan";

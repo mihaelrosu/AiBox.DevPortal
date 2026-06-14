@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AiBox.DevPortal.Models;
 
 namespace AiBox.DevPortal.Services;
@@ -9,6 +10,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     private readonly ILogger<PatchEditOperationService> logger = logger;
     private const int MaxRemovalCharacters = 10 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly Regex XmlDocumentationDeclarationRegex = new(
+        @"(</(?:summary|returns)>)[ \t]*(?=(?:public|private|internal|protected)\b)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly HashSet<string> AllowedOperations = new(StringComparer.OrdinalIgnoreCase)
     {
         "create",
@@ -268,7 +272,12 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return null;
         }
 
-        return currentContent[..match!.Index] + newText + currentContent[match.Index..];
+        var anchorMatch = match!;
+        var normalizedNewText = NormalizeXmlDocumentationFormatting(
+            newText,
+            GetIndentation(currentContent, anchorMatch.Index),
+            DetectLineEnding(currentContent));
+        return currentContent[..anchorMatch.Index] + normalizedNewText + currentContent[anchorMatch.Index..];
     }
 
     private string? InsertAfter(
@@ -298,7 +307,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return currentContent[..insertIndex] + directiveInsertion + currentContent[insertIndex..];
         }
 
-        return currentContent[..insertIndex] + newText + currentContent[insertIndex..];
+        var normalizedNewText = NormalizeXmlDocumentationFormatting(
+            newText,
+            GetIndentation(currentContent, match.Index),
+            DetectLineEnding(currentContent));
+        return currentContent[..insertIndex] + normalizedNewText + currentContent[insertIndex..];
     }
 
     private static bool TryBuildRazorDirectiveInsertion(
@@ -473,7 +486,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return null;
         }
 
-        return currentContent[..index] + newText + currentContent[(index + oldText.Length)..];
+        var normalizedNewText = NormalizeXmlDocumentationFormatting(
+            newText,
+            GetIndentation(currentContent, index),
+            DetectLineEnding(currentContent));
+        return currentContent[..index] + normalizedNewText + currentContent[(index + oldText.Length)..];
     }
 
     private string? RemoveText(
@@ -1012,6 +1029,117 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     private static bool ContainsAny(string value, params string[] needles)
     {
         return needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NormalizeXmlDocumentationFormatting(string? newText, string indentation, string lineEnding)
+    {
+        if (string.IsNullOrWhiteSpace(newText))
+        {
+            return newText ?? string.Empty;
+        }
+
+        if (!ContainsAny(
+                newText,
+                "///",
+                "</summary>",
+                "</returns>"))
+        {
+            return newText;
+        }
+
+        var normalized = XmlDocumentationDeclarationRegex.Replace(newText.ReplaceLineEndings("\n"), "$1\n");
+        var lines = normalized.Split('\n');
+        var normalizedLines = new List<string>(lines.Length + 1);
+        var firstContentIndex = -1;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(lines[i]))
+            {
+                firstContentIndex = i;
+                break;
+            }
+        }
+
+        if (firstContentIndex < 0)
+        {
+            return string.Empty;
+        }
+
+        if (firstContentIndex > 0)
+        {
+            normalizedLines.Add(string.Empty);
+        }
+
+        for (var i = firstContentIndex; i < lines.Length; i++)
+        {
+            var line = lines[i].TrimEnd('\r');
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                var nextNonEmptyIndex = FindNextNonEmptyLineIndex(lines, i + 1);
+                if (nextNonEmptyIndex >= 0 && IsDeclarationLine(lines[nextNonEmptyIndex]))
+                {
+                    continue;
+                }
+
+                normalizedLines.Add(string.Empty);
+                continue;
+            }
+
+            normalizedLines.Add(indentation + line.TrimStart());
+        }
+
+        while (normalizedLines.Count > 0 && string.IsNullOrWhiteSpace(normalizedLines[^1]))
+        {
+            normalizedLines.RemoveAt(normalizedLines.Count - 1);
+        }
+
+        if (normalizedLines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        return string.Join(lineEnding, normalizedLines) + lineEnding;
+    }
+
+    private static int FindNextNonEmptyLineIndex(string[] lines, int startIndex)
+    {
+        for (var index = startIndex; index < lines.Length; index++)
+        {
+            if (!string.IsNullOrWhiteSpace(lines[index]))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static string GetIndentation(string content, int index)
+    {
+        if (string.IsNullOrEmpty(content) || index < 0 || index > content.Length)
+        {
+            return string.Empty;
+        }
+
+        var lineStart = index == 0
+            ? 0
+            : Math.Max(content.LastIndexOf('\n', Math.Min(index - 1, content.Length - 1)), content.LastIndexOf('\r', Math.Min(index - 1, content.Length - 1)));
+        lineStart = lineStart < 0 ? 0 : lineStart + 1;
+
+        var indentEnd = lineStart;
+        while (indentEnd < content.Length)
+        {
+            var character = content[indentEnd];
+            if (character != ' ' && character != '\t')
+            {
+                break;
+            }
+
+            indentEnd++;
+        }
+
+        return content[lineStart..indentEnd];
     }
 
     private static void AddReplaceDiagnostics(

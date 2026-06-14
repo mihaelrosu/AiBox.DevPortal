@@ -491,6 +491,77 @@ public sealed class PatchEditOperationServiceTests
         }
     }
 
+    [Theory]
+    [InlineData("</summary>", "public static class GeneratedClass")]
+    [InlineData("</summary>", "   public static class GeneratedClass")]
+    [InlineData("</returns>", "public static string GetValue() => string.Empty;")]
+    [InlineData("</returns>", "   public static string GetValue() => string.Empty;")]
+    public async Task BuildAsync_XmlDocRequest_GluedDeclarationOnSameLine_IsNormalized(
+        string closingTag,
+        string declarationLine)
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-xml-doc-formatting-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/Existing.cs";
+        const string selectedContent = """
+        public sealed class Existing
+        {
+            public static string GetValue() => string.Empty;
+        }
+        """;
+        const string oldText = "    public static string GetValue() => string.Empty;";
+        var newText = string.Join(
+            Environment.NewLine,
+            string.Empty,
+            string.Empty,
+            "/// <summary>",
+            "/// Example documentation.",
+            $"/// {closingTag}{declarationLine}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    operations = new[]
+                    {
+                        new
+                        {
+                            filePath = selectedRelativePath,
+                            operation = "replace",
+                            anchor = string.Empty,
+                            oldText,
+                            newText
+                        }
+                    }
+                }));
+
+            var change = Assert.Single(result.FileChanges);
+            var expectedBlock = string.Join(
+                Environment.NewLine,
+                string.Empty,
+                "    /// <summary>",
+                "    /// Example documentation.",
+                $"    /// {closingTag}",
+                $"    {declarationLine.TrimStart()}") + Environment.NewLine;
+            Assert.Contains(expectedBlock, change.NewContent, StringComparison.Ordinal);
+            Assert.DoesNotContain($"{closingTag}{declarationLine}", change.NewContent, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
     [Fact]
     public async Task BuildAsync_CreateInRepresentedFolder_ProducesPatch()
     {

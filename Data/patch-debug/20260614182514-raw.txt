@@ -1,0 +1,83 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "public sealed class AgentModeProfileService(IWebHostEnvironment environment) : IAgentModeProfileService",
+      "newText": "\n/// <summary>\n/// Manages agent mode profiles.\n/// </summary>",
+      "summary": "Add XML documentation for the class"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)",
+      "newText": "\n/// <summary>\n/// JSON serialization options.\n/// </summary>",
+      "summary": "Add XML documentation for the field"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "private static readonly SemaphoreSlim FileLock = new(1, 1)",
+      "newText": "\n/// <summary>\n/// Semaphore to lock file operations.\n/// </summary>",
+      "summary": "Add XML documentation for the field"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "public async Task<IReadOnlyList<AgentModeProfile>> GetAllAsync(CancellationToken cancellationToken = default)",
+      "newText": "\n/// <summary>\n/// Gets all agent mode profiles.\n/// </summary>\n/// <param name=\"cancellationToken\">The cancellation token.</param>\n/// <returns>A task that represents the asynchronous operation and returns a list of agent mode profiles.</returns>",
+      "summary": "Add XML documentation for the method"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "public async Task<AgentModeProfile?> GetByIdAsync(string id, CancellationToken cancellationToken = default)",
+      "newText": "\n/// <summary>\n/// Gets an agent mode profile by ID.\n/// </summary>\n/// <param name=\"id\">The ID of the agent mode profile.</param>\n/// <param name=\"cancellationToken\">The cancellation token.</param>\n/// <returns>A task that represents the asynchronous operation and returns an agent mode profile or null if not found.</returns>",
+      "summary": "Add XML documentation for the method"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "public async Task<AgentModeProfile?> GetByModeAsync(AgentMode mode, CancellationToken cancellationToken = default)",
+      "newText": "\n/// <summary>\n/// Gets an agent mode profile by mode.\n/// </summary>\n/// <param name=\"mode\">The mode of the agent mode profile.</param>\n/// <param name=\"cancellationToken\">The cancellation token.</param>\n/// <returns>A task that represents the asynchronous operation and returns an agent mode profile or null if not found.</returns>",
+      "summary": "Add XML documentation for the method"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "private async Task<List<AgentModeProfile>> LoadAsync(CancellationToken cancellationToken)",
+      "newText": "\n/// <summary>\n/// Loads agent mode profiles from storage.\n/// </summary>\n/// <param name=\"cancellationToken\">The cancellation token.</param>\n/// <returns>A task that represents the asynchronous operation and returns a list of agent mode profiles.</returns>",
+      "summary": "Add XML documentation for the method"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "private async Task SaveAsync(List<AgentModeProfile> profiles, CancellationToken cancellationToken)",
+      "newText": "\n/// <summary>\n/// Saves agent mode profiles to storage.\n/// </summary>\n/// <param name=\"profiles\">The list of agent mode profiles.</param>\n/// <param name=\"cancellationToken\">The cancellation token.</param>\n/// <returns>A task that represents the asynchronous operation.</returns>",
+      "summary": "Add XML documentation for the method"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "private string GetRegistryPath()",
+      "newText": "\n/// <summary>\n/// Gets the registry path for agent mode profiles.\n/// </summary>\n/// <returns>The registry path.</returns>",
+      "summary": "Add XML documentation for the method"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "private static List<AgentModeProfile> CreateDefaultProfiles()",
+      "newText": "\n/// <summary>\n/// Creates default agent mode profiles.\n/// </summary>\n/// <returns>The list of default agent mode profiles.</returns>",
+      "summary": "Add XML documentation for the method"
+    },
+    {
+      "filePath": "Services/Agents/AgentModeProfileService.cs",
+      "operation": "insert_before",
+      "anchor": "private static AgentModeProfile Clone(AgentModeProfile profile)",
+      "newText": "\n/// <summary>\n/// Clones an agent mode profile.\n/// </summary>\n/// <param name=\"profile\">The agent mode profile to clone.</param>\n/// <returns>A new instance of the cloned agent mode profile.</returns>",
+      "summary": "Add XML documentation for the method"
+    }
+  ]
+}
+```

@@ -5,12 +5,20 @@ using ConsoleLocalCoderTask = AiBox.DevPortal.Models.LocalCoderTask;
 
 namespace AiBox.DevPortal.Services.Agents;
 
+
+/// <summary>
+/// Runs agent modes based on the provided profile and request.
+/// </summary>
 public sealed class AgentModeRunner(
     ICoderConsoleService coderConsoleService,
     IAgentRunHistoryService agentRunHistoryService,
     AgentInstructionService agentInstructionService) : IAgentModeRunner
 {
-    public async Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile profile)
+    
+    /// <summary>
+    /// Creates a plan for the given project based on the provided request and mode profile.
+    /// </summary>
+public async Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile profile)
     {
         EnsureMode(profile, AgentActionProfiles.ForCreatePlan(), "Create Plan");
         var routedRequest = WithProfileModel(request, profile);
@@ -48,7 +56,11 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile profile, PatchPreviewRepairContext? repairContext = null)
+    
+    /// <summary>
+    /// Generates a patch preview for the given project based on the provided request and mode profile.
+    /// </summary>
+public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile profile, PatchPreviewRepairContext? repairContext = null)
     {
         EnsureMode(profile, AgentActionProfiles.ForGeneratePatchPreview(), "Generate Patch Preview");
         var routedRequest = WithProfileModel(request, profile);
@@ -97,7 +109,11 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview, AgentModeProfile profile)
+    
+    /// <summary>
+    /// Applies the provided patch preview to the given project based on the provided mode profile.
+    /// </summary>
+public async Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview, AgentModeProfile profile)
     {
         EnsureMode(profile, AgentActionProfiles.ForApplyPatch(), "Apply Patch");
         var prompt = BuildActionPrompt(
@@ -133,7 +149,11 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<LocalCoderPatchRollbackResult> RollbackPatchAsync(LocalCoderPatchApplyResult applyResult, string projectPath, AgentModeProfile profile)
+    
+    /// <summary>
+    /// Rolls back the applied patch in the given project based on the provided mode profile.
+    /// </summary>
+public async Task<LocalCoderPatchRollbackResult> RollbackPatchAsync(LocalCoderPatchApplyResult applyResult, string projectPath, AgentModeProfile profile)
     {
         EnsureMode(profile, AgentActionProfiles.ForRollbackPatch(), "Rollback Patch");
         var prompt = BuildActionPrompt(
@@ -169,7 +189,11 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<IReadOnlyList<CommandRunResult>> CommitChangesAsync(string projectPath, string commitMessage, AgentModeProfile profile)
+    
+    /// <summary>
+    /// Commits changes in the given project based on the provided commit message and mode profile.
+    /// </summary>
+public async Task<IReadOnlyList<CommandRunResult>> CommitChangesAsync(string projectPath, string commitMessage, AgentModeProfile profile)
     {
         EnsureMode(profile, AgentActionProfiles.ForCommitChanges(), "Commit Changes");
         var userRequest = $"Commit changes in {projectPath}";
@@ -207,7 +231,11 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<IReadOnlyList<CommandRunResult>> BuildDeployAsync(string projectPath, AgentModeProfile profile)
+    
+    /// <summary>
+    /// Builds and deploys the given project based on the provided mode profile.
+    /// </summary>
+public async Task<IReadOnlyList<CommandRunResult>> BuildDeployAsync(string projectPath, AgentModeProfile profile)
     {
         EnsureMode(profile, AgentActionProfiles.ForBuildDeploy(), "Build & Deploy");
         var userRequest = $"Build and deploy {projectPath}";
@@ -245,7 +273,11 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<CommandRunResult> RunCommandAsync(string projectPath, string command, AgentModeProfile profile)
+    
+    /// <summary>
+    /// Runs the specified command in the given project based on the provided mode profile.
+    /// </summary>
+public async Task<CommandRunResult> RunCommandAsync(string projectPath, string command, AgentModeProfile profile)
     {
         EnsureMode(profile, AgentActionProfiles.ForRunCommand(), "Run Command");
         var userRequest = command;
@@ -282,7 +314,11 @@ public sealed class AgentModeRunner(
         }
     }
 
-    public async Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath, AgentModeProfile profile, IReadOnlyList<string>? verificationCommands = null)
+    
+    /// <summary>
+    /// Verifies the given project based on the provided mode profile and optional verification commands.
+    /// </summary>
+public async Task<IReadOnlyList<CommandRunResult>> VerifyProjectAsync(string projectPath, AgentModeProfile profile, IReadOnlyList<string>? verificationCommands = null)
     {
         EnsureMode(profile, AgentActionProfiles.ForVerifyProject(), "Verify Project");
         var userRequest = $"Verify project {projectPath}";

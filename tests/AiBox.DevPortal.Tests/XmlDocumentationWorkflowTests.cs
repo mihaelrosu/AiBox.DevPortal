@@ -66,6 +66,12 @@ public sealed class XmlDocumentationWorkflowTests
         Assert.Contains("XML documentation mode is active.", prompt, StringComparison.Ordinal);
         Assert.Contains("If XML documentation already exists, use replace with exact oldText.", prompt, StringComparison.Ordinal);
         Assert.Contains("If XML documentation does not exist, use insert_before with the exact class or member declaration as anchor.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Document every class, public member, and private method in the selected file unless it already has XML documentation.", prompt, StringComparison.Ordinal);
+        Assert.Contains("For each undocumented declaration, emit one insert_before operation.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Do not stop after documenting the first declaration.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Each insert_before anchor must be the exact declaration line from the selected context.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Each newText must end with a newline.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Do not include the declaration in newText. Only include the XML documentation comment.", prompt, StringComparison.Ordinal);
         Assert.Contains("<existing file>", prompt, StringComparison.Ordinal);
         Assert.Contains("<existing declaration>", prompt, StringComparison.Ordinal);
         Assert.Contains("<new content>", prompt, StringComparison.Ordinal);
