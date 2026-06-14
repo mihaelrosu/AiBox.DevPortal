@@ -64,7 +64,8 @@ public sealed class CoderConsoleServiceRepairTests
                 configuration,
                 environment,
                 patchEditOperationService,
-                contextService);
+                contextService,
+                new AgentInstructionService(environment));
 
             var preview = await service.GeneratePatchPreviewAsync(new LocalCoderRequest
             {

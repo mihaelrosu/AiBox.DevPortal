@@ -7,16 +7,19 @@ namespace AiBox.DevPortal.Services.Agents;
 
 public sealed class AgentModeRunner(
     ICoderConsoleService coderConsoleService,
-    IAgentRunHistoryService agentRunHistoryService) : IAgentModeRunner
+    IAgentRunHistoryService agentRunHistoryService,
+    AgentInstructionService agentInstructionService) : IAgentModeRunner
 {
     public async Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile profile)
     {
         EnsureMode(profile, AgentActionProfiles.ForCreatePlan(), "Create Plan");
         var routedRequest = WithProfileModel(request, profile);
+        var agentInstructionContext = await agentInstructionService.BuildContextAsync(routedRequest.ProjectPath, routedRequest.FileContexts.Select(fileContext => fileContext.RelativePath));
         var prompt = CoderConsoleService.BuildCreatePlanPrompt(
             routedRequest,
             BuildFileContextText(routedRequest.FileContexts),
-            profile);
+            profile,
+            BuildAgentInstructionsText(agentInstructionContext));
 
         try
         {
@@ -49,6 +52,7 @@ public sealed class AgentModeRunner(
     {
         EnsureMode(profile, AgentActionProfiles.ForGeneratePatchPreview(), "Generate Patch Preview");
         var routedRequest = WithProfileModel(request, profile);
+        var agentInstructionContext = await agentInstructionService.BuildContextAsync(routedRequest.ProjectPath, routedRequest.FileContexts.Select(fileContext => fileContext.RelativePath));
         var intent = PatchIntentService.BuildIntent(routedRequest);
         var targetResolution = CoderConsoleService.ResolveDeterministicTargetResolution(
             routedRequest.Task,
@@ -63,7 +67,8 @@ public sealed class AgentModeRunner(
             IsXmlDocumentationRequest(routedRequest.Task),
             targetResolution,
             repairContext,
-            profile);
+            profile,
+            BuildAgentInstructionsText(agentInstructionContext));
 
         try
         {
@@ -405,6 +410,16 @@ public sealed class AgentModeRunner(
         }
 
         return builder.ToString();
+    }
+
+    private static string BuildAgentInstructionsText(AgentInstructionContext instructionContext)
+    {
+        if (!instructionContext.HasFiles)
+        {
+            return "No relevant AGENTS.md files were found.";
+        }
+
+        return instructionContext.CombinedText;
     }
 
     private static string BuildSelectedFilePathsText(IReadOnlyList<LocalCoderFileContext> fileContexts)

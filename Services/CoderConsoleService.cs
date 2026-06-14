@@ -14,7 +14,8 @@ public sealed class CoderConsoleService(
     IConfiguration configuration,
     IWebHostEnvironment environment,
     IPatchEditOperationService patchEditOperationService,
-    ILocalCoderContextService localCoderContextService) : ICoderConsoleService
+    ILocalCoderContextService localCoderContextService,
+    AgentInstructionService? agentInstructionService = null) : ICoderConsoleService
 {
     private const long MaxProjectFileSizeBytes = 200 * 1024;
     private const int MaxPromptFileCharacters = 12_000;
@@ -107,8 +108,11 @@ public sealed class CoderConsoleService(
             .ToList();
 
         var fileContextText = BuildFileContextText(request.FileContexts);
+        var instructionService = GetAgentInstructionService();
+        var agentInstructionContext = await instructionService.BuildContextAsync(request.ProjectPath, request.FileContexts.Select(fileContext => fileContext.RelativePath));
+        var agentInstructionsText = BuildAgentInstructionsText(agentInstructionContext);
 
-        var prompt = BuildCreatePlanPrompt(request, fileContextText, profile);
+        var prompt = BuildCreatePlanPrompt(request, fileContextText, profile, agentInstructionsText);
 
         var ollamaRequest = new OllamaGenerateRequest
         {
@@ -245,20 +249,24 @@ public sealed class CoderConsoleService(
         }
 
         var fileContextText = BuildPatchPreviewFileContextText(request.FileContexts);
+        var instructionService = GetAgentInstructionService();
+        var agentInstructionContext = await instructionService.BuildContextAsync(request.ProjectPath, request.FileContexts.Select(fileContext => fileContext.RelativePath));
+        var agentInstructionsText = BuildAgentInstructionsText(agentInstructionContext);
         var promptAudit = BuildPatchPromptAudit(request.FileContexts, fileContextText);
         var selectedFilePathsText = BuildSelectedFilePathsText(request.FileContexts);
         var scopeText = BuildPatchScopeText(request.AllowedPatchScope, request.AllowedPatchFolders, intent.AllowedCreateFolders);
 
         var prompt = BuildGeneratePatchPreviewPrompt(
             request,
-            selectedFilePathsText,
-            fileContextText,
-            scopeText,
-            intentText,
-            xmlDocumentationMode,
-            deterministicTargetResolution,
-            repairContext,
-            profile);
+                selectedFilePathsText,
+                fileContextText,
+                scopeText,
+                intentText,
+                xmlDocumentationMode,
+                deterministicTargetResolution,
+                repairContext,
+                profile,
+                agentInstructionsText);
 
         var ollamaRequest = new OllamaGenerateRequest
         {
@@ -316,7 +324,8 @@ public sealed class CoderConsoleService(
                 xmlDocumentationMode,
                 deterministicTargetResolution,
                 repairPlan,
-                exception);
+                exception,
+                agentInstructionsText);
 
             if (repairOutcome is null)
             {
@@ -1091,7 +1100,8 @@ public sealed class CoderConsoleService(
     internal static string BuildCreatePlanPrompt(
         LocalCoderRequest request,
         string fileContextText,
-        AgentModeProfile? profile = null)
+        AgentModeProfile? profile = null,
+        string agentInstructionsText = "")
     {
         var profileText = BuildAgentModeProfileText(profile);
         return $$"""
@@ -1109,6 +1119,9 @@ public sealed class CoderConsoleService(
 
         Selected file context:
         {{fileContextText}}
+
+        Relevant AGENTS.md files:
+        {{agentInstructionsText}}
 
         Produce:
         1. Short diagnosis.
@@ -1131,7 +1144,8 @@ public sealed class CoderConsoleService(
         bool xmlDocumentationMode = false,
         PatchPromptTargetResolution? targetResolution = null,
         PatchPreviewRepairContext? repairContext = null,
-        AgentModeProfile? profile = null)
+        AgentModeProfile? profile = null,
+        string agentInstructionsText = "")
     {
         var profileText = BuildAgentModeProfileText(profile);
         var operationExample = xmlDocumentationMode
@@ -1281,6 +1295,9 @@ public sealed class CoderConsoleService(
 
         Selected file context:
         {{fileContextText}}
+
+        Relevant AGENTS.md files:
+        {{agentInstructionsText}}
 
         Generate the smallest safe patch operation set possible.
         """;
@@ -1554,7 +1571,8 @@ public sealed class CoderConsoleService(
         bool xmlDocumentationMode,
         PatchPromptTargetResolution? targetResolution,
         PatchPreviewRepairPlan repairPlan,
-        PatchPreviewValidationException originalException)
+        PatchPreviewValidationException originalException,
+        string agentInstructionsText)
     {
         var repairContext = new PatchPreviewRepairContext(
             request.Task,
@@ -1572,7 +1590,8 @@ public sealed class CoderConsoleService(
             xmlDocumentationMode,
             targetResolution,
             repairContext,
-            profile);
+            profile,
+            agentInstructionsText);
 
         var repairRequest = new OllamaGenerateRequest
         {
@@ -1988,6 +2007,21 @@ public sealed class CoderConsoleService(
         }
 
         return builder.ToString();
+    }
+
+    private static string BuildAgentInstructionsText(AgentInstructionContext instructionContext)
+    {
+        if (!instructionContext.HasFiles)
+        {
+            return "No relevant AGENTS.md files were found.";
+        }
+
+        return instructionContext.CombinedText;
+    }
+
+    private AgentInstructionService GetAgentInstructionService()
+    {
+        return agentInstructionService ?? new AgentInstructionService(environment);
     }
 
     internal static PatchPromptAudit BuildPatchPromptAudit(

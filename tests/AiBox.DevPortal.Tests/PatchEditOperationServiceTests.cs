@@ -1,7 +1,9 @@
 using AiBox.DevPortal.Models;
 using AiBox.DevPortal.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using Xunit;
 
 namespace AiBox.DevPortal.Tests;
@@ -114,7 +116,7 @@ public sealed class PatchEditOperationServiceTests
                 ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
             })
             .Build();
-        var service = new CoderConsoleService(null!, configuration, null!, null!, new LocalCoderContextService());
+        var service = new CoderConsoleService(null!, configuration, null!, null!, new LocalCoderContextService(), new AgentInstructionService(Substitute.For<IWebHostEnvironment>()));
 
         var contexts = await service.ReadFileContextsAsync(projectRoot, ["Components/Coder/CoderPatchQueuePanel.razor"]);
 

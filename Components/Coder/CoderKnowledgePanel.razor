@@ -1,3 +1,5 @@
+@inject AgentInstructionService AgentInstructionService
+
 @if (string.IsNullOrWhiteSpace(ProjectPath))
 {
     <RadzenCard>
@@ -53,6 +55,37 @@ else
                     <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
                         @ErrorMessage
                     </RadzenAlert>
+                }
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Agent Instructions" TextStyle="TextStyle.H6" />
+
+                @if (isLoadingAgentInstructions)
+                {
+                    <RadzenText Text="Loading relevant AGENTS.md files..." TextStyle="TextStyle.Body2" />
+                }
+                else if (agentInstructionContext is null || agentInstructionContext.Files.Count == 0)
+                {
+                    <RadzenText Text="No relevant AGENTS.md files were found for the current selection."
+                                TextStyle="TextStyle.Body2" />
+                }
+                else
+                {
+                    <RadzenText Text="@($"{agentInstructionContext.Files.Count} relevant AGENTS.md files")"
+                                TextStyle="TextStyle.Body2" />
+
+                    <RadzenStack Gap="0.5rem">
+                        @foreach (var instructionFile in agentInstructionContext.Files)
+                        {
+                            <details>
+                                <summary>✓ @instructionFile.RelativePath</summary>
+                                <pre class="coder-output">@instructionFile.Content</pre>
+                            </details>
+                        }
+                    </RadzenStack>
                 }
             </RadzenStack>
         </RadzenCard>
@@ -180,7 +213,39 @@ else
     private string searchText = string.Empty;
     private string selectedKind = "All";
     private IReadOnlyList<SuggestedItem> SuggestedItems { get; set; } = [];
+    private AgentInstructionContext? agentInstructionContext;
+    private string agentInstructionContextKey = string.Empty;
+    private bool isLoadingAgentInstructions;
     private bool IsSuggestingDisabled => Index is null || IsRebuilding;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var contextKey = BuildAgentInstructionContextKey(ProjectPath, SelectedFilePaths);
+
+        if (string.Equals(contextKey, agentInstructionContextKey, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        agentInstructionContextKey = contextKey;
+
+        if (string.IsNullOrWhiteSpace(ProjectPath))
+        {
+            agentInstructionContext = null;
+            return;
+        }
+
+        isLoadingAgentInstructions = true;
+
+        try
+        {
+            agentInstructionContext = await AgentInstructionService.BuildContextAsync(ProjectPath, SelectedFilePaths);
+        }
+        finally
+        {
+            isLoadingAgentInstructions = false;
+        }
+    }
 
     private IReadOnlyList<ProjectKnowledgeItem> FilteredItems =>
         (Index?.Items ?? [])
@@ -213,6 +278,16 @@ else
     {
         return !string.IsNullOrWhiteSpace(value) &&
                value.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildAgentInstructionContextKey(string projectPath, IReadOnlyList<string> selectedFilePaths)
+    {
+        return string.Join("|",
+            projectPath.Trim(),
+            string.Join(";", selectedFilePaths
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(path => path.Trim())
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)));
     }
 
     private Task SuggestContextFilesAsync()

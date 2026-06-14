@@ -6,6 +6,7 @@ using AiBox.DevPortal.Services;
 using AiBox.DevPortal.Services.Agents;
 using AiBox.DevPortal.Services.Browser;
 using Bunit;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Radzen;
@@ -61,6 +62,45 @@ public sealed class CoderComponentSmokeTests : TestContext
         var cut = RenderComponent<CoderProjectSelector>();
 
         Assert.Contains("Project path", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CoderKnowledgePanel_RendersAgentInstructionsSection()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"coder-knowledge-panel-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Components"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Components", "Coder"));
+
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "AGENTS.md"), "root instructions");
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Components", "AGENTS.md"), "components instructions");
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Components", "Coder", "AGENTS.md"), "coder instructions");
+
+            var cut = RenderComponent<CoderKnowledgePanel>(parameters => parameters
+                .Add(component => component.ProjectPath, projectRoot)
+                .Add(component => component.SelectedFilePaths, ["Components/Coder/CoderKnowledgePanel.razor"]));
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Contains("Agent Instructions", cut.Markup, StringComparison.Ordinal);
+                Assert.Contains("✓ AGENTS.md", cut.Markup, StringComparison.Ordinal);
+                Assert.Contains("✓ Components/AGENTS.md", cut.Markup, StringComparison.Ordinal);
+                Assert.Contains("✓ Components/Coder/AGENTS.md", cut.Markup, StringComparison.Ordinal);
+                Assert.Contains("root instructions", cut.Markup, StringComparison.Ordinal);
+                Assert.Contains("components instructions", cut.Markup, StringComparison.Ordinal);
+                Assert.Contains("coder instructions", cut.Markup, StringComparison.Ordinal);
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
     }
 
     [Fact]
@@ -395,6 +435,9 @@ public sealed class CoderComponentSmokeTests : TestContext
                 Arg.Any<int>())
             .Returns(Task.FromResult(new List<FileSearchItem>()));
 
+        var instructionEnvironment = Substitute.For<IWebHostEnvironment>();
+        instructionEnvironment.ContentRootPath.Returns(Path.GetTempPath());
+
         Services.AddSingleton(coderConsoleService);
         Services.AddSingleton(Substitute.For<IAgentModeRunner>());
         Services.AddSingleton(profileService);
@@ -406,6 +449,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(historyService);
         Services.AddSingleton(fileSearchService);
         Services.AddSingleton<ILocalCoderContextService, LocalCoderContextService>();
+        Services.AddSingleton(new AgentInstructionService(instructionEnvironment));
         Services.AddSingleton(Substitute.For<IClipboardService>());
     }
 

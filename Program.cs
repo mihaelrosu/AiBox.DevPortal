@@ -33,6 +33,7 @@ builder.Services.AddScoped<IAgentRegistryService, AgentRegistryService>();
 builder.Services.AddScoped<IAgentModeProfileService, AgentModeProfileService>();
 builder.Services.AddScoped<IAgentRunHistoryService, AgentRunHistoryService>();
 builder.Services.AddScoped<IAgentModeRunner, AgentModeRunner>();
+builder.Services.AddScoped<AgentInstructionService>();
 builder.Services.AddScoped<IPatchApprovalGateService, PatchApprovalGateService>();
 builder.Services.AddScoped<IPatchEditOperationService, PatchEditOperationService>();
 builder.Services.AddScoped<IPatchPackageService, PatchPackageService>();
