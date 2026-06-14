@@ -70,8 +70,14 @@ public sealed class XmlDocumentationWorkflowTests
         Assert.Contains("For each undocumented declaration, emit one insert_before operation.", prompt, StringComparison.Ordinal);
         Assert.Contains("Do not stop after documenting the first declaration.", prompt, StringComparison.Ordinal);
         Assert.Contains("Each insert_before anchor must be the exact declaration line from the selected context.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Anchor text must be copied verbatim from the selected file context.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Never reconstruct declarations.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Never append '{' to the anchor unless '{' appears on the same line in the selected context.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Use the entire declaration line exactly as shown.", prompt, StringComparison.Ordinal);
+        Assert.Contains("If exact declaration text cannot be identified, emit no operation.", prompt, StringComparison.Ordinal);
         Assert.Contains("Each newText must end with a newline.", prompt, StringComparison.Ordinal);
         Assert.Contains("Do not include the declaration in newText. Only include the XML documentation comment.", prompt, StringComparison.Ordinal);
+        Assert.Contains("This applies to brace-on-next-line declarations, brace-on-same-line declarations, generic return types, nullable return types, and primary constructor class declarations.", prompt, StringComparison.Ordinal);
         Assert.Contains("<existing file>", prompt, StringComparison.Ordinal);
         Assert.Contains("<existing declaration>", prompt, StringComparison.Ordinal);
         Assert.Contains("<new content>", prompt, StringComparison.Ordinal);

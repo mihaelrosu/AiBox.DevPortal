@@ -1294,8 +1294,14 @@ public sealed class CoderConsoleService(
         For each undocumented declaration, emit one insert_before operation.
         Do not stop after documenting the first declaration.
         Each insert_before anchor must be the exact declaration line from the selected context.
+        Anchor text must be copied verbatim from the selected file context.
+        Never reconstruct declarations.
+        Never append '{' to the anchor unless '{' appears on the same line in the selected context.
+        Use the entire declaration line exactly as shown.
+        If exact declaration text cannot be identified, emit no operation.
         Each newText must end with a newline.
         Do not include the declaration in newText. Only include the XML documentation comment.
+        This applies to brace-on-next-line declarations, brace-on-same-line declarations, generic return types, nullable return types, and primary constructor class declarations.
         Use exact text replacement for existing documentation comments and exact declaration anchors for new documentation.
         XML documentation comments must end with a newline before the member declaration.
         Example:
