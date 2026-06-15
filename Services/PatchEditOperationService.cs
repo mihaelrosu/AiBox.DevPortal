@@ -13,6 +13,9 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     private static readonly Regex XmlDocumentationDeclarationRegex = new(
         @"(</(?:summary|returns)>)[ \t]*(?=(?:public|private|internal|protected)\b)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex FileScopedNamespaceDeclarationSpacingRegex = new(
+        @"^(namespace\s+[^\r\n;]+;)\r?\n(?:[ \t]*\r?\n)*[ \t]*((?:public|private|internal|protected)\b[^\r\n]*)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly HashSet<string> AllowedOperations = new(StringComparer.OrdinalIgnoreCase)
     {
         "create",
@@ -228,7 +231,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
                 return null;
             }
 
-            return newText;
+            return NormalizeCreateTextFormatting(newText);
         }
 
         if (normalizedOperation.Equals("remove", StringComparison.OrdinalIgnoreCase))
@@ -1100,6 +1103,20 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         }
 
         return string.Join(lineEnding, normalizedLines) + lineEnding;
+    }
+
+    private static string NormalizeCreateTextFormatting(string newText)
+    {
+        if (string.IsNullOrWhiteSpace(newText))
+        {
+            return newText;
+        }
+
+        var lineEnding = DetectLineEnding(newText);
+        var normalized = newText.ReplaceLineEndings(lineEnding);
+        return FileScopedNamespaceDeclarationSpacingRegex.Replace(
+            normalized,
+            $"$1{lineEnding}{lineEnding}$2");
     }
 
     private static int FindNextNonEmptyLineIndex(string[] lines, int startIndex)

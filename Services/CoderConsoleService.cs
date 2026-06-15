@@ -1509,6 +1509,14 @@ public sealed class CoderConsoleService(
             error.Contains("requires a non-empty oldText", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool HasMalformedCreateValidationError(IReadOnlyList<string> validationErrors)
+    {
+        return validationErrors.Any(error =>
+            error.Contains("create", StringComparison.OrdinalIgnoreCase) &&
+            (error.Contains("must include non-empty newText", StringComparison.OrdinalIgnoreCase) ||
+             error.Contains("must not include oldText", StringComparison.OrdinalIgnoreCase)));
+    }
+
     private static bool HasMalformedInsertAnchorValidationError(PatchPreviewValidationException exception)
     {
         return HasMalformedInsertAnchorValidationError(exception.ValidationErrors, exception.SuggestedTargetDiagnostics);
@@ -1538,6 +1546,16 @@ public sealed class CoderConsoleService(
 
     private static string BuildRepairCaseInstructionsText(PatchPreviewRepairContext repairContext)
     {
+        if (HasMalformedCreateValidationError(repairContext.ValidationErrors))
+        {
+            return """
+        Create operations require non-empty newText.
+        Regenerate using the exact requested target file and create content from the original intent.
+
+        Return JSON only.
+        """;
+        }
+
         if (HasMalformedReplaceValidationError(repairContext.ValidationErrors))
         {
             return """
@@ -1575,6 +1593,11 @@ public sealed class CoderConsoleService(
 
     private static string GetRepairAttemptLabel(PatchPreviewValidationException exception)
     {
+        if (HasMalformedCreateValidationError(exception.ValidationErrors))
+        {
+            return "create";
+        }
+
         if (HasMalformedReplaceValidationError(exception.ValidationErrors))
         {
             return "replace";

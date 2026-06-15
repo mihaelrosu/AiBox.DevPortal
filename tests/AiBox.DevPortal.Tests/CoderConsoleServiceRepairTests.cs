@@ -428,6 +428,105 @@ public sealed class CoderConsoleServiceRepairTests
     }
 
     [Fact]
+    public async Task RepairAsync_CreateOnlyTask_PreservesCreateTargetsInPrompt()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-only-repair-test-{Guid.NewGuid():N}");
+        var requests = new List<string>();
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "AGENTS.md"), "# root instructions");
+
+            var handler = new QueueHandler(
+                requests,
+                """
+                {
+                  "response": "{\"operations\":[{\"filePath\":\"Models/TaskSliceExecutionRequest.cs\",\"operation\":\"create\",\"oldText\":\"\",\"newText\":\"public sealed class TaskSliceExecutionRequest {}\"}]}",
+                  "done": true
+                }
+                """);
+
+            var httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri("http://localhost")
+            };
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["AiBox:LocalCoder:DefaultModel"] = "test-model",
+                    ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
+                })
+                .Build();
+
+            var environment = Substitute.For<IWebHostEnvironment>();
+            environment.ContentRootPath.Returns(projectRoot);
+
+            var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
+            var repairService = new PatchPreviewRepairService(new OllamaService(httpClient), patchEditOperationService, configuration);
+            var request = new LocalCoderRequest
+            {
+                ProjectPath = projectRoot,
+                Model = "test-model",
+                Task = """
+                Create:
+                - Models/TaskSliceExecutionRequest.cs
+                """,
+                FileContexts =
+                [
+                    new LocalCoderFileContext
+                    {
+                        RelativePath = "AGENTS.md",
+                        Content = "# root instructions"
+                    }
+                ]
+            };
+            var intent = PatchIntentService.BuildIntent(request);
+            var repairContext = new PatchPreviewRepairContext(
+                request.Task,
+                "{\"operations\":[]}",
+                ["Operation 'create' for file 'Models/TaskSliceExecutionRequest.cs' must include non-empty newText."],
+                [],
+                []);
+
+            var result = await repairService.RepairAsync(
+                request,
+                intent,
+                PatchIntentService.BuildPromptText(intent),
+                "- AGENTS.md",
+                "FILE: AGENTS.md\n# root instructions",
+                "Context Files Only",
+                xmlDocumentationMode: false,
+                targetResolution: null,
+                repairContext,
+                string.Empty,
+                "create",
+                "create",
+                null);
+
+            Assert.True(result.Success);
+            Assert.NotNull(result.RepairPrompt);
+            Assert.Contains("Target created file(s):", result.RepairPrompt, StringComparison.Ordinal);
+            Assert.Contains("Models/TaskSliceExecutionRequest.cs", result.RepairPrompt, StringComparison.Ordinal);
+            Assert.Contains("Allowed files:", result.RepairPrompt, StringComparison.Ordinal);
+            Assert.Contains("Allowed create folders:", result.RepairPrompt, StringComparison.Ordinal);
+            Assert.Contains("Models/", result.RepairPrompt, StringComparison.Ordinal);
+            Assert.Contains("public sealed class TaskSliceExecutionRequest {}", result.RepairRawResponse, StringComparison.Ordinal);
+            Assert.Single(requests);
+            Assert.Contains("Target created file(s):", requests[0], StringComparison.Ordinal);
+            Assert.Contains("Models/TaskSliceExecutionRequest.cs", requests[0], StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task GeneratePatchPreviewAsync_DeterministicTargetResolution_ReachesModelPrompt()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-deterministic-target-prompt-{Guid.NewGuid():N}");

@@ -625,6 +625,63 @@ public sealed class PatchEditOperationServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_CreateFileScopedNamespace_PreservesBlankLineAfterNamespace()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-namespace-spacing-test-{Guid.NewGuid():N}");
+        const string selectedRelativePath = "Models/LocalCoderHistoryEntry.cs";
+        const string selectedContent = "public sealed class LocalCoderHistoryEntry {}";
+        const string createdRelativePath = "Models/TaskSliceExecutionRequest.cs";
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, selectedRelativePath), selectedContent);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = selectedRelativePath, Content = selectedContent }],
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    operations = new[]
+                    {
+                        new
+                        {
+                            filePath = createdRelativePath,
+                            operation = "create",
+                            anchor = string.Empty,
+                            oldText = string.Empty,
+                            newText = "namespace AiBox.DevPortal.Models;\r\n\tpublic sealed class TaskSliceExecutionRequest\r\n{\r\n}\r\n"
+                        }
+                    }
+                }),
+                new PatchIntent
+                {
+                    AllowedFiles = [selectedRelativePath, createdRelativePath],
+                    TargetCreatedFiles = [createdRelativePath],
+                    AllowedCreateFolders = ["Models/"]
+                });
+
+            var change = Assert.Single(result.FileChanges);
+            Assert.Contains(
+                "namespace AiBox.DevPortal.Models;\r\n\r\npublic sealed class TaskSliceExecutionRequest",
+                change.NewContent,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "namespace AiBox.DevPortal.Models;\r\n\tpublic sealed class TaskSliceExecutionRequest",
+                change.NewContent,
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task BuildAsync_CreateAllowedByIntent_ProducesPatch()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-allowed-by-intent-test-{Guid.NewGuid():N}");

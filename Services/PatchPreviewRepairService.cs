@@ -30,6 +30,7 @@ public sealed class PatchPreviewRepairService(
 
         var prompt = BuildRepairPrompt(
             request,
+            intent,
             selectedFilePathsText,
             fileContextText,
             scopeText,
@@ -181,6 +182,7 @@ public sealed class PatchPreviewRepairService(
 
     private static string BuildRepairPrompt(
         LocalCoderRequest request,
+        PatchIntent intent,
         string selectedFilePathsText,
         string fileContextText,
         string scopeText,
@@ -211,8 +213,11 @@ public sealed class PatchPreviewRepairService(
         - XML documentation comments must end with a newline before the member declaration.
         - Return corrected JSON only.
 
-        Allowed files:
+        Selected file paths:
         {selectedFilePathsText}
+
+        Preserved intent:
+        {PatchIntentService.BuildPromptText(intent)}
 
         {basePrompt}
         """;
