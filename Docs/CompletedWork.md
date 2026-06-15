@@ -111,6 +111,51 @@ Related Files:
 * Services/OllamaLocalLlmService.cs
 * Services/PromptEnhancerService.cs
 
+## 2026-06-15
+
+### Project History Index
+
+Status: Completed
+
+Completed:
+
+* Created Docs/Roadmap.md
+* Created Docs/CompletedWork.md
+* Created Docs/Architecture.md
+* Added metadata blocks for indexing
+* Added ProjectHistoryItem model
+* Added ProjectHistoryIndex model
+* Added ProjectHistorySummary model
+* Added ProjectHistoryIndexService
+* Added ProjectHistoryPanel
+* Registered ProjectHistoryIndexService in Program.cs
+* Wired ProjectHistoryPanel into Coder UI
+* Added history rebuild workflow
+* Added history summary generation
+* Added recommendation extraction
+* Added indexed item viewer
+* Improved status classification
+* Improved source type classification
+* Reduced noisy duplicated history items
+* Cleaned recommendation titles
+
+Results:
+
+* dotnet build succeeded
+* Data/project-history-index.json was generated
+* 1221 history items indexed
+* 5 recommended next slices generated:
+
+  * Project History Index foundation
+  * Task Slice execution
+  * Verification loop
+  * Safe Apply workflow
+  * Agent dashboard metrics
+
+Known warning:
+
+* Existing nullable warning remains in Services/PatchIntentService.cs:74
+
 ## In Progress
 
 ### Planner -> Slice Execution

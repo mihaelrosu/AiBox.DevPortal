@@ -14,12 +14,17 @@ public sealed class TaskDecompositionService
             CreatedAtUtc = DateTime.UtcNow,
             Slices =
             [
-                new TaskSlice
+                new TaskPlanSlice
                 {
+                    Id = Guid.NewGuid().ToString("N"),
                     Title = "Implement requested task",
                     Goal = string.IsNullOrWhiteSpace(request)
                         ? "No task was provided."
                         : request,
+                    Description = string.IsNullOrWhiteSpace(request)
+                        ? "No task was provided."
+                        : request,
+                    Status = TaskSliceStatus.Pending,
                     TargetFiles = [],
                     InstructionFiles = [],
                     AllowedChangeType = AllowedChangeType.Any,
@@ -32,7 +37,9 @@ public sealed class TaskDecompositionService
                     VerificationCommands =
                     [
                         "dotnet build"
-                    ]
+                    ],
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 }
             ]
         };

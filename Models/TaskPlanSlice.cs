@@ -1,0 +1,57 @@
+namespace AiBox.DevPortal.Models;
+
+public sealed class TaskPlanSlice
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Title { get; set; } = string.Empty;
+    public string Goal { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public TaskSliceStatus Status { get; set; } = TaskSliceStatus.Pending;
+    public List<string> TargetFiles { get; set; } = [];
+    public List<string> InstructionFiles { get; set; } = [];
+    public AllowedChangeType AllowedChangeType { get; set; } = AllowedChangeType.Any;
+    public List<string> MustNotChange { get; set; } = [];
+    public List<string> VerificationCommands { get; set; } = [];
+    public List<string> RelatedFiles { get; set; } = [];
+    public string Notes { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public static implicit operator TaskPlanSlice(TaskSlice slice)
+    {
+        ArgumentNullException.ThrowIfNull(slice);
+
+        return new TaskPlanSlice
+        {
+            Title = slice.Title,
+            Goal = slice.Goal,
+            Description = slice.Goal,
+            TargetFiles = [.. slice.TargetFiles],
+            InstructionFiles = [.. slice.InstructionFiles],
+            AllowedChangeType = slice.AllowedChangeType,
+            MustNotChange = [.. slice.MustNotChange],
+            VerificationCommands = [.. slice.VerificationCommands],
+            RelatedFiles = [.. slice.TargetFiles.Concat(slice.InstructionFiles).Distinct(StringComparer.OrdinalIgnoreCase)],
+            Notes = string.Empty,
+            Status = TaskSliceStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+    }
+
+    public static implicit operator TaskSlice(TaskPlanSlice slice)
+    {
+        ArgumentNullException.ThrowIfNull(slice);
+
+        return new TaskSlice
+        {
+            Title = slice.Title,
+            Goal = string.IsNullOrWhiteSpace(slice.Goal) ? slice.Description : slice.Goal,
+            TargetFiles = [.. (slice.TargetFiles.Count > 0 ? slice.TargetFiles : slice.RelatedFiles)],
+            InstructionFiles = [.. slice.InstructionFiles],
+            AllowedChangeType = slice.AllowedChangeType,
+            MustNotChange = [.. slice.MustNotChange],
+            VerificationCommands = [.. slice.VerificationCommands]
+        };
+    }
+}

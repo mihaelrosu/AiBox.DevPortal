@@ -26,26 +26,39 @@
                 <RadzenCard Style="margin: 0;">
                     <RadzenStack Gap="0.5rem">
                         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            @if (!string.IsNullOrWhiteSpace(slice.Id))
+                            {
+                                <RadzenBadge Text="@slice.Id" BadgeStyle="BadgeStyle.Light" />
+                            }
                             <RadzenText Text="@slice.Title" TextStyle="TextStyle.Body1" />
+                            <RadzenBadge Text="@slice.Status.ToString()" BadgeStyle="@GetStatusBadgeStyle(slice.Status)" />
                             <RadzenBadge Text="@slice.AllowedChangeType.ToString()" BadgeStyle="BadgeStyle.Secondary" />
                         </RadzenStack>
 
-                        <RadzenText Text="@slice.Goal" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="@GetSliceBodyText(slice)" TextStyle="TextStyle.Body2" />
 
                         <RadzenStack Gap="0.25rem">
-                            <RadzenText Text="Target Files" TextStyle="TextStyle.Caption" />
-                            @if (slice.TargetFiles.Count == 0)
+                            <RadzenText Text="Related Files" TextStyle="TextStyle.Caption" />
+                            @if (GetRelatedFiles(slice).Count == 0)
                             {
                                 <RadzenText Text="None" TextStyle="TextStyle.Body2" />
                             }
                             else
                             {
-                                @foreach (var targetFile in slice.TargetFiles)
+                                @foreach (var relatedFile in GetRelatedFiles(slice))
                                 {
-                                    <RadzenText Text="@targetFile" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@relatedFile" TextStyle="TextStyle.Body2" />
                                 }
                             }
                         </RadzenStack>
+
+                        @if (!string.IsNullOrWhiteSpace(slice.Notes))
+                        {
+                            <RadzenStack Gap="0.25rem">
+                                <RadzenText Text="Notes" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@slice.Notes" TextStyle="TextStyle.Body2" />
+                            </RadzenStack>
+                        }
 
                         <RadzenStack Gap="0.25rem">
                             <RadzenText Text="Verification Commands" TextStyle="TextStyle.Caption" />
@@ -70,4 +83,34 @@
 
 @code {
     [Parameter] public TaskPlan? Plan { get; set; }
+
+    private static BadgeStyle GetStatusBadgeStyle(TaskSliceStatus status)
+    {
+        return status switch
+        {
+            TaskSliceStatus.Pending => BadgeStyle.Info,
+            TaskSliceStatus.Previewed => BadgeStyle.Warning,
+            TaskSliceStatus.Applied => BadgeStyle.Primary,
+            TaskSliceStatus.Verified => BadgeStyle.Success,
+            TaskSliceStatus.Failed => BadgeStyle.Danger,
+            TaskSliceStatus.RolledBack => BadgeStyle.Secondary,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    private static string GetSliceBodyText(TaskPlanSlice slice)
+    {
+        if (!string.IsNullOrWhiteSpace(slice.Description))
+        {
+            return slice.Description;
+        }
+
+        return string.IsNullOrWhiteSpace(slice.Goal) ? "No description provided." : slice.Goal;
+    }
+
+    private static IReadOnlyList<string> GetRelatedFiles(TaskPlanSlice slice)
+    {
+        var relatedFiles = slice.RelatedFiles.Count > 0 ? slice.RelatedFiles : slice.TargetFiles;
+        return relatedFiles.Count == 0 ? [] : relatedFiles;
+    }
 }

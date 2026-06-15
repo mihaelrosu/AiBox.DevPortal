@@ -1,0 +1,137 @@
+using System.Text.Json;
+using AiBox.DevPortal.Models;
+
+namespace AiBox.DevPortal.Services;
+
+public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
+{
+    private const string HistoryFileName = "task-slice-execution-history.json";
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+
+    private static readonly SemaphoreSlim FileLock = new(1, 1);
+
+    public async Task<TaskSliceExecutionResult> ExecuteSliceAsync(
+        TaskPlanSlice slice,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(slice);
+
+        await FileLock.WaitAsync(cancellationToken);
+        try
+        {
+            var executedAt = DateTime.UtcNow;
+            var beforeStatus = slice.Status;
+            var afterStatus = GetNextStatus(beforeStatus);
+            var isFailure = afterStatus == TaskSliceStatus.Failed;
+
+            slice.Status = afterStatus;
+            slice.UpdatedAt = executedAt;
+            slice.Notes = AppendExecutionSummary(slice.Notes, beforeStatus, afterStatus, executedAt);
+
+            var result = new TaskSliceExecutionResult
+            {
+                SliceId = slice.Id,
+                Success = !isFailure,
+                BuildSuccess = afterStatus is TaskSliceStatus.Applied or TaskSliceStatus.Verified,
+                VerificationSuccess = afterStatus == TaskSliceStatus.Verified,
+                Summary = BuildSummary(slice, beforeStatus, afterStatus),
+                GeneratedFiles = [],
+                Errors = isFailure
+                    ? [$"Slice '{slice.Title}' is in a failed state and was not advanced."]
+                    : [],
+                ExecutedAt = executedAt
+            };
+
+            await AppendHistoryAsync(result, cancellationToken);
+            return Clone(result);
+        }
+        finally
+        {
+            FileLock.Release();
+        }
+    }
+
+    private static TaskSliceStatus GetNextStatus(TaskSliceStatus status)
+    {
+        return status switch
+        {
+            TaskSliceStatus.Pending => TaskSliceStatus.Previewed,
+            TaskSliceStatus.Previewed => TaskSliceStatus.Applied,
+            TaskSliceStatus.Applied => TaskSliceStatus.Verified,
+            TaskSliceStatus.Verified => TaskSliceStatus.Verified,
+            TaskSliceStatus.Failed => TaskSliceStatus.Failed,
+            TaskSliceStatus.RolledBack => TaskSliceStatus.RolledBack,
+            _ => TaskSliceStatus.Previewed
+        };
+    }
+
+    private static string BuildSummary(TaskPlanSlice slice, TaskSliceStatus beforeStatus, TaskSliceStatus afterStatus)
+    {
+        return $"{slice.Title}: {beforeStatus} -> {afterStatus} at {DateTime.UtcNow:O}. No build, patch, or verification work was executed.";
+    }
+
+    private static string AppendExecutionSummary(string? notes, TaskSliceStatus beforeStatus, TaskSliceStatus afterStatus, DateTime executedAt)
+    {
+        var summaryLine = $"[{executedAt:O}] {beforeStatus} -> {afterStatus}";
+
+        return string.IsNullOrWhiteSpace(notes)
+            ? summaryLine
+            : $"{notes.Trim()}{Environment.NewLine}{summaryLine}";
+    }
+
+    private async Task AppendHistoryAsync(TaskSliceExecutionResult result, CancellationToken cancellationToken)
+    {
+        var history = await LoadHistoryAsync(cancellationToken);
+        history.Add(Clone(result));
+        await SaveHistoryAsync(history, cancellationToken);
+    }
+
+    private async Task<List<TaskSliceExecutionResult>> LoadHistoryAsync(CancellationToken cancellationToken)
+    {
+        var path = GetHistoryPath();
+        if (!File.Exists(path))
+        {
+            return [];
+        }
+
+        await using var stream = File.OpenRead(path);
+        return await JsonSerializer.DeserializeAsync<List<TaskSliceExecutionResult>>(stream, JsonOptions, cancellationToken) ?? [];
+    }
+
+    private async Task SaveHistoryAsync(List<TaskSliceExecutionResult> history, CancellationToken cancellationToken)
+    {
+        var path = GetHistoryPath();
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        await using var stream = File.Create(path);
+        await JsonSerializer.SerializeAsync(stream, history, JsonOptions, cancellationToken);
+    }
+
+    private string GetHistoryPath()
+    {
+        return Path.Combine(environment.ContentRootPath, "Data", HistoryFileName);
+    }
+
+    private static TaskSliceExecutionResult Clone(TaskSliceExecutionResult result)
+    {
+        return new TaskSliceExecutionResult
+        {
+            SliceId = result.SliceId,
+            Success = result.Success,
+            BuildSuccess = result.BuildSuccess,
+            VerificationSuccess = result.VerificationSuccess,
+            Summary = result.Summary,
+            GeneratedFiles = [.. result.GeneratedFiles ?? []],
+            Errors = [.. result.Errors ?? []],
+            ExecutedAt = result.ExecutedAt
+        };
+    }
+}
