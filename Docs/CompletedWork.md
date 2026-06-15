@@ -207,6 +207,52 @@ Known limitation:
 
 * PlanId is currently derived from TaskPlan.CreatedAtUtc until TaskPlan receives a persistent Id.
 
+### V2.2 Slice Verification UI
+
+Status: Completed
+
+Completed:
+
+* Added TaskSliceVerificationService
+* Registered TaskSliceVerificationService in Program.cs
+* Added Verify button for Previewed task slices
+* Wired Verify button through Coder page
+* Added per-slice verification result message
+* Advanced slice status from Previewed to Verified on success
+* Advanced slice status to Failed on verification failure
+* Preserved safe behavior: no patch apply and no real dotnet build yet
+
+Result:
+
+* DevPortal now supports the slice workflow:
+  Pending -> Previewed -> Verified
+
+Known limitation:
+
+* Verification is currently framework-only and does not run dotnet build yet.
+
+### V2.4 Real Build Verification Foundation
+
+Status: Completed
+
+Completed:
+
+* Updated TaskSliceVerificationService to run dotnet build
+* Used ContentRootPath as working directory
+* Captured standard output
+* Captured standard error
+* Added exit-code based verification result
+* Added timeout protection
+* Set slice status to Verified when build succeeds
+* Set slice status to Failed when build fails
+* Preserved safe behavior: no patch apply during verification
+
+Result:
+
+* DevPortal can now verify a task slice with a real project build.
+* The slice workflow is now:
+  Pending -> Previewed -> Verified or Failed
+
 ## In Progress
 
 ### Planner -> Slice Execution

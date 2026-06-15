@@ -65,6 +65,8 @@
                                   Disabled="@string.IsNullOrWhiteSpace(request.Task)" />
                     <TaskPlanPreviewPanel Plan="@taskPlanPreview"
                                           IsGeneratingPatch="@isGeneratingPatch"
+                                          IsVerifyingSlice="@isVerifyingSlice"
+                                          SliceStatusMessages="@sliceStatusMessages"
                                           OnGeneratePatchRequested="@GenerateSlicePatchPreviewAsync" />
                 </RadzenStack>
             </RadzenStack>
@@ -304,6 +306,7 @@
     [Inject] private PlannerContextSelectionService PlannerContextSelectionService { get; set; } = default!;
     [Inject] private TaskDecompositionService TaskDecompositionService { get; set; } = default!;
     [Inject] private TaskSliceExecutionService TaskSliceExecutionService { get; set; } = default!;
+    [Inject] private TaskSliceVerificationService TaskSliceVerificationService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
@@ -333,6 +336,7 @@
     private int contextLoadVersion;
     private readonly List<LocalCoderPlanTask> planTasks = [];
     private TaskPlan? taskPlanPreview;
+    private readonly Dictionary<string, string> sliceStatusMessages = new(StringComparer.OrdinalIgnoreCase);
 
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
     private LocalCoderPatchPreview? patchPreview;
@@ -374,6 +378,7 @@
     private bool isContextLocked;
     private bool isPlanning;
     private bool isGeneratingPatch;
+    private bool isVerifyingSlice;
     private bool isApplyingPatch;
     private bool isRollingBack;
     private bool isRunningCommand;
@@ -785,7 +790,7 @@
         {
             Plan = taskPlanPreview,
             Slice = slice,
-            PlanId = taskPlanPreview.CreatedAtUtc.ToString("O"),
+            PlanId = taskPlanPreview.Id,
             SliceId = slice.Id,
             SliceTitle = slice.Title,
             RequestedAction = "GeneratePatch",
@@ -808,6 +813,48 @@
                 NotificationSeverity.Warning,
                 "Slice patch preview not recorded",
                 executionResult.Errors.FirstOrDefault() ?? executionResult.Summary);
+        }
+    }
+
+    private async Task VerifySliceAsync(TaskPlanSlice slice)
+    {
+        if (taskPlanPreview is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No task plan",
+                "Decompose a task before verifying a slice.");
+            return;
+        }
+
+        isVerifyingSlice = true;
+        sliceStatusMessages[slice.Id] = "Verifying slice...";
+
+        try
+        {
+            var verificationResult = await TaskSliceVerificationService.VerifySliceAsync(slice);
+            sliceStatusMessages[slice.Id] = verificationResult.Success
+                ? verificationResult.Summary
+                : verificationResult.Errors.FirstOrDefault() ?? verificationResult.Summary;
+
+            if (verificationResult.Success)
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Success,
+                    "Slice verified",
+                    verificationResult.Summary);
+            }
+            else
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Warning,
+                    "Slice verification failed",
+                    verificationResult.Errors.FirstOrDefault() ?? verificationResult.Summary);
+            }
+        }
+        finally
+        {
+            isVerifyingSlice = false;
         }
     }
 

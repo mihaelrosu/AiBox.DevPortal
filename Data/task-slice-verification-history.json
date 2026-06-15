@@ -1,0 +1,12 @@
+[
+  {
+    "sliceId": "05fddfb02246484ab79767fdd4256c1c",
+    "success": true,
+    "buildSuccess": true,
+    "verificationSuccess": true,
+    "summary": "Harness slice: Previewed -\u003E Verified at 2026-06-15T15:11:40.0988903Z. dotnet build finished with exit code 0.",
+    "generatedFiles": [],
+    "errors": [],
+    "executedAt": "2026-06-15T15:11:40.0988903Z"
+  }
+]

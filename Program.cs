@@ -66,10 +66,12 @@ builder.Services.AddScoped<IOrchestrationDashboardService, OrchestrationDashboar
 builder.Services.AddScoped<IProjectRegistryService, ProjectRegistryService>();
 builder.Services.AddScoped<IProjectKnowledgeIndexService, ProjectKnowledgeIndexService>();
 builder.Services.AddScoped<ProjectHistoryIndexService>();
+builder.Services.AddScoped<TaskSliceExecutionService>();
 builder.Services.AddScoped<IWorkflowRegistryService, WorkflowRegistryService>();
 builder.Services.AddScoped<IWorkflowTemplateService, WorkflowTemplateService>();
 builder.Services.AddScoped<IWorkflowRunPreviewService, WorkflowRunPreviewService>();
 builder.Services.AddScoped<IWorkflowRunHistoryService, WorkflowRunHistoryService>();
+builder.Services.AddScoped<TaskSliceVerificationService>();
 builder.Services.AddScoped<IDockerService, DockerService>();
 builder.Services.AddScoped<IGeneratedImageHistoryService, GeneratedImageHistoryService>();
 builder.Services.AddScoped<IImageToolService, ImageToolService>();

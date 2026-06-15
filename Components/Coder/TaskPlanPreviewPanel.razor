@@ -80,6 +80,21 @@
                                       ButtonStyle="ButtonStyle.Primary"
                                       Disabled="@(!OnGeneratePatchRequested.HasDelegate || IsGeneratingPatch)"
                                       Click="@(() => OnGeneratePatchRequested.InvokeAsync(slice))" />
+
+                        @if (slice.Status == TaskSliceStatus.Previewed)
+                        {
+                            <RadzenButton Text="Verify"
+                                          Icon="check_circle"
+                                          ButtonStyle="ButtonStyle.Success"
+                                          Disabled="@(!OnVerifyRequested.HasDelegate || IsVerifyingSlice)"
+                                          Click="@(() => OnVerifyRequested.InvokeAsync(slice))" />
+                        }
+
+                        @if (SliceStatusMessages.TryGetValue(slice.Id, out var sliceStatusMessage) &&
+                             !string.IsNullOrWhiteSpace(sliceStatusMessage))
+                        {
+                            <RadzenText Text="@sliceStatusMessage" TextStyle="TextStyle.Caption" />
+                        }
                     </RadzenStack>
                 </RadzenCard>
             }
@@ -90,7 +105,10 @@
 @code {
     [Parameter] public TaskPlan? Plan { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnGeneratePatchRequested { get; set; }
+    [Parameter] public EventCallback<TaskPlanSlice> OnVerifyRequested { get; set; }
     [Parameter] public bool IsGeneratingPatch { get; set; }
+    [Parameter] public bool IsVerifyingSlice { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, string> SliceStatusMessages { get; set; } = new Dictionary<string, string>();
 
     private static BadgeStyle GetStatusBadgeStyle(TaskSliceStatus status)
     {
