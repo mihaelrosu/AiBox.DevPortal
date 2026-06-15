@@ -65,6 +65,7 @@ builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<IOrchestrationDashboardService, OrchestrationDashboardService>();
 builder.Services.AddScoped<IProjectRegistryService, ProjectRegistryService>();
 builder.Services.AddScoped<IProjectKnowledgeIndexService, ProjectKnowledgeIndexService>();
+builder.Services.AddScoped<ProjectHistoryIndexService>();
 builder.Services.AddScoped<IWorkflowRegistryService, WorkflowRegistryService>();
 builder.Services.AddScoped<IWorkflowTemplateService, WorkflowTemplateService>();
 builder.Services.AddScoped<IWorkflowRunPreviewService, WorkflowRunPreviewService>();

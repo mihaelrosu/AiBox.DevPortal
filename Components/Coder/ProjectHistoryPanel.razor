@@ -1,0 +1,219 @@
+@inject ProjectHistoryIndexService ProjectHistoryIndexService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Project History Index" TextStyle="TextStyle.H5" />
+                <RadzenText Text="@GetGeneratedAtText()" TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" Wrap="FlexWrap.Wrap">
+                <RadzenButton Text="Rebuild History Index"
+                              Icon="refresh"
+                              ButtonStyle="ButtonStyle.Primary"
+                              Click="@RebuildAsync"
+                              Disabled="@isRebuilding" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@GetTotalIndexedItemsText()" />
+            </RadzenStack>
+        </RadzenStack>
+
+        <RadzenRow Gap="0.75rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenText Text="Total Indexed Items" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@index.Items.Count.ToString()" TextStyle="TextStyle.Body1" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenText Text="Last Generated" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@GetLastGeneratedText()" TextStyle="TextStyle.Body1" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+                @statusMessage
+            </RadzenAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        <RadzenRow Gap="0.75rem">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenText Text="Item Count" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@index.Items.Count.ToString()" TextStyle="TextStyle.Body1" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenText Text="Completed Features" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@summary.CompletedFeatures.Count.ToString()" TextStyle="TextStyle.Body1" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenText Text="Pending Features" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@summary.PendingFeatures.Count.ToString()" TextStyle="TextStyle.Body1" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow Gap="0.75rem">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenText Text="Failed Slices" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@summary.FailedSlices.Count.ToString()" TextStyle="TextStyle.Body1" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenText Text="Recommended Next" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@summary.RecommendedNextSlices.Count.ToString()" TextStyle="TextStyle.Body1" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenText Text="Applied Patches" TextStyle="TextStyle.Caption" />
+                <RadzenText Text="@summary.AppliedPatches.Count.ToString()" TextStyle="TextStyle.Body1" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenCard Style="margin: 0;">
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Completed Features" TextStyle="TextStyle.H6" />
+                @RenderList(summary.CompletedFeatures, "No completed features found.")
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard Style="margin: 0;">
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Pending Features" TextStyle="TextStyle.H6" />
+                @RenderList(summary.PendingFeatures, "No pending features found.")
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard Style="margin: 0;">
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Failed Slices" TextStyle="TextStyle.H6" />
+                @RenderList(summary.FailedSlices, "No failed slices found.")
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard Style="margin: 0;">
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Recommended Next Slices" TextStyle="TextStyle.H6" />
+                @RenderList(summary.RecommendedNextSlices, "No recommendations available yet.")
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenAccordion>
+            <RadzenAccordionItem Text="Indexed Items (first 25)">
+                <RadzenDataGrid Data="@GetVisibleItems()"
+                                TItem="ProjectHistoryItem"
+                                AllowPaging="false"
+                                AllowSorting="false"
+                                AllowFiltering="false"
+                                Density="Density.Compact">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="ProjectHistoryItem" Property="SourceType" Title="SourceType" Width="140px" />
+                        <RadzenDataGridColumn TItem="ProjectHistoryItem" Property="Status" Title="Status" Width="120px" />
+                        <RadzenDataGridColumn TItem="ProjectHistoryItem" Property="Title" Title="Title" />
+                        <RadzenDataGridColumn TItem="ProjectHistoryItem" Property="FilePath" Title="FilePath" />
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenAccordionItem>
+        </RadzenAccordion>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private ProjectHistoryIndex index = new();
+    private ProjectHistorySummary summary = new();
+    private bool isRebuilding;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            index = await ProjectHistoryIndexService.LoadAsync();
+            summary = await ProjectHistoryIndexService.GetSummaryAsync();
+            statusMessage = $"Loaded history index with {index.Items.Count} items.";
+            errorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unable to load project history index: {ex.Message}";
+            statusMessage = string.Empty;
+        }
+    }
+
+    private async Task RebuildAsync()
+    {
+        isRebuilding = true;
+        try
+        {
+            index = await ProjectHistoryIndexService.RebuildAsync();
+            summary = await ProjectHistoryIndexService.GetSummaryAsync();
+            statusMessage = $"Rebuilt history index with {index.Items.Count} items.";
+            errorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unable to rebuild project history index: {ex.Message}";
+            statusMessage = string.Empty;
+        }
+        finally
+        {
+            isRebuilding = false;
+        }
+    }
+
+    private string GetGeneratedAtText()
+    {
+        return index.GeneratedAt == default
+            ? "Generated: not available yet."
+            : $"Generated: {index.GeneratedAt:yyyy-MM-dd HH:mm:ss} UTC";
+    }
+
+    private string GetLastGeneratedText()
+    {
+        return index.GeneratedAt == default
+            ? "Not generated yet."
+            : index.GeneratedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+    }
+
+    private string GetTotalIndexedItemsText()
+    {
+        return $"{index.Items.Count} indexed items";
+    }
+
+    private IReadOnlyList<ProjectHistoryItem> GetVisibleItems()
+    {
+        return index.Items.Take(25).ToList();
+    }
+
+    private static RenderFragment RenderList(IReadOnlyList<string> items, string emptyText) => builder =>
+    {
+        if (items.Count == 0)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddContent(1, emptyText);
+            builder.CloseElement();
+            return;
+        }
+
+        var sequence = 0;
+        foreach (var item in items)
+        {
+            builder.OpenElement(sequence++, "div");
+            builder.AddContent(sequence++, $"• {item}");
+            builder.CloseElement();
+        }
+    };
+}
