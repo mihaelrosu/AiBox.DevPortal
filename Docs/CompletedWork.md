@@ -156,6 +156,57 @@ Known warning:
 
 * Existing nullable warning remains in Services/PatchIntentService.cs:74
 
+### V2.2 Canonical Task Slice Model
+
+Status: In Progress
+
+Completed:
+
+* Added TaskSliceStatus
+* Added TaskPlanSlice
+* Added TaskSliceExecutionResult
+* Added TaskSliceExecutionService foundation
+* Extended TaskPlanSlice with planner metadata
+* Added TaskSliceMapper for compatibility
+* Updated TaskPlan to use TaskPlanSlice as canonical slice model
+* Updated TaskPlanPreviewPanel to render TaskPlanSlice directly
+* Updated TaskDecompositionService to emit TaskPlanSlice directly
+
+Result:
+
+* TaskPlan now owns canonical TaskPlanSlice items
+* Planner output now includes slice identity, status, timestamps, metadata, related files, and verification commands
+* Legacy TaskSlice remains temporarily for compatibility
+
+Next:
+
+* Update TaskSliceExecutionRequest to use canonical slice identifiers
+* Wire Generate Patch for Slice
+* Track slice state through Previewed, Applied, Verified, Failed, RolledBack
+* Eventually retire legacy TaskSlice
+
+### V2.2 Generate Patch For Slice
+
+Status: Completed
+
+Completed:
+
+* Added Generate Patch action per TaskPlanSlice
+* Routed slice patch requests through TaskSliceExecutionService
+* Created TaskSliceExecutionRequest with PlanId, SliceId, SliceTitle, and RequestedAction
+* Preserved existing patch preview workflow
+* Advanced slice status from Pending to Previewed after successful patch preview
+* Preserved safe behavior: no automatic apply and no automatic build verification
+
+Result:
+
+* DevPortal can now generate patch previews from individual task slices.
+* The Planner -> Slice -> Patch Preview workflow is functional.
+
+Known limitation:
+
+* PlanId is currently derived from TaskPlan.CreatedAtUtc until TaskPlan receives a persistent Id.
+
 ## In Progress
 
 ### Planner -> Slice Execution

@@ -1,7 +1,1912 @@
 {
   "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
-  "generatedAt": "2026-06-15T11:19:10.3982041Z",
+  "generatedAt": "2026-06-15T13:34:02.4669829Z",
   "items": [
+    {
+      "id": "08ddfeb9a09d5b5b423c5363c0e4d23e9f0fbd76fecd10ea15e8ee22d11e4a70",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Agent Mode Profiles",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "d66256981fd22ed51eeced1d24494be86d877c2c85b64536b273d73ddd02d901",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Planner profile",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "0a0a76bff3653e4cb746bc228a8c824d8dc77fc6f2c070d04b87cd226dc72109",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Patch Builder profile",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "aa6e2845bfc196283151986523dc6f713296ac6105cb8cd910f5649018c9d367",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Reviewer profile",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "ac93fab9db4876e0606261343a889db0815f8bc5e27410cc3f70b2b294377799",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Verifier profile",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "5f2ab656fdcc1ae7f8671726fe046e809db8415ceb976fcef1d8ace21c02999d",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Tool Runner profile",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "74ea58dc4ff147b3de73a51974cc263af32fe929b9899020c95d2927cb0f826e",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Services/Agents/AgentModeProfileService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "91f07cb44b5358a8731a2600addc38a36009fa34bf8684dec3c64fb6baa24a62",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Services/Agents/AgentRegistryService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "00d79655ef124c7da68526cc888c8cc4d90162b1d1eb6eb278bfcaffe90877bb",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Services/Agents/AgentModeRunner.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "ccc7f62a57eb7febdc116979134d70e02e20fdbe8aea1040b4b92c99bf53accb",
+      "sourceType": "CompletedWork",
+      "title": "Agent Infrastructure",
+      "summary": "Different models can be assigned per profile.",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b51ca2af5d244ababefd70a3f3a6acde8826fbbef2afa42c373f777eedd3cd4e",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Coder page",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "66fad436146ebcdc5f475753b0c5fb00fdbd1b1c9ccbb62c7748355c93d57ff7",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Context file selection",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "37b6153ded9f26c0ad82cdec1a8f17a4b33482946b2bba4c3d35d70d1bd0596d",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Multi-file context support",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "35e019609b65054dee434035c8c61deb2dc2beb2db9c8d1f64eec07c3897aa58",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Patch queue",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "56ef83a054c6219261bf279b75d1f050b338afeb07c96e01134202ad85a7f09c",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Patch preview workflow",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "d5f2d95d6a7bc4137d00e159705c4be0d077567a7331086947b5d34b4ff4ca9c",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Run history UI",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "5c7a1048e30ae29f93e5ee83f78f558cdef75f80efc1999eca310e606cd66658",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Components/Pages/Coder.razor",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "a4b3ceeb5fa7abbae30dedac5d6e2de5baa8691a8f5ecaed3b9dcc47ea7403f1",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Components/Coder/CoderKnowledgePanel.razor",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "08a23d03cd413fe9586d48c7305fdb02819e2aee242fffa101901a63dec30bfe",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Components/Coder/CoderHistoryPanel.razor",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "6cf6ddb527ac71ce17992377ed5acf6a35164a0a27c333411a7de4d79c6690a4",
+      "sourceType": "CompletedWork",
+      "title": "Coder UI",
+      "summary": "Components/Coder/ProjectHistoryPanel.razor",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "c6b93d96f25309d61e8fac86e170312e1171b8b228690de5f4b80bee7b644aa1",
+      "sourceType": "CompletedWork",
+      "title": "Known Technical Decisions",
+      "summary": "Local-first architecture",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "90ed07366720bbb91135ccc6a86d3a958da9aedeb6ce9b76e9c6d6a72570c0bb",
+      "sourceType": "CompletedWork",
+      "title": "Known Technical Decisions",
+      "summary": "Ollama models preferred",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "161b2a9807360e8bf303e330c34f0433ca1afbdc26662a67b64ae9625d0097e6",
+      "sourceType": "CompletedWork",
+      "title": "Known Technical Decisions",
+      "summary": "Patch preview before apply",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "6533e144f9cab5fefd3e27d0f0273e8afc57a7aeda038acde6ce40843309ad9b",
+      "sourceType": "CompletedWork",
+      "title": "Known Technical Decisions",
+      "summary": "Slice-based execution model",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "f61fd59459743c59e848f8b698306eb7204075c874c32534f8f3eaf43bf49994",
+      "sourceType": "CompletedWork",
+      "title": "Known Technical Decisions",
+      "summary": "Project Knowledge Index used for context selection",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "633621184ecc67907e0ed983d45cad4ffec84abb7071a051dd9d98f0dafbb2bc",
+      "sourceType": "CompletedWork",
+      "title": "Known Technical Decisions",
+      "summary": "AGENTS.md based instruction routing",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "40d01bcdf3ceb3220645c319e89cf3661bdf559424e095b11b7881837dd9b6c8",
+      "sourceType": "CompletedWork",
+      "title": "Local AI Integration",
+      "summary": "Ollama integration",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "bf9650a554c8efe92e15f1d7dffd4b442f8efad5c6c9334dd07e5bb46632dd3c",
+      "sourceType": "CompletedWork",
+      "title": "Local AI Integration",
+      "summary": "Agent profile execution model",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "64fd0c74fef2aec30bdbacc1aef284596a79ead46febc0f5a2cb635bf3722ccc",
+      "sourceType": "CompletedWork",
+      "title": "Local AI Integration",
+      "summary": "Local model support",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "745fce51926baa03262eae8107c4dc49f40681da7456bd39f3f935a8e396a817",
+      "sourceType": "CompletedWork",
+      "title": "Local AI Integration",
+      "summary": "Prompt orchestration",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "a40bfef3065bdb8db6702c8b21a145deb74d8836722527634e6f14c61973293d",
+      "sourceType": "CompletedWork",
+      "title": "Local AI Integration",
+      "summary": "Services/OllamaService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "a10919ba3b286cdd137c901fd2d71e559e4d4842e50f73a2acde49afcdff73d4",
+      "sourceType": "CompletedWork",
+      "title": "Local AI Integration",
+      "summary": "Services/OllamaLocalLlmService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "1548c5dad2e8a2b94e3c798d588abed8dec6f62ce8b212e470a4e72fa52ac263",
+      "sourceType": "CompletedWork",
+      "title": "Local AI Integration",
+      "summary": "Services/PromptEnhancerService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "36e6a0eadfb95c4ca766bc4353293521c390f8b514e5862f5b15b5fbb85e76a0",
+      "sourceType": "CompletedWork",
+      "title": "Metadata",
+      "summary": "SourceType: CompletedWork",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "70c88e444114c76467bab9844ba7aad067b4c2f5acafb43b1c9cae76a3bab308",
+      "sourceType": "CompletedWork",
+      "title": "Metadata",
+      "summary": "Status: Active",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Active",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "active",
+        "bullet"
+      ]
+    },
+    {
+      "id": "a2cbbf0db4d110e331b907bd66dc9ccb13a689cde1ed8e70fea145a4fbdc0fb7",
+      "sourceType": "CompletedWork",
+      "title": "Metadata",
+      "summary": "Owner: DevPortal",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "27f0bf5e5805b2742a5046ac40171b011275d4771bb324e2b5cb9de3baafeae2",
+      "sourceType": "CompletedWork",
+      "title": "Metadata",
+      "summary": "LastUpdated: 2026-06-15",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "c903f2d67d686dc019b51b6d677508a9483c09127b1d68bef6c8bd5e1f8662cc",
+      "sourceType": "CompletedWork",
+      "title": "Metadata",
+      "summary": "Tags: completed-work, history, project-memory",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "5a5c7c7bc906697064980b4a6c07c006c69bf2bef9a1ed55b367271a2d7658c5",
+      "sourceType": "Recommendation",
+      "title": "Next Recommended Work",
+      "summary": "Project History Index foundation",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Planned",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "recommendation",
+        "planned",
+        "bullet"
+      ]
+    },
+    {
+      "id": "5352d84833a91118e0ee6e63eacbcaa37638beb639f14d023e5a05aa1811c534",
+      "sourceType": "Recommendation",
+      "title": "Next Recommended Work",
+      "summary": "Task Slice execution",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Planned",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "recommendation",
+        "planned",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b756f3634dfcfca340d8d0df7b0f825f8d685a1c1605dd3459453d4d2db63774",
+      "sourceType": "Recommendation",
+      "title": "Next Recommended Work",
+      "summary": "Verification loop",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Planned",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "recommendation",
+        "planned",
+        "bullet"
+      ]
+    },
+    {
+      "id": "00c0094f4a3f77f73fa907dd5908bf38c948918bf82a0ec130b10efc191aa8cf",
+      "sourceType": "Recommendation",
+      "title": "Next Recommended Work",
+      "summary": "Safe Apply workflow",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Planned",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "recommendation",
+        "planned",
+        "bullet"
+      ]
+    },
+    {
+      "id": "8f47c77542c97f8fe68e72b4ba585b81d7998bdeb7a33cf08956326762ad749c",
+      "sourceType": "Recommendation",
+      "title": "Next Recommended Work",
+      "summary": "Agent dashboard metrics",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Planned",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "recommendation",
+        "planned",
+        "bullet"
+      ]
+    },
+    {
+      "id": "39e84d4e5fc0940b056df427dc29f57799550bf3921971954b8179a022d23bb9",
+      "sourceType": "CompletedWork",
+      "title": "Patch Management",
+      "summary": "Patch preview generation",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "620e5f4cdc4b1d47e38a659234456f16b0c5718409527df86851b32f5aec8ec3",
+      "sourceType": "CompletedWork",
+      "title": "Patch Management",
+      "summary": "Validation pipeline",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "ab1b092f40e6724b43194a56ef8c40843b69b8f33ad6ff283c623c10586f9d85",
+      "sourceType": "CompletedWork",
+      "title": "Patch Management",
+      "summary": "Patch queue",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "91a0b8b20b1cee540ccbe3c149f93fdcda491bc96e065d9d958f545602870262",
+      "sourceType": "CompletedWork",
+      "title": "Patch Management",
+      "summary": "Backup support foundations",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "5823c2619fd3f84a9118fd854accdc99b2946941fa860c2c1f7d348f807f2860",
+      "sourceType": "CompletedWork",
+      "title": "Patch Management",
+      "summary": "Services/PatchEditOperationService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "382d777bb3f10a6e26e47811553b5174fe322f0bfae781203c2aaabd6a00cebc",
+      "sourceType": "CompletedWork",
+      "title": "Patch Management",
+      "summary": "Services/PatchPackageService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b42c0215647d3361fe98192a960e013dbf15baf887c9790b1a7881e738428357",
+      "sourceType": "CompletedWork",
+      "title": "Patch Management",
+      "summary": "Services/PatchApprovalGateService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "c7ce4c8ffe6801616adee67b502935a887d70588a0fb1ae644723320b86de65c",
+      "sourceType": "CompletedWork",
+      "title": "Patch Management",
+      "summary": "Services/PatchApplyService.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "fa399cb13d8cfdeaa57a948a1d0b9d48ac2a1ae2b58e72e002962854574948f8",
+      "sourceType": "CompletedWork",
+      "title": "Planner -\u003E Slice Execution",
+      "summary": "Task Plan",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "dfb7a20198c934f7298cd6896550d83ad244bf4c0e9c962c107f9c3f4309cf6c",
+      "sourceType": "CompletedWork",
+      "title": "Planner -\u003E Slice Execution",
+      "summary": "Task Slice",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "abb36368a5673363a62216582f103ef9c830d55588b1d75e3e3acfc91d2aabb9",
+      "sourceType": "CompletedWork",
+      "title": "Planner -\u003E Slice Execution",
+      "summary": "Planner output can be split into actionable slices.",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "4a4ed2226b0f86c61a8642a025dc0c69b4cc400cb0846008f59e95d20a24eff6",
+      "sourceType": "CompletedWork",
+      "title": "Planner -\u003E Slice Execution",
+      "summary": "Slice execution records are indexable.",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "8a0c69ed910e9d7926cddafec6aad23bb9708c10ed555184027e9c340ac7e17a",
+      "sourceType": "CompletedWork",
+      "title": "Planning Workflow",
+      "summary": "Task planning foundations",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "11e1cff1f645d3c75e958447d904e4454d65be7ca58921863ca2e32294e6b53e",
+      "sourceType": "CompletedWork",
+      "title": "Planning Workflow",
+      "summary": "Slice-oriented roadmap direction",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "aa63878239d83152c94124394d8403e6dd358871e3e379586f500a0de5bdd1a3",
+      "sourceType": "CompletedWork",
+      "title": "Planning Workflow",
+      "summary": "Task Slice execution is not yet fully implemented.",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "3f2fda84d632f52f586e88106960f1033bb8fd4d512e75e3881e1834d4bdf48a",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Created Docs/Roadmap.md",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "c14d74b7e1cfaa8cda9730dcbdbb7e4cb01fd6cb2afe798c6ee49acae0971373",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Created Docs/CompletedWork.md",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "54de8f7a76fcbd239afe4aea0ca0726bb55e2b94afca549042bb31b3ca3aec32",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Created Docs/Architecture.md",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "a12dd69e75d811bda68a4513ee656703cbda9919b3ec08cc932e9bb0f1401cae",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added metadata blocks for indexing",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "fd60f97710a86da7157648fc64f75d62cf121b8aed9a3327e401780d6b35fc04",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added ProjectHistoryItem model",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "79edcdbe0d0799d8e8afa7c9acbff517d76ea0cd1d610f4b0db6431cdcf451be",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added ProjectHistoryIndex model",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "9b16fc7685ff29ae8dc47f9769880c77bc458d9fc02404017bc5d978c0b41c75",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added ProjectHistorySummary model",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "f5fcf0b25755cff5cdd7accaa83857b5a8cdb6fc7f971a27ebdfaeb9ad14e7e5",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added ProjectHistoryIndexService",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b659da320de0e20ab7462f5b67bd8aeb19c15a1196830925e2f049106f86716c",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added ProjectHistoryPanel",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "2644812f9c040bc64143c8bb9f2952436e74273c6220b565854a2dbc4964dac7",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Registered ProjectHistoryIndexService in Program.cs",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "4a08a92954decdceda3426a385e0b87937af6ef6bdfea6ac89c735c7ee37d667",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Wired ProjectHistoryPanel into Coder UI",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "3ca6f2aebdee0372101f5bf5c7689339e2638d4e394fcf7d96df6459350048d8",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added history rebuild workflow",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "0be3939b3e713b92e11dc32309b0de9bd4384c34007cc605b7fa6250ca9f1b19",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added history summary generation",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "987f9c03be14e03ca7ec8371c065bb9d764a6c5aaeeb00357bdef16cd99a17c5",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added recommendation extraction",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "f199075afe5a5449de7b2575003fbca63ff4f2fc4b6ca47949efeaad4f52410a",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Added indexed item viewer",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "302cbb9b85373d123a913a7b786b17d8c521f3be55b873016264437f77f73640",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Improved status classification",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b43a23519407e7d9f03fb15f6454128d6e0928c662991a86154d4856aa1fa80a",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Improved source type classification",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "fe19b4185e72d5577db4a850df7f03bce7570930f937883562487a92f1d6ca06",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Reduced noisy duplicated history items",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "a9cb3d918c045c4f2d844496e8d7159d94315a9d2be419c1cc04e37eef434097",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Cleaned recommendation titles",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "425b14b124679af3a121ba3d07bea1d1ed2083f545001318bfc5abfe44e6652f",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "dotnet build succeeded",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "1aa5612ef8d6f6a86a9ac3f5754ea7d51c79c00b39badc2bcd1022b3d87d3e77",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Data/project-history-index.json was generated",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "ca8ee04eb1b142e4e5177dbaa2b5e2a104b5d7dbbc80e84073105c74d9fd3344",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "1221 history items indexed",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "a480f4d28d187f3901b136f513372ad85eda1729419144bc54b2035b5df8533f",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "5 recommended next slices generated:",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Planned",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "planned",
+        "bullet"
+      ]
+    },
+    {
+      "id": "10c18ba1f2312235aed069dc86b8d07a6ac3d653bc5d5e73641c1fdc7a69735a",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Project History Index foundation",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "ed5f4fd7decbe62715546670baae37ecde7e1738a9bf929fae4dca14a2a4fc4b",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Task Slice execution",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "74674a8ddf7e19f64c4250569b5eaa645dff32d67e0b428d78028215bf2c8341",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Verification loop",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "938d74370686a888bb7f5b7fa85c3892b05fa21647f3b9e15d56e41daaea9792",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Safe Apply workflow",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "78d5164fcb4765cdaf281b0493ae8f55a8920ad1eb39d10e5ceefa7410d5fd54",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Agent dashboard metrics",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "af7ccd0c8a5fe1f42840d3865cfba32d10917ee57fbe0ac6e1f3efa6e63532c4",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Existing nullable warning remains in Services/PatchIntentService.cs:74",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "3fb81038b3b5c5b24c4386a881e3e4f6845711c2da67e02fbc20a896d0264782",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Docs/Roadmap.md",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "033623c39e3ebca768000e79dd1f90050fe9ddc5544e4b7fc6edf41348b52b8f",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Docs/CompletedWork.md",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "7903da1891ac071f0e53db6a8cdf4e4d31be9dfe01ea404353c4d8728537a629",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Docs/Architecture.md",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "88c2ed8594c76d3a68bb0dd0e5d4fca50e4960f70aa4af3e5978a2b34b0ace3e",
+      "sourceType": "CompletedWork",
+      "title": "Project History Index",
+      "summary": "Runtime history sources",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "0babcface00bf826a63a36f0e018fa736b8432fdb620258549b63d7828609ccb",
+      "sourceType": "CompletedWork",
+      "title": "Project Knowledge",
+      "summary": "Project Knowledge Index model",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "32687808837c6bc4b7440ddfb069690d925c12ddcd53de0bb21e6e5af91111ed",
+      "sourceType": "CompletedWork",
+      "title": "Project Knowledge",
+      "summary": "Project Knowledge Index Service",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "0b5da14600bb823bf5ba6f2aafd3eff58f95807a0042bfd3ec7a71cbd9dd8470",
+      "sourceType": "CompletedWork",
+      "title": "Project Knowledge",
+      "summary": "Knowledge rebuild workflow",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "612ca4785190c9840fae801181b55a235a705924344f9e50d5885f576a7b62db",
+      "sourceType": "CompletedWork",
+      "title": "Project Knowledge",
+      "summary": "Knowledge panel",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "a68be8dbcca8c9dd2eeb46931ee51d88762875ec52d3287bf59d7cb6b077ffb7",
+      "sourceType": "CompletedWork",
+      "title": "Project Knowledge",
+      "summary": "Context file suggestions",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "f8f0b68e0b6c2d70d9618c13d6f52853b57363dfbcab2359c416c7dadb9aff62",
+      "sourceType": "CompletedWork",
+      "title": "Project Knowledge",
+      "summary": "Coder page",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "7442609ada7afad56d885d07c77abfb84b3f7a44f22d89af7a28656f2849390e",
+      "sourceType": "CompletedWork",
+      "title": "Project Knowledge",
+      "summary": "Context file selection",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b40fa4e62f95e0096d95ec6c5a9c3986be0c09a342327a679ab885ac8a1c67f6",
+      "sourceType": "CompletedWork",
+      "title": "Safe Apply Workflow",
+      "summary": "Patch Queue",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "03ddf71400f41f2ddb2fae04e208494f1c1395e59ebf80a5c33b8010866e2c71",
+      "sourceType": "CompletedWork",
+      "title": "Safe Apply Workflow",
+      "summary": "Backup support foundations",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "d54028dc03f83ec005d03d6a8e820b794617191346c10a07ef45db1f7d85edd2",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Added TaskSliceStatus",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "7e1decdb5bfa9c1149e327230f350b602741f33dc2ba8263a3e6b776620d77cf",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Added TaskPlanSlice",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "285cb1c22eafc3f47d0b50b0da58654d00c6d9092fcda6da70115da34270c01e",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Added TaskSliceExecutionResult",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b012fea71de10257bda4f6b08c6c222b927d0fc132eb7920165a523edea0bebb",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Added TaskSliceExecutionService foundation",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "cd5b0c941a28cd512ee917940c93b083867dd9fa275c7850a0bf6539d184366b",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Extended TaskPlanSlice with planner metadata",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "6f5fdba703b5ae8ff4263c15d5aa2d570ab9804688fc454f7c6040779880fc4e",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Added TaskSliceMapper for compatibility",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "49f97a0ec408eb8cd916a58c7ea30c9a23808dfc859ac7a79dbd4f8f989ee59a",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Updated TaskPlan to use TaskPlanSlice as canonical slice model",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b7778f7971e465a155358aac16e7a04ac81813fdd6bc98710fedc396b217e31a",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Updated TaskPlanPreviewPanel to render TaskPlanSlice directly",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "e048b864cea3464e00a46d5a2e3e9afa884e2872335c1602c72e135e938b25ef",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Updated TaskDecompositionService to emit TaskPlanSlice directly",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "faebd1dc6ed2399c38a677d9bbdb1b6475e2911161626dd9c99d7a122e5b0365",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "TaskPlan now owns canonical TaskPlanSlice items",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "b168f75b5c1fe1c0f2fbbdc5c3a26b199ccc1b246001fc66e8c61be53738b402",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Planner output now includes slice identity, status, timestamps, metadata, related files, and verification commands",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "97ea9d37ca7c1915301445505e5bbfb96e6beda5259ed2df7713ce69bcc147fb",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Legacy TaskSlice remains temporarily for compatibility",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "d064ba1cdce1bda59becce8e0b7d6bb1e038d40a777353e210406b015ad697db",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Update TaskSliceExecutionRequest to use canonical slice identifiers",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "1879e0afa2f31b1176782c6c53e55dc7796f84abfdda989d0b927754d6dbf381",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Wire Generate Patch for Slice",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "55b34ebe445f5572e17ca2340e2d16c5da0eedc9409a465958f8c39712245c29",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Track slice state through Previewed, Applied, Verified, Failed, RolledBack",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Failed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "failed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "90337ff0687e830c4d76c48697bcb16dffd68c6e0af080e871850b3d9ebae6f5",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Canonical Task Slice Model",
+      "summary": "Eventually retire legacy TaskSlice",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "f79f6fdd9a0b893492780a28ef6024dc71359f94f141b97add3821b14bfb8737",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "Added Generate Patch action per TaskPlanSlice",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "c0807627401be614205900e1a9f38b6e1fe97b83d2f35680d3f9b2b9870d3ca8",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "Routed slice patch requests through TaskSliceExecutionService",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "23201b8a309f5fb99cc999ee038004b7be08537c84581ef9ff798e75768f436f",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "Created TaskSliceExecutionRequest with PlanId, SliceId, SliceTitle, and RequestedAction",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "6aba06212f6b3f095bad165f819720b5f0840770d1957ce4e1bd9f017849686c",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "Preserved existing patch preview workflow",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "eb068dee1f67d639528d6aae5b5399b080e63ce489448fea1de43cf8d2c0ea31",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "Advanced slice status from Pending to Previewed after successful patch preview",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "e8021391783c39a28d732e6cf2fb31bbd41dff97cd6e090c479b4c3b8e2b9176",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "Preserved safe behavior: no automatic apply and no automatic build verification",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "e519ed4ba333f1017363fa77fd292a2aaa798d895c94e8d97120c302f515b5c2",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "DevPortal can now generate patch previews from individual task slices.",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "d2de9efe270cf4a12bfcf05720ea3246e4f7452413d53c3ca70360121fa912d5",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "The Planner -\u003E Slice -\u003E Patch Preview workflow is functional.",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "2931d8976e70de50bb17fc8e971409c9d7bcd154f4a59756e6d0d669fdd9db80",
+      "sourceType": "CompletedWork",
+      "title": "V2.2 Generate Patch For Slice",
+      "summary": "PlanId is currently derived from TaskPlan.CreatedAtUtc until TaskPlan receives a persistent Id.",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "ba5e383ccc3afc62edbac83ee93f4016237bc4e3b5ec1b73ec9c75f56e4c4f1b",
+      "sourceType": "CompletedWork",
+      "title": "Verification Loop",
+      "summary": "Verifier profile",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
+    {
+      "id": "952b35036b039398fc1f7b0feed5b45fcb7e6a152ef2db0d733049fe15860587",
+      "sourceType": "CompletedWork",
+      "title": "Verification Loop",
+      "summary": "Reviewer profile",
+      "filePath": "Docs/CompletedWork.md",
+      "status": "Completed",
+      "createdAt": "2026-06-15T13:32:09.8800642Z",
+      "updatedAt": "2026-06-15T13:32:09.8800642Z",
+      "tags": [
+        "completedwork",
+        "completed",
+        "bullet"
+      ]
+    },
     {
       "id": "67588c424784ed4324ba7d958439e302a541fb4a195793a0007902dec72b35ed",
       "sourceType": "AcceptanceCriteria",
@@ -1469,1101 +3374,6 @@
       "tags": [
         "architecture",
         "planned",
-        "bullet"
-      ]
-    },
-    {
-      "id": "b0303e49a9eca92d3045a13d863e16552b42e4313a5e348294e956a3219bfc80",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Agent Mode Profiles",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "9abcfde5cf978930cc0940220e0253a0442811f8739c3f134e0ad4de88c0e256",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Planner profile",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "ae83551fbbce5b2bd036e785aa80d849b6ed0a6ea4dc8045d1b70e7821a404bd",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Patch Builder profile",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "1b86760e6766cbc18d037a0133f49c2f81e26049a0f96cbe448b8be9ee631bb6",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Reviewer profile",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "58b2bd0553888e44c8386c466837b1fe2d571dd5b2e64e225261cb669b2b749f",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Verifier profile",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "a5713cce4bacc7ca40167ca2cf5b2371d03b414e70fc7beb93af13fec21b89cb",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Tool Runner profile",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "a0004d06a27083783fc1d5836c7636f57b94e66bb4e3a7433919c1a63df031ef",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Services/Agents/AgentModeProfileService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "880baf57a4ee12e422fb1e470cbebfe9f33593e8572d6187ae0556cac4a814d9",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Services/Agents/AgentRegistryService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "659e400f9fd8e64a2c1b3ea7833985325411e7d05fd493ec243ccde29152e45c",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Services/Agents/AgentModeRunner.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "8cd773b042f706b35cc0b23929fba6ec32cbffdc7cf24d35077d1e554919f990",
-      "sourceType": "CompletedWork",
-      "title": "Agent Infrastructure",
-      "summary": "Different models can be assigned per profile.",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "4c2fec6527060a58e3bac0d7fadbfba34f505ca1dc53ef7c3580e3613caf5074",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Coder page",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "6c5907eafdb909abce9d8517d6ddad7add9f6ed29de8398b43b4042ff5cb6d7d",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Context file selection",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "e86b2a04e0acb7838fef74410b760a99fbc1831742fc1d299dea4a86784d27b2",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Multi-file context support",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "e20b74970c383ea56f861f8da11623dc79051a05288d38ec6ad48f2cef996b35",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Patch queue",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "ea20abdb47565e89112f6ec4ea31b0613224ba5e74aa4388091b038a3c5b0967",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Patch preview workflow",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "339f3f93428512c0d57f90905d69dd0bfe543216881f4241a8b6db54bba7d8c9",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Run history UI",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "cf24ae04bea6aa865de63375e0218c75afd34d38b5db32a0a9bfa55d65e98c3e",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Components/Pages/Coder.razor",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "585b5cd036bb3d4f461b4e4712dd2dc1d93dc5b8a57d2f88cabe1df90b0f7072",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Components/Coder/CoderKnowledgePanel.razor",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "632ada5c2272d8bcd6f3a955490b1fcc05c69b5990731b5ec186ecec2ecd124c",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Components/Coder/CoderHistoryPanel.razor",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "5f68022a5beaa45dca1555f693bd9c5da719fa9996ce7012d79b070a6be1bd15",
-      "sourceType": "CompletedWork",
-      "title": "Coder UI",
-      "summary": "Components/Coder/ProjectHistoryPanel.razor",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "8b6778090ab5ff9fb9a2d242a0d5b44d54856f29e00ca256bdeb16a99d2ef794",
-      "sourceType": "CompletedWork",
-      "title": "Known Technical Decisions",
-      "summary": "Local-first architecture",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "482cbbb107e84a02114aad1ce090231ae13c8abbed4e273238e4aaaee6f3b2c6",
-      "sourceType": "CompletedWork",
-      "title": "Known Technical Decisions",
-      "summary": "Ollama models preferred",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "864968939fabd9a1764576e175122fc8db41aa5a3a5dadeefffc312f25896366",
-      "sourceType": "CompletedWork",
-      "title": "Known Technical Decisions",
-      "summary": "Patch preview before apply",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "ddd55ed3d37487b95ec055d95a49a0b4af3cbdefef9d5d9d6588c0f68f20f304",
-      "sourceType": "CompletedWork",
-      "title": "Known Technical Decisions",
-      "summary": "Slice-based execution model",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "52c8e6d543e0a343f3119d9189d2b2335df343237cf4678135417b15855b5819",
-      "sourceType": "CompletedWork",
-      "title": "Known Technical Decisions",
-      "summary": "Project Knowledge Index used for context selection",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "f5762ae0dd5b9a6bc98e1a00b83ad51891eb30c1489a8e8ac2a0b5d9cafc9635",
-      "sourceType": "CompletedWork",
-      "title": "Known Technical Decisions",
-      "summary": "AGENTS.md based instruction routing",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "125b3fe07d051e518aa2b5548820e692439ae4ffb72a6ded8cf56e8f243a1d49",
-      "sourceType": "CompletedWork",
-      "title": "Local AI Integration",
-      "summary": "Ollama integration",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "f3de8b55e653aaad097f5f1389b5eb3d25fac0bcc2fb070cd772c6dcb291d137",
-      "sourceType": "CompletedWork",
-      "title": "Local AI Integration",
-      "summary": "Agent profile execution model",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "2879d245962a99f1413f4f0704c7f875005a2865752a869b525ebdb747f06392",
-      "sourceType": "CompletedWork",
-      "title": "Local AI Integration",
-      "summary": "Local model support",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "003338c70381ce9a0d7b7d46014d69295356622842694b441750d225f054bfa3",
-      "sourceType": "CompletedWork",
-      "title": "Local AI Integration",
-      "summary": "Prompt orchestration",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "526b1c81516f7c0f39d4d8aa3b27a5504e75597223be3450e6235da7d3985e24",
-      "sourceType": "CompletedWork",
-      "title": "Local AI Integration",
-      "summary": "Services/OllamaService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "5447cb8c6416b85b4db03ede2564c082620f2b5664fddee62ce70692731f438a",
-      "sourceType": "CompletedWork",
-      "title": "Local AI Integration",
-      "summary": "Services/OllamaLocalLlmService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "192c68cc42852dcc84f5e76780c7149781747ca1ffd092afaa0c381e05e8932a",
-      "sourceType": "CompletedWork",
-      "title": "Local AI Integration",
-      "summary": "Services/PromptEnhancerService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "57942a87a369c390de4663ee5bf3186c653576ac50cfcb361ed8f5dc8537e491",
-      "sourceType": "CompletedWork",
-      "title": "Metadata",
-      "summary": "SourceType: CompletedWork",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "eacebf80054f546637cc566993cdb2f814bb1cca4f78f7358fa545cfd5080350",
-      "sourceType": "CompletedWork",
-      "title": "Metadata",
-      "summary": "Status: Active",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Active",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "active",
-        "bullet"
-      ]
-    },
-    {
-      "id": "30959b94cb635d681b7197a965b7c6044b219384e5c8107192715b525a9149f3",
-      "sourceType": "CompletedWork",
-      "title": "Metadata",
-      "summary": "Owner: DevPortal",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "0aa0e0867d04a2f3c581ac193d1a3ae1643c38bad9aae237b7a61886444f8ecb",
-      "sourceType": "CompletedWork",
-      "title": "Metadata",
-      "summary": "LastUpdated: 2026-06-15",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "ff75385d8dcf14a4754bd2db9fdefd2bc24c7865a3b6a6d0928a4f64003a6b3e",
-      "sourceType": "CompletedWork",
-      "title": "Metadata",
-      "summary": "Tags: completed-work, history, project-memory",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "9ad7689e8a372247177508c1622eb3d7825d02eabae7529c533f8ef5f7b79cbc",
-      "sourceType": "Recommendation",
-      "title": "Next Recommended Work",
-      "summary": "Project History Index foundation",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Planned",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "recommendation",
-        "planned",
-        "bullet"
-      ]
-    },
-    {
-      "id": "9a7e0e3492240257c070b932cead0a7d51bfea2b34f1992f0a9b05339f0b6433",
-      "sourceType": "Recommendation",
-      "title": "Next Recommended Work",
-      "summary": "Task Slice execution",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Planned",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "recommendation",
-        "planned",
-        "bullet"
-      ]
-    },
-    {
-      "id": "c88a0cf7d897fbcbfbbc732cd9fafa3704af043dca7ffc7f1f261c5f4c695041",
-      "sourceType": "Recommendation",
-      "title": "Next Recommended Work",
-      "summary": "Verification loop",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Planned",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "recommendation",
-        "planned",
-        "bullet"
-      ]
-    },
-    {
-      "id": "76d41a5aa226f3776b9582d4c4913b4de45c3e52211a69ed8bfc181b2ed6810d",
-      "sourceType": "Recommendation",
-      "title": "Next Recommended Work",
-      "summary": "Safe Apply workflow",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Planned",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "recommendation",
-        "planned",
-        "bullet"
-      ]
-    },
-    {
-      "id": "92964e64a0a933af786cfa9c1b6cc01ab56182264b798ccdccd5a06428ccc5b1",
-      "sourceType": "Recommendation",
-      "title": "Next Recommended Work",
-      "summary": "Agent dashboard metrics",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Planned",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "recommendation",
-        "planned",
-        "bullet"
-      ]
-    },
-    {
-      "id": "df28e5b874826426458bf742c78265f45cc339e01580bc95df95142846eb80fb",
-      "sourceType": "CompletedWork",
-      "title": "Patch Management",
-      "summary": "Patch preview generation",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "3bdbbf3174fe0e04c645dac481fd3c2e99a5d31451dd38a76696a12f68ea61fb",
-      "sourceType": "CompletedWork",
-      "title": "Patch Management",
-      "summary": "Validation pipeline",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "79b7977a1c65354211679f61273ddffbe1e3b1dbf43340220ff78ab59451b8d2",
-      "sourceType": "CompletedWork",
-      "title": "Patch Management",
-      "summary": "Patch queue",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "a426b3f3c6cb9736035de32b72dbdf98d4af124f224fe9d960de92dd9c89622d",
-      "sourceType": "CompletedWork",
-      "title": "Patch Management",
-      "summary": "Backup support foundations",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "96a00f56d0afa602460cfeba4a021a62a6c0534464359b2009a1b3ed97c44665",
-      "sourceType": "CompletedWork",
-      "title": "Patch Management",
-      "summary": "Services/PatchEditOperationService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "3f9676002ccea50460f8aa1f2db2e70485a976eda4033df2583520996466f697",
-      "sourceType": "CompletedWork",
-      "title": "Patch Management",
-      "summary": "Services/PatchPackageService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "54ff40eb21b26ebeb38147cbe390f7f85092dc9a92f6ec0f5d3f8cfcd2ee73f9",
-      "sourceType": "CompletedWork",
-      "title": "Patch Management",
-      "summary": "Services/PatchApprovalGateService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "321c52e177118b26e3fc9dbfca642cca25a62e36e8ec7201ed74c601c85339ac",
-      "sourceType": "CompletedWork",
-      "title": "Patch Management",
-      "summary": "Services/PatchApplyService.cs",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "b14d49282c6a06648ec901ae08f1b055a87654593896785b554360ab451d9467",
-      "sourceType": "CompletedWork",
-      "title": "Planner -\u003E Slice Execution",
-      "summary": "Task Plan",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "fc9f0783270194c013656f9b065fdd44942c5265dd480afacf77083dbfc123dd",
-      "sourceType": "CompletedWork",
-      "title": "Planner -\u003E Slice Execution",
-      "summary": "Task Slice",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "e4e84ddf96e2ad5ac2e74e9e33181187926e25c84707e25e79fae10ca6276ec4",
-      "sourceType": "CompletedWork",
-      "title": "Planner -\u003E Slice Execution",
-      "summary": "Planner output can be split into actionable slices.",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "f97d3feea68f13cda14c3fe65e9a078a1b194240ee6c57b44bd81b8cdca80ad4",
-      "sourceType": "CompletedWork",
-      "title": "Planner -\u003E Slice Execution",
-      "summary": "Slice execution records are indexable.",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "91dcecf0cbd002733690b3d039fbeb447fa5984f9b12c18d58213cd0bfe1f736",
-      "sourceType": "CompletedWork",
-      "title": "Planning Workflow",
-      "summary": "Task planning foundations",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "ad5c5e7db2feb50a0a74f59276ae7db5658465c1df92c179c540ea7e10725db0",
-      "sourceType": "CompletedWork",
-      "title": "Planning Workflow",
-      "summary": "Slice-oriented roadmap direction",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "90e7625b2130c4e69b085d7c6f4bfce678d99b6d937c99b1b81f7c3cf663fba4",
-      "sourceType": "CompletedWork",
-      "title": "Planning Workflow",
-      "summary": "Task Slice execution is not yet fully implemented.",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "96774c30c4f94df8f3506a807ec7df9073ea2c1f3fe8f4a0e63b468235476935",
-      "sourceType": "CompletedWork",
-      "title": "Project History Index",
-      "summary": "Docs/Roadmap.md",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "e9e753bf66f26e15c2be0196080764e3a493aa553ac76b08683339ec5721325b",
-      "sourceType": "CompletedWork",
-      "title": "Project History Index",
-      "summary": "Docs/CompletedWork.md",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "cdd003bb28092aa962e2332783139794b78e9ac351f8fffff8f72a0032b1f628",
-      "sourceType": "CompletedWork",
-      "title": "Project History Index",
-      "summary": "Docs/Architecture.md",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "f72ed3d3c6722a92eeacb9fa3f213f3285235eadf7c4584ccc676275080dbb49",
-      "sourceType": "CompletedWork",
-      "title": "Project History Index",
-      "summary": "Runtime history sources",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "a471a189ced2f5712500795335d274b41f78deefb4695f245747f43eea609a82",
-      "sourceType": "CompletedWork",
-      "title": "Project Knowledge",
-      "summary": "Project Knowledge Index model",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "fe1faf00b19854cc200c52e3fca8dfbcdcd3313563a2ea0d73f99440ddce2c21",
-      "sourceType": "CompletedWork",
-      "title": "Project Knowledge",
-      "summary": "Project Knowledge Index Service",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "b7c0f66b391d1fc0286ab0b5d05d7ad453b38129ba3731affcb0e8fada64a750",
-      "sourceType": "CompletedWork",
-      "title": "Project Knowledge",
-      "summary": "Knowledge rebuild workflow",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "f84b77cd67422b1a23364ddbf85bdf05051ef1ecdfb45d65c7134899a389def1",
-      "sourceType": "CompletedWork",
-      "title": "Project Knowledge",
-      "summary": "Knowledge panel",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "b265750aa371477cd978143d3497d7478c7220a349f8d80acd5e1f96c95eb466",
-      "sourceType": "CompletedWork",
-      "title": "Project Knowledge",
-      "summary": "Context file suggestions",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "f06e328456eb5da132d683066b5f55e6b8dfad75012af5fba4694290ca32d01b",
-      "sourceType": "CompletedWork",
-      "title": "Project Knowledge",
-      "summary": "Coder page",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "577de839db2a6bdcc22d387143fbb4b9a9ec9fd4d96e4e7a48f85a1fc428fc85",
-      "sourceType": "CompletedWork",
-      "title": "Project Knowledge",
-      "summary": "Context file selection",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "48de705ddd003bf850b260fe8ca503ffd613c7a6d0671687049246ac3db7bd2f",
-      "sourceType": "CompletedWork",
-      "title": "Safe Apply Workflow",
-      "summary": "Patch Queue",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "97fb838f86a4ec76b0c76f3830123233da8ae788d3d2909370e6ea07da1ad1be",
-      "sourceType": "CompletedWork",
-      "title": "Safe Apply Workflow",
-      "summary": "Backup support foundations",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "f5043639b87dd6fb040b3432e99d877052a60693379dee430e493c0a1b84af62",
-      "sourceType": "CompletedWork",
-      "title": "Verification Loop",
-      "summary": "Verifier profile",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
-        "bullet"
-      ]
-    },
-    {
-      "id": "d457b97287740ed1e17d3edd222ffa7cfdf41b704967eb5f79a2d4dd5be2a8f6",
-      "sourceType": "CompletedWork",
-      "title": "Verification Loop",
-      "summary": "Reviewer profile",
-      "filePath": "Docs/CompletedWork.md",
-      "status": "Completed",
-      "createdAt": "2026-06-15T10:04:19.2715303Z",
-      "updatedAt": "2026-06-15T10:04:19.2715303Z",
-      "tags": [
-        "completedwork",
-        "completed",
         "bullet"
       ]
     },

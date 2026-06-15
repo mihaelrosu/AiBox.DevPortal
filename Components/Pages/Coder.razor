@@ -63,7 +63,9 @@
                     <RadzenButton Text="Decompose Task" Icon="call_split" ButtonStyle="ButtonStyle.Light"
                                   Click="@DecomposeTask"
                                   Disabled="@string.IsNullOrWhiteSpace(request.Task)" />
-                    <TaskPlanPreviewPanel Plan="@taskPlanPreview" />
+                    <TaskPlanPreviewPanel Plan="@taskPlanPreview"
+                                          IsGeneratingPatch="@isGeneratingPatch"
+                                          OnGeneratePatchRequested="@GenerateSlicePatchPreviewAsync" />
                 </RadzenStack>
             </RadzenStack>
         </RadzenTabsItem>
@@ -301,6 +303,7 @@
     [Inject] private IProjectKnowledgeIndexService ProjectKnowledgeIndexService { get; set; } = default!;
     [Inject] private PlannerContextSelectionService PlannerContextSelectionService { get; set; } = default!;
     [Inject] private TaskDecompositionService TaskDecompositionService { get; set; } = default!;
+    [Inject] private TaskSliceExecutionService TaskSliceExecutionService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
@@ -755,6 +758,108 @@
     {
         activePlanTaskId = null;
         return GeneratePatchPreviewCoreAsync(request.Task, null);
+    }
+
+    private async Task GenerateSlicePatchPreviewAsync(TaskPlanSlice slice)
+    {
+        if (taskPlanPreview is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No task plan",
+                "Decompose a task before generating a slice patch preview.");
+            return;
+        }
+
+        var taskText = BuildSlicePatchTaskText(slice);
+        activePlanTaskId = null;
+
+        await GeneratePatchPreviewCoreAsync(taskText, null);
+
+        if (patchPreview is null || !string.IsNullOrWhiteSpace(error))
+        {
+            return;
+        }
+
+        var executionRequest = new TaskSliceExecutionRequest
+        {
+            Plan = taskPlanPreview,
+            Slice = slice,
+            PlanId = taskPlanPreview.CreatedAtUtc.ToString("O"),
+            SliceId = slice.Id,
+            SliceTitle = slice.Title,
+            RequestedAction = "GeneratePatch",
+            RequestedAt = DateTime.UtcNow,
+            RequestedBy = "Local Coder",
+            Notes = slice.Notes
+        };
+
+        var executionResult = await TaskSliceExecutionService.ExecuteSliceAsync(executionRequest, slice);
+        if (executionResult.Success)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                "Slice patch preview created",
+                executionResult.Summary);
+        }
+        else
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "Slice patch preview not recorded",
+                executionResult.Errors.FirstOrDefault() ?? executionResult.Summary);
+        }
+    }
+
+    private static string BuildSlicePatchTaskText(TaskPlanSlice slice)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(slice.Title);
+
+        var description = !string.IsNullOrWhiteSpace(slice.Description) ? slice.Description : slice.Goal;
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            builder.AppendLine(description);
+        }
+
+        if (slice.TargetFiles.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Target files:");
+            foreach (var targetFile in slice.TargetFiles)
+            {
+                builder.AppendLine($"- {targetFile}");
+            }
+        }
+
+        if (slice.InstructionFiles.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Instruction files:");
+            foreach (var instructionFile in slice.InstructionFiles)
+            {
+                builder.AppendLine($"- {instructionFile}");
+            }
+        }
+
+        if (slice.VerificationCommands.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Verification commands:");
+            foreach (var verificationCommand in slice.VerificationCommands)
+            {
+                builder.AppendLine($"- {verificationCommand}");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(slice.Notes))
+        {
+            builder.AppendLine();
+            builder.AppendLine("Notes:");
+            builder.AppendLine(slice.Notes);
+        }
+
+        return builder.ToString().Trim();
     }
 
     private Task SelectSuggestedTargetAsync(PatchSuggestedTargetSelection selection)

@@ -74,6 +74,12 @@
                                 }
                             }
                         </RadzenStack>
+
+                        <RadzenButton Text="Generate Patch"
+                                      Icon="difference"
+                                      ButtonStyle="ButtonStyle.Primary"
+                                      Disabled="@(!OnGeneratePatchRequested.HasDelegate || IsGeneratingPatch)"
+                                      Click="@(() => OnGeneratePatchRequested.InvokeAsync(slice))" />
                     </RadzenStack>
                 </RadzenCard>
             }
@@ -83,6 +89,8 @@
 
 @code {
     [Parameter] public TaskPlan? Plan { get; set; }
+    [Parameter] public EventCallback<TaskPlanSlice> OnGeneratePatchRequested { get; set; }
+    [Parameter] public bool IsGeneratingPatch { get; set; }
 
     private static BadgeStyle GetStatusBadgeStyle(TaskSliceStatus status)
     {

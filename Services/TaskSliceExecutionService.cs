@@ -20,28 +20,64 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(slice);
 
+        var request = new TaskSliceExecutionRequest
+        {
+            Slice = slice,
+            SliceId = slice.Id,
+            SliceTitle = slice.Title,
+            RequestedAction = "AdvanceStatus",
+            RequestedAt = DateTime.UtcNow,
+            RequestedBy = nameof(TaskSliceExecutionService),
+            Notes = slice.Notes
+        };
+
+        return await ExecuteSliceAsync(request, slice, cancellationToken);
+    }
+
+    public async Task<TaskSliceExecutionResult> ExecuteSliceAsync(
+        TaskSliceExecutionRequest request,
+        TaskPlanSlice slice,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(slice);
+
         await FileLock.WaitAsync(cancellationToken);
         try
         {
-            var executedAt = DateTime.UtcNow;
+            var executedAt = request.RequestedAt == default ? DateTime.UtcNow : request.RequestedAt;
+            var requestedAction = NormalizeRequestedAction(request.RequestedAction);
             var beforeStatus = slice.Status;
-            var afterStatus = GetNextStatus(beforeStatus);
+            var isGeneratePatch = requestedAction.Equals("GeneratePatch", StringComparison.OrdinalIgnoreCase);
+            var canGeneratePatch = beforeStatus is TaskSliceStatus.Pending or TaskSliceStatus.Previewed;
+            var afterStatus = isGeneratePatch
+                ? (canGeneratePatch ? TaskSliceStatus.Previewed : TaskSliceStatus.Failed)
+                : GetNextStatus(beforeStatus);
             var isFailure = afterStatus == TaskSliceStatus.Failed;
 
             slice.Status = afterStatus;
             slice.UpdatedAt = executedAt;
-            slice.Notes = AppendExecutionSummary(slice.Notes, beforeStatus, afterStatus, executedAt);
+            slice.Notes = AppendExecutionSummary(
+                slice.Notes,
+                beforeStatus,
+                afterStatus,
+                executedAt,
+                requestedAction,
+                request.RequestedBy,
+                request.Notes);
 
             var result = new TaskSliceExecutionResult
             {
-                SliceId = slice.Id,
+                SliceId = string.IsNullOrWhiteSpace(request.SliceId) ? slice.Id : request.SliceId,
                 Success = !isFailure,
-                BuildSuccess = afterStatus is TaskSliceStatus.Applied or TaskSliceStatus.Verified,
-                VerificationSuccess = afterStatus == TaskSliceStatus.Verified,
-                Summary = BuildSummary(slice, beforeStatus, afterStatus),
+                BuildSuccess = false,
+                VerificationSuccess = false,
+                Summary = BuildSummary(slice, beforeStatus, afterStatus, requestedAction, request),
                 GeneratedFiles = [],
                 Errors = isFailure
-                    ? [$"Slice '{slice.Title}' is in a failed state and was not advanced."]
+                    ? [isGeneratePatch
+                        ? $"Slice '{slice.Title}' cannot generate a patch preview from state '{beforeStatus}'."
+                        : $"Slice '{slice.Title}' is in a failed state and was not advanced."]
                     : [],
                 ExecutedAt = executedAt
             };
@@ -69,18 +105,40 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
         };
     }
 
-    private static string BuildSummary(TaskPlanSlice slice, TaskSliceStatus beforeStatus, TaskSliceStatus afterStatus)
+    private static string BuildSummary(
+        TaskPlanSlice slice,
+        TaskSliceStatus beforeStatus,
+        TaskSliceStatus afterStatus,
+        string requestedAction,
+        TaskSliceExecutionRequest request)
     {
-        return $"{slice.Title}: {beforeStatus} -> {afterStatus} at {DateTime.UtcNow:O}. No build, patch, or verification work was executed.";
+        var requestedBy = string.IsNullOrWhiteSpace(request.RequestedBy) ? "unknown caller" : request.RequestedBy;
+        return $"{requestedAction} for {slice.Title} by {requestedBy}: {beforeStatus} -> {afterStatus} at {DateTime.UtcNow:O}. No build, patch, or verification work was executed.";
     }
 
-    private static string AppendExecutionSummary(string? notes, TaskSliceStatus beforeStatus, TaskSliceStatus afterStatus, DateTime executedAt)
+    private static string AppendExecutionSummary(
+        string? notes,
+        TaskSliceStatus beforeStatus,
+        TaskSliceStatus afterStatus,
+        DateTime executedAt,
+        string requestedAction,
+        string requestedBy,
+        string requestNotes)
     {
-        var summaryLine = $"[{executedAt:O}] {beforeStatus} -> {afterStatus}";
+        var summaryLine = $"[{executedAt:O}] {requestedAction} by {(string.IsNullOrWhiteSpace(requestedBy) ? "unknown caller" : requestedBy)}: {beforeStatus} -> {afterStatus}";
 
-        return string.IsNullOrWhiteSpace(notes)
+        var mergedNotes = string.IsNullOrWhiteSpace(notes)
             ? summaryLine
             : $"{notes.Trim()}{Environment.NewLine}{summaryLine}";
+
+        return string.IsNullOrWhiteSpace(requestNotes)
+            ? mergedNotes
+            : $"{mergedNotes}{Environment.NewLine}{requestNotes.Trim()}";
+    }
+
+    private static string NormalizeRequestedAction(string? requestedAction)
+    {
+        return string.IsNullOrWhiteSpace(requestedAction) ? "AdvanceStatus" : requestedAction.Trim();
     }
 
     private async Task AppendHistoryAsync(TaskSliceExecutionResult result, CancellationToken cancellationToken)
