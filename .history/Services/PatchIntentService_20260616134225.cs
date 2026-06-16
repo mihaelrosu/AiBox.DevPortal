@@ -71,8 +71,7 @@ public static class PatchIntentService
         var allowedCreateFolders = NormalizeFolders(intent.AllowedCreateFolders).ToArray();
         var scopeFilesByPath = (preview.ScopeAnalysis.Files ?? [])
             .ToDictionary(file => NormalizePath(file.RelativePath), file => file, StringComparer.OrdinalIgnoreCase);
-        var scopeAnalysisFiles = preview.ScopeAnalysis.Files ?? [];
-        var scopeFiles = NormalizePaths(scopeAnalysisFiles
+        var scopeFiles = NormalizePaths(preview.ScopeAnalysis.Files
                 .Where(file => file.Status == PatchScopeStatus.InScope)
                 .Select(file => file.RelativePath))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -514,10 +513,10 @@ public static class PatchIntentService
     }
 
     private static IEnumerable<string> NormalizePaths(IEnumerable<string>? paths)
-    {
-        return (paths ?? []).Select(NormalizePath)
-            .Where(path => !string.IsNullOrWhiteSpace(path));
-    }
+{
+    return (paths ?? []).Select(NormalizePath)
+        .Where(path => !string.IsNullOrWhiteSpace(path));
+}
 
     private static IEnumerable<string> NormalizeFolders(IEnumerable<string> folders)
     {
