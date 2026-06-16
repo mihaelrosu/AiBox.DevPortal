@@ -22,6 +22,7 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
 
         var request = new TaskSliceExecutionRequest
         {
+            PlanId = slice.PlanId,
             Slice = slice,
             SliceId = slice.Id,
             SliceTitle = slice.Title,
@@ -68,7 +69,11 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
 
             var result = new TaskSliceExecutionResult
             {
+                PlanId = string.IsNullOrWhiteSpace(request.PlanId) ? slice.PlanId : request.PlanId,
                 SliceId = string.IsNullOrWhiteSpace(request.SliceId) ? slice.Id : request.SliceId,
+                SliceTitle = string.IsNullOrWhiteSpace(request.SliceTitle) ? slice.Title : request.SliceTitle,
+                RequestedAction = requestedAction,
+                PatchPackageId = slice.PatchPackageId,
                 Success = !isFailure,
                 BuildSuccess = false,
                 VerificationSuccess = false,
@@ -182,7 +187,11 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
     {
         return new TaskSliceExecutionResult
         {
+            PlanId = result.PlanId,
             SliceId = result.SliceId,
+            SliceTitle = result.SliceTitle,
+            RequestedAction = result.RequestedAction,
+            PatchPackageId = result.PatchPackageId,
             Success = result.Success,
             BuildSuccess = result.BuildSuccess,
             VerificationSuccess = result.VerificationSuccess,

@@ -1,0 +1,32 @@
+{
+  "id": "12094010aa924e3f9e40042435d2f2aa",
+  "createdAt": "2026-06-15T16:53:29.3994512+00:00",
+  "updatedAt": "2026-06-15T16:53:29.39952+00:00",
+  "backupFolder": "",
+  "appliedAt": null,
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "slice patch",
+  "model": "test-model",
+  "patchText": "diff --git a/Test.txt b/Test.txt\nnew file mode 100644\n--- /dev/null\n\u002B\u002B\u002B b/Test.txt\n@@ -0,0 \u002B1 @@\n\u002Bhello\n",
+  "allowedPatchScope": null,
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [],
+  "contextFilePaths": [],
+  "intent": null,
+  "intentValidation": null,
+  "status": "draft",
+  "statusMessage": "Draft patch package created from preview.",
+  "approvalGateResults": [],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Test.txt",
+      "oldContent": "",
+      "newContent": "hello"
+    }
+  ]
+}

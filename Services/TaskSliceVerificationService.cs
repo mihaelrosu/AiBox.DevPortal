@@ -6,7 +6,7 @@ namespace AiBox.DevPortal.Services;
 
 public sealed class TaskSliceVerificationService(IWebHostEnvironment environment)
 {
-    private const string HistoryFileName = "task-slice-verification-history.json";
+    private const string HistoryFileName = "task-slice-execution-history.json";
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromMinutes(10);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -39,6 +39,9 @@ public sealed class TaskSliceVerificationService(IWebHostEnvironment environment
                     beforeStatus,
                     TaskSliceStatus.Failed,
                     verifiedAt,
+                    slice.PlanId,
+                    slice.Title,
+                    "Verify",
                     failureProcessResult);
                 slice.Status = TaskSliceStatus.Failed;
                 slice.UpdatedAt = verifiedAt;
@@ -53,7 +56,7 @@ public sealed class TaskSliceVerificationService(IWebHostEnvironment environment
                 ? TaskSliceStatus.Verified
                 : TaskSliceStatus.Failed;
 
-            var result = BuildResult(slice, beforeStatus, afterStatus, verifiedAt, processResult);
+            var result = BuildResult(slice, beforeStatus, afterStatus, verifiedAt, slice.PlanId, slice.Title, "Verify", processResult);
             slice.Status = afterStatus;
             slice.UpdatedAt = verifiedAt;
             slice.Notes = AppendVerificationSummary(slice.Notes, beforeStatus, afterStatus, verifiedAt, processResult.ExitCode, processResult.TimedOut);
@@ -143,6 +146,9 @@ public sealed class TaskSliceVerificationService(IWebHostEnvironment environment
         TaskSliceStatus beforeStatus,
         TaskSliceStatus afterStatus,
         DateTime verifiedAt,
+        string planId,
+        string sliceTitle,
+        string requestedAction,
         ProcessResult processResult)
     {
         var success = afterStatus == TaskSliceStatus.Verified;
@@ -151,7 +157,10 @@ public sealed class TaskSliceVerificationService(IWebHostEnvironment environment
 
         return new TaskSliceExecutionResult
         {
+            PlanId = planId,
             SliceId = slice.Id,
+            SliceTitle = sliceTitle,
+            RequestedAction = requestedAction,
             Success = success,
             BuildSuccess = success,
             VerificationSuccess = success,
@@ -271,7 +280,10 @@ public sealed class TaskSliceVerificationService(IWebHostEnvironment environment
     {
         return new TaskSliceExecutionResult
         {
+            PlanId = result.PlanId,
             SliceId = result.SliceId,
+            SliceTitle = result.SliceTitle,
+            RequestedAction = result.RequestedAction,
             Success = result.Success,
             BuildSuccess = result.BuildSuccess,
             VerificationSuccess = result.VerificationSuccess,

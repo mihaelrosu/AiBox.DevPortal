@@ -66,8 +66,10 @@
                     <TaskPlanPreviewPanel Plan="@taskPlanPreview"
                                           IsGeneratingPatch="@isGeneratingPatch"
                                           IsVerifyingSlice="@isVerifyingSlice"
+                                          IsRollingBack="@isRollingBackSlice"
                                           SliceStatusMessages="@sliceStatusMessages"
-                                          OnGeneratePatchRequested="@GenerateSlicePatchPreviewAsync" />
+                                          OnGeneratePatchRequested="@GenerateSlicePatchPreviewAsync"
+                                          OnRollbackRequested="@RollbackSliceAsync" />
                 </RadzenStack>
             </RadzenStack>
         </RadzenTabsItem>
@@ -93,6 +95,7 @@
                                      OnAddSuggestedFiles="@AddSuggestedFilesAsync" />
 
                 <ProjectHistoryPanel />
+                <TaskSliceHistoryPanel History="@sliceExecutionHistory" />
             </RadzenStack>
         </RadzenTabsItem>
 
@@ -306,6 +309,7 @@
     [Inject] private PlannerContextSelectionService PlannerContextSelectionService { get; set; } = default!;
     [Inject] private TaskDecompositionService TaskDecompositionService { get; set; } = default!;
     [Inject] private TaskSliceExecutionService TaskSliceExecutionService { get; set; } = default!;
+    [Inject] private TaskSliceRollbackService TaskSliceRollbackService { get; set; } = default!;
     [Inject] private TaskSliceVerificationService TaskSliceVerificationService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
@@ -328,6 +332,7 @@
     private IReadOnlyList<AgentRunRecord> agentRunHistory = [];
     private IReadOnlyList<PatchPackage> patchPackages = [];
     private IReadOnlyList<LocalCoderHistoryEntry> historyEntries = [];
+    private IReadOnlyList<TaskSliceExecutionResult> sliceExecutionHistory = [];
     private ProjectKnowledgeIndex? projectKnowledgeIndex;
     private List<LocalCoderFileContext> fileContexts = [];
     private List<string> selectedFilePaths = [];
@@ -381,6 +386,7 @@
     private bool isVerifyingSlice;
     private bool isApplyingPatch;
     private bool isRollingBack;
+    private bool isRollingBackSlice;
     private bool isRunningCommand;
     private bool isVerifying;
     private bool isCommitRunning;
@@ -762,7 +768,7 @@
     private Task GeneratePatchPreviewAsync()
     {
         activePlanTaskId = null;
-        return GeneratePatchPreviewCoreAsync(request.Task, null);
+        return GeneratePatchPreviewCoreAsync(request.Task, null, null);
     }
 
     private async Task GenerateSlicePatchPreviewAsync(TaskPlanSlice slice)
@@ -779,7 +785,7 @@
         var taskText = BuildSlicePatchTaskText(slice);
         activePlanTaskId = null;
 
-        await GeneratePatchPreviewCoreAsync(taskText, null);
+        await GeneratePatchPreviewCoreAsync(taskText, null, slice);
 
         if (patchPreview is null || !string.IsNullOrWhiteSpace(error))
         {
@@ -855,6 +861,59 @@
         finally
         {
             isVerifyingSlice = false;
+        }
+    }
+
+    private async Task RollbackSliceAsync(TaskPlanSlice slice)
+    {
+        if (taskPlanPreview is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "No task plan",
+                "Decompose a task before rolling back a slice.");
+            return;
+        }
+
+        isRollingBackSlice = true;
+        error = null;
+        sliceStatusMessages[slice.Id] = "Rolling back slice...";
+
+        try
+        {
+            var rollbackExecution = await TaskSliceRollbackService.RollbackSliceAsync(slice);
+            sliceStatusMessages[slice.Id] = rollbackExecution.Success
+                ? rollbackExecution.Summary
+                : rollbackExecution.Errors.FirstOrDefault() ?? rollbackExecution.Summary;
+
+            if (rollbackExecution.Success)
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Success,
+                    "Slice rolled back",
+                    rollbackExecution.Summary);
+            }
+            else
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Warning,
+                    "Slice rollback failed",
+                    rollbackExecution.Errors.FirstOrDefault() ?? rollbackExecution.Summary);
+            }
+
+            await LoadPatchQueueAsync();
+        }
+        catch (Exception exception)
+        {
+            sliceStatusMessages[slice.Id] = exception.Message;
+            NotificationService.Notify(
+                NotificationSeverity.Error,
+                "Slice rollback failed",
+                exception.Message);
+        }
+        finally
+        {
+            isRollingBackSlice = false;
         }
     }
 
@@ -942,7 +1001,7 @@
 
         var taskText = BuildSuggestedTargetTaskText(request.Task, selectedSuggestedTarget);
         activePlanTaskId = null;
-        return GeneratePatchPreviewCoreAsync(taskText, lastPatchPlanTask);
+        return GeneratePatchPreviewCoreAsync(taskText, lastPatchPlanTask, null);
     }
 
     private Task FixPatchPreviewAsync()
@@ -966,7 +1025,7 @@
             return Task.CompletedTask;
         }
 
-        return GeneratePatchPreviewCoreAsync(LastPatchTaskText, lastPatchPlanTask, repairContext, preserveFailedPreviewOnError: true);
+        return GeneratePatchPreviewCoreAsync(LastPatchTaskText, lastPatchPlanTask, null, repairContext, preserveFailedPreviewOnError: true);
     }
 
     private Task ExecuteSelectedTaskAsync()
@@ -1018,12 +1077,13 @@
         UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.InProgress, "Generating patch preview for the selected task.");
         selectedTabIndex = 2;
 
-        await GeneratePatchPreviewCoreAsync(BuildPlanTaskTaskText(planTask), planTask);
+        await GeneratePatchPreviewCoreAsync(BuildPlanTaskTaskText(planTask), planTask, null);
     }
 
     private async Task GeneratePatchPreviewCoreAsync(
         string taskText,
         LocalCoderPlanTask? planTask,
+        TaskPlanSlice? taskPlanSlice = null,
         PatchPreviewRepairContext? repairContext = null,
         bool preserveFailedPreviewOnError = false)
     {
@@ -1085,6 +1145,11 @@
             try
             {
                 selectedPatchPackage = await PatchPackageService.CreateFromPreviewAsync(patchPreview!, taskText);
+                if (taskPlanSlice is not null)
+                {
+                    taskPlanSlice.PatchPackageId = selectedPatchPackage.Id;
+                    taskPlanSlice.PatchPreviewCreatedAt = selectedPatchPackage.CreatedAt.UtcDateTime;
+                }
                 await LoadPatchQueueAsync();
             }
             catch (Exception packageException)

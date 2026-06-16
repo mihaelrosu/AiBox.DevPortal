@@ -3,10 +3,14 @@ namespace AiBox.DevPortal.Models;
 public sealed class TaskPlanSlice
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string PlanId { get; set; } = string.Empty;
+    public string PatchPackageId { get; set; } = string.Empty;
+    public DateTime? RolledBackAt { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Goal { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public TaskSliceStatus Status { get; set; } = TaskSliceStatus.Pending;
+    public DateTime? PatchPreviewCreatedAt { get; set; }
     public List<string> TargetFiles { get; set; } = [];
     public List<string> InstructionFiles { get; set; } = [];
     public AllowedChangeType AllowedChangeType { get; set; } = AllowedChangeType.Any;
@@ -23,6 +27,9 @@ public sealed class TaskPlanSlice
 
         return new TaskPlanSlice
         {
+            PlanId = string.Empty,
+            PatchPackageId = string.Empty,
+            RolledBackAt = null,
             Title = slice.Title,
             Goal = slice.Goal,
             Description = slice.Goal,
@@ -34,6 +41,7 @@ public sealed class TaskPlanSlice
             RelatedFiles = [.. slice.TargetFiles.Concat(slice.InstructionFiles).Distinct(StringComparer.OrdinalIgnoreCase)],
             Notes = string.Empty,
             Status = TaskSliceStatus.Pending,
+            PatchPreviewCreatedAt = null,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };

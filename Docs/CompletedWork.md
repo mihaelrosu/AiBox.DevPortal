@@ -253,6 +253,76 @@ Result:
 * The slice workflow is now:
   Pending -> Previewed -> Verified or Failed
 
+### V2.5 Safe Apply Workflow Foundation
+
+Status: Completed
+
+Completed:
+
+* Added TaskSliceApplyService
+* Registered TaskSliceApplyService in Program.cs
+* Added Apply button for Verified task slices
+* Wired Apply button through Coder page
+* Added per-slice apply result message
+* Advanced slice status from Verified to Applied on success
+* Advanced slice status to Failed on apply failure
+* Added BackupId, AppliedFiles, and AppliedAt fields to TaskSliceExecutionResult
+* Preserved safe behavior: no real patch apply yet
+
+Result:
+
+* DevPortal now supports the slice workflow:
+  Pending -> Previewed -> Verified -> Applied
+
+Known limitation:
+
+* Apply is currently framework-only and does not execute real patch application yet.
+
+### V2.5 Real Safe Apply Through Patch Package
+
+Status: Completed
+
+Completed:
+
+* Linked TaskPlanSlice to generated PatchPackageId
+* Added PatchPreviewCreatedAt to TaskPlanSlice
+* Added PatchPackageId to TaskSliceExecutionResult
+* Stored PatchPackageId in slice execution history
+* Updated TaskSliceApplyService to require Verified status
+* Updated TaskSliceApplyService to require linked PatchPackageId
+* Reused existing PatchApplyService for real patch application
+* Recorded BackupId, AppliedFiles, AppliedAt, and PatchPackageId in apply result
+* Preserved existing patch queue apply workflow
+
+Result:
+
+* DevPortal can now apply a verified task slice through the existing safe patch package pipeline.
+* The slice workflow now supports:
+  Pending -> Previewed -> Verified -> Applied
+
+Known limitation:
+
+* Slice-level rollback is not implemented yet.
+
+### V2.4 Slice Execution History
+
+Status: Completed
+
+Completed:
+
+* Added persistent slice execution history
+* Stored history under Data/task-slice-execution-history.json
+* Recorded GeneratePatch actions
+* Recorded Verify actions
+* Added TaskSliceHistoryPanel
+* Displayed latest 10 slice execution records
+* Embedded slice history panel in Coder page
+
+Result:
+
+* DevPortal can now track slice execution and verification history.
+* The user can inspect recent slice actions directly in the Coder UI.
+
 ## In Progress
 
 ### Planner -> Slice Execution

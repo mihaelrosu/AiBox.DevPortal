@@ -67,6 +67,8 @@ builder.Services.AddScoped<IProjectRegistryService, ProjectRegistryService>();
 builder.Services.AddScoped<IProjectKnowledgeIndexService, ProjectKnowledgeIndexService>();
 builder.Services.AddScoped<ProjectHistoryIndexService>();
 builder.Services.AddScoped<TaskSliceExecutionService>();
+builder.Services.AddScoped<TaskSliceApplyService>();
+builder.Services.AddScoped<TaskSliceRollbackService>();
 builder.Services.AddScoped<IWorkflowRegistryService, WorkflowRegistryService>();
 builder.Services.AddScoped<IWorkflowTemplateService, WorkflowTemplateService>();
 builder.Services.AddScoped<IWorkflowRunPreviewService, WorkflowRunPreviewService>();

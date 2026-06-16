@@ -1,0 +1,58 @@
+@using AiBox.DevPortal.Models
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.5rem"
+                     Wrap="FlexWrap.Wrap">
+            <RadzenText Text="Recent Slice History" TextStyle="TextStyle.H6" />
+            <RadzenBadge Text="@($"{History.Count} recent")" BadgeStyle="BadgeStyle.Info" />
+        </RadzenStack>
+
+        @if (History.Count == 0)
+        {
+            <RadzenText Text="No slice history available yet." TextStyle="TextStyle.Body2" />
+        }
+        else
+        {
+            <RadzenDataGrid Data="@History"
+                            TItem="TaskSliceExecutionResult"
+                            AllowPaging="false"
+                            AllowSorting="false"
+                            AllowFiltering="false"
+                            Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="TaskSliceExecutionResult" Property="RequestedAction" Title="Action" Width="140px" />
+                    <RadzenDataGridColumn TItem="TaskSliceExecutionResult" Property="SliceTitle" Title="Slice Title" />
+                    <RadzenDataGridColumn TItem="TaskSliceExecutionResult" Title="Success" Width="100px">
+                        <Template Context="record">
+                            <RadzenBadge Text="@record.Success.ToString()" BadgeStyle="@(record.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceExecutionResult" Title="Build" Width="100px">
+                        <Template Context="record">
+                            <RadzenBadge Text="@record.BuildSuccess.ToString()" BadgeStyle="@(record.BuildSuccess ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceExecutionResult" Title="Verify" Width="100px">
+                        <Template Context="record">
+                            <RadzenBadge Text="@record.VerificationSuccess.ToString()" BadgeStyle="@(record.VerificationSuccess ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceExecutionResult" Property="ExecutedAt" Title="ExecutedAt" Width="190px">
+                        <Template Context="record">
+                            @record.ExecutedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceExecutionResult" Property="Summary" Title="Summary" />
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public IReadOnlyList<TaskSliceExecutionResult> History { get; set; } = [];
+}

@@ -90,6 +90,15 @@
                                           Click="@(() => OnVerifyRequested.InvokeAsync(slice))" />
                         }
 
+                        @if (slice.Status == TaskSliceStatus.Applied)
+                        {
+                            <RadzenButton Text="Rollback"
+                                          Icon="undo"
+                                          ButtonStyle="ButtonStyle.Warning"
+                                          Disabled="@(!OnRollbackRequested.HasDelegate || IsRollingBack || string.IsNullOrWhiteSpace(slice.PatchPackageId))"
+                                          Click="@(() => OnRollbackRequested.InvokeAsync(slice))" />
+                        }
+
                         @if (SliceStatusMessages.TryGetValue(slice.Id, out var sliceStatusMessage) &&
                              !string.IsNullOrWhiteSpace(sliceStatusMessage))
                         {
@@ -106,8 +115,10 @@
     [Parameter] public TaskPlan? Plan { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnGeneratePatchRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnVerifyRequested { get; set; }
+    [Parameter] public EventCallback<TaskPlanSlice> OnRollbackRequested { get; set; }
     [Parameter] public bool IsGeneratingPatch { get; set; }
     [Parameter] public bool IsVerifyingSlice { get; set; }
+    [Parameter] public bool IsRollingBack { get; set; }
     [Parameter] public IReadOnlyDictionary<string, string> SliceStatusMessages { get; set; } = new Dictionary<string, string>();
 
     private static BadgeStyle GetStatusBadgeStyle(TaskSliceStatus status)

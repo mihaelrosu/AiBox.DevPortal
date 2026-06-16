@@ -7,9 +7,11 @@ public sealed class TaskDecompositionService
     public TaskPlan BuildPlan(string originalRequest)
     {
         var request = originalRequest?.Trim() ?? string.Empty;
+        var planId = Guid.NewGuid().ToString("N");
 
         return new TaskPlan
         {
+            Id = planId,
             OriginalRequest = request,
             CreatedAtUtc = DateTime.UtcNow,
             Slices =
@@ -17,6 +19,7 @@ public sealed class TaskDecompositionService
                 new TaskPlanSlice
                 {
                     Id = Guid.NewGuid().ToString("N"),
+                    PlanId = planId,
                     Title = "Implement requested task",
                     Goal = string.IsNullOrWhiteSpace(request)
                         ? "No task was provided."
