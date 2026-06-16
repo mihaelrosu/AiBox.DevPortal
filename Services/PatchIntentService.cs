@@ -235,7 +235,7 @@ public static class PatchIntentService
         """;
     }
 
-    internal static IReadOnlyList<string> ExtractRequestedCreateFiles(string task)
+    public static IReadOnlyList<string> ExtractRequestedCreateFiles(string task)
     {
         var value = task ?? string.Empty;
         if (string.IsNullOrWhiteSpace(value))
@@ -276,7 +276,7 @@ public static class PatchIntentService
             .ToArray();
     }
 
-    internal static bool HasExplicitCreateRequest(string task)
+    public static bool HasExplicitCreateRequest(string task)
     {
         return ExtractRequestedCreateFiles(task).Count > 0;
     }

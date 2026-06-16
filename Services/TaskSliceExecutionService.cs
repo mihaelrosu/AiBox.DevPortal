@@ -96,6 +96,23 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
         }
     }
 
+    public async Task RecordSliceExecutionResultAsync(
+        TaskSliceExecutionResult result,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        await FileLock.WaitAsync(cancellationToken);
+        try
+        {
+            await AppendHistoryAsync(result, cancellationToken);
+        }
+        finally
+        {
+            FileLock.Release();
+        }
+    }
+
     private static TaskSliceStatus GetNextStatus(TaskSliceStatus status)
     {
         return status switch

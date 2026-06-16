@@ -35,6 +35,7 @@ builder.Services.AddScoped<IAgentRunHistoryService, AgentRunHistoryService>();
 builder.Services.AddScoped<IAgentModeRunner, AgentModeRunner>();
 builder.Services.AddScoped<AgentInstructionService>();
 builder.Services.AddScoped<PlannerContextSelectionService>();
+builder.Services.AddScoped<TaskSlicePatchPreviewPreparationService>();
 builder.Services.AddScoped<PatchVerificationService>();
 builder.Services.AddScoped<SelectedContextValidator>();
 builder.Services.AddScoped<PatchPreviewRepairService>();

@@ -112,6 +112,31 @@ Related Files:
 * Services/PromptEnhancerService.cs
 
 ## 2026-06-15
+### V2.2 Slice to PatchBuilder Integration Hardening
+Status: Completed
+
+Completed:
+* Added TaskSlicePatchPreviewPreparationService
+* Registered preparation service in Program.cs
+* Validated slice patch preview targets before calling PatchBuilder
+* Prevented PatchBuilder calls when a slice has no editable target files or create targets
+* Added clear failure behavior for slices without valid targets
+* Passed slice TargetFiles into PatchBuilder context
+* Used targeting priority: TargetFiles, RelatedFiles, selected context files
+* Preserved normal non-slice patch preview workflow
+* Added tests for missing-target and target-priority behavior
+
+Tests:
+* dotnet build succeeded
+* TaskSlicePatchPreviewPreparationServiceTests passed
+* CoderConsoleServiceRepairTests passed
+
+Result:
+* Generate Patch for Slice no longer fails with unclear PatchBuilder errors when slice targets are missing.
+* Slice patch generation now has a safe preparation layer before PatchBuilder.
+
+Known warning:
+* Existing nullable warning remains in Services/PatchIntentService.cs.
 
 ### Project History Index
 

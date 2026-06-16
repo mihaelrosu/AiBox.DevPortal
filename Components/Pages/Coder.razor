@@ -199,6 +199,7 @@
                                  OperationGrammarErrors="@LastPatchOperationGrammarErrors"
                                  ReplaceDiagnostics="@LastPatchReplaceDiagnostics"
                                  SuggestedTargetDiagnostics="@LastPatchSuggestedTargetDiagnostics"
+                                 SliceDebugDetails="@LastSlicePatchDebugDetails"
                                  SelectedSuggestedTarget="@selectedSuggestedTarget"
                                  ValidationGuidance="@LastPatchValidationGuidance"
                                  RepairSummary="@(patchPreview?.RepairSummary ?? LastPatchRepairSummary)"
@@ -307,6 +308,7 @@
     [Inject] private ILocalCoderVerificationProfileService LocalCoderVerificationProfileService { get; set; } = default!;
     [Inject] private IProjectKnowledgeIndexService ProjectKnowledgeIndexService { get; set; } = default!;
     [Inject] private PlannerContextSelectionService PlannerContextSelectionService { get; set; } = default!;
+    [Inject] private TaskSlicePatchPreviewPreparationService TaskSlicePatchPreviewPreparationService { get; set; } = default!;
     [Inject] private TaskDecompositionService TaskDecompositionService { get; set; } = default!;
     [Inject] private TaskSliceExecutionService TaskSliceExecutionService { get; set; } = default!;
     [Inject] private TaskSliceRollbackService TaskSliceRollbackService { get; set; } = default!;
@@ -369,6 +371,7 @@
     private IReadOnlyList<PatchReplaceDiagnostic> LastPatchReplaceDiagnostics { get; set; } = [];
     private IReadOnlyList<PatchSuggestedTargetDiagnostic> LastPatchSuggestedTargetDiagnostics { get; set; } = [];
     private IReadOnlyList<PatchValidationGuidance> LastPatchValidationGuidance { get; set; } = [];
+    private IReadOnlyList<string> LastSlicePatchDebugDetails { get; set; } = [];
     private PatchPreviewRepairSummary? LastPatchRepairSummary { get; set; }
 
     private PatchPromptAudit? LastPatchPromptAudit { get; set; }
@@ -377,6 +380,8 @@
     private PatchSuggestedTargetSelection? selectedSuggestedTarget;
     private LocalCoderPlanTask? lastPatchPlanTask;
     private int selectedTabIndex;
+    private const string SlicePreviewMissingTargetsMessage =
+        "This slice has no valid target files, related files, selected context files, or create targets. Add slice targets before generating a patch preview.";
 
     private bool isLoading;
     private bool isLoadingContext;
@@ -782,44 +787,23 @@
             return;
         }
 
-        var taskText = BuildSlicePatchTaskText(slice);
-        activePlanTaskId = null;
-
-        await GeneratePatchPreviewCoreAsync(taskText, null, slice);
-
-        if (patchPreview is null || !string.IsNullOrWhiteSpace(error))
+        var preparation = await TaskSlicePatchPreviewPreparationService.PrepareAsync(
+            slice,
+            request.ProjectPath,
+            request.FileContexts);
+        if (!preparation.CanGenerate)
         {
+            var failureMessage = string.IsNullOrWhiteSpace(preparation.FailureMessage)
+                ? SlicePreviewMissingTargetsMessage
+                : preparation.FailureMessage;
+            await FailSlicePreviewAsync(slice, failureMessage, preparation.DebugDetails.ToList());
             return;
         }
 
-        var executionRequest = new TaskSliceExecutionRequest
-        {
-            Plan = taskPlanPreview,
-            Slice = slice,
-            PlanId = taskPlanPreview.Id,
-            SliceId = slice.Id,
-            SliceTitle = slice.Title,
-            RequestedAction = "GeneratePatch",
-            RequestedAt = DateTime.UtcNow,
-            RequestedBy = "Local Coder",
-            Notes = slice.Notes
-        };
+        var taskText = preparation.TaskText;
+        activePlanTaskId = null;
 
-        var executionResult = await TaskSliceExecutionService.ExecuteSliceAsync(executionRequest, slice);
-        if (executionResult.Success)
-        {
-            NotificationService.Notify(
-                NotificationSeverity.Success,
-                "Slice patch preview created",
-                executionResult.Summary);
-        }
-        else
-        {
-            NotificationService.Notify(
-                NotificationSeverity.Warning,
-                "Slice patch preview not recorded",
-                executionResult.Errors.FirstOrDefault() ?? executionResult.Summary);
-        }
+        await GeneratePatchPreviewCoreAsync(taskText, null, slice, null, false, preparation.FileContexts, preparation.DebugDetails);
     }
 
     private async Task VerifySliceAsync(TaskPlanSlice slice)
@@ -862,6 +846,42 @@
         {
             isVerifyingSlice = false;
         }
+    }
+
+    private async Task<TaskSlicePatchPreviewPreparationResult> FailSlicePreviewAsync(
+        TaskPlanSlice slice,
+        string message,
+        List<string> debugDetails)
+    {
+        var failedAt = DateTime.UtcNow;
+        slice.Status = TaskSliceStatus.Failed;
+        slice.UpdatedAt = failedAt;
+        sliceStatusMessages[slice.Id] = message;
+        LastSlicePatchDebugDetails = debugDetails;
+
+        await TaskSliceExecutionService.RecordSliceExecutionResultAsync(new TaskSliceExecutionResult
+        {
+            PlanId = slice.PlanId,
+            SliceId = slice.Id,
+            SliceTitle = slice.Title,
+            RequestedAction = "GeneratePatch",
+            PatchPackageId = slice.PatchPackageId,
+            Success = false,
+            BuildSuccess = false,
+            VerificationSuccess = false,
+            Summary = message,
+            AppliedFiles = [],
+            AppliedAt = null,
+            Errors = [message],
+            ExecutedAt = failedAt
+        });
+
+        NotificationService.Notify(
+            NotificationSeverity.Warning,
+            "Slice patch preview failed",
+            message);
+
+        return new TaskSlicePatchPreviewPreparationResult(false, string.Empty, [], debugDetails, message);
     }
 
     private async Task RollbackSliceAsync(TaskPlanSlice slice)
@@ -915,57 +935,6 @@
         {
             isRollingBackSlice = false;
         }
-    }
-
-    private static string BuildSlicePatchTaskText(TaskPlanSlice slice)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine(slice.Title);
-
-        var description = !string.IsNullOrWhiteSpace(slice.Description) ? slice.Description : slice.Goal;
-        if (!string.IsNullOrWhiteSpace(description))
-        {
-            builder.AppendLine(description);
-        }
-
-        if (slice.TargetFiles.Count > 0)
-        {
-            builder.AppendLine();
-            builder.AppendLine("Target files:");
-            foreach (var targetFile in slice.TargetFiles)
-            {
-                builder.AppendLine($"- {targetFile}");
-            }
-        }
-
-        if (slice.InstructionFiles.Count > 0)
-        {
-            builder.AppendLine();
-            builder.AppendLine("Instruction files:");
-            foreach (var instructionFile in slice.InstructionFiles)
-            {
-                builder.AppendLine($"- {instructionFile}");
-            }
-        }
-
-        if (slice.VerificationCommands.Count > 0)
-        {
-            builder.AppendLine();
-            builder.AppendLine("Verification commands:");
-            foreach (var verificationCommand in slice.VerificationCommands)
-            {
-                builder.AppendLine($"- {verificationCommand}");
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(slice.Notes))
-        {
-            builder.AppendLine();
-            builder.AppendLine("Notes:");
-            builder.AppendLine(slice.Notes);
-        }
-
-        return builder.ToString().Trim();
     }
 
     private Task SelectSuggestedTargetAsync(PatchSuggestedTargetSelection selection)
@@ -1085,7 +1054,9 @@
         LocalCoderPlanTask? planTask,
         TaskPlanSlice? taskPlanSlice = null,
         PatchPreviewRepairContext? repairContext = null,
-        bool preserveFailedPreviewOnError = false)
+        bool preserveFailedPreviewOnError = false,
+        IReadOnlyList<LocalCoderFileContext>? additionalFileContexts = null,
+        IReadOnlyList<string>? sliceDebugDetails = null)
     {
         IReadOnlyList<LocalCoderHistoryContextFile> contextSnapshot = [];
         var generatedPlanText = currentTask?.Plan ?? string.Empty;
@@ -1102,14 +1073,16 @@
             patchPreview = null;
             ClearPatchDebug();
         }
+        LastSlicePatchDebugDetails = sliceDebugDetails ?? [];
         lastPatchPlanTask = planTask;
         LastPatchTaskText = taskText;
 
         var previewRequest = CloneRequest(request, taskText);
+        var mergedFileContexts = MergeFileContexts(request.FileContexts, additionalFileContexts).ToList();
         try
         {
             var profile = GetRequiredProfile(AgentActionProfiles.ForGeneratePatchPreview());
-            if (!await EnsureFileContextLoadedAsync())
+            if (taskPlanSlice is null && !await EnsureFileContextLoadedAsync())
             {
                 if (planTask is not null)
                 {
@@ -1125,7 +1098,13 @@
                 return;
             }
 
-            previewRequest.FileContexts = request.FileContexts.ToList();
+            if (taskPlanSlice is not null && mergedFileContexts.Count == 0)
+            {
+                await FailSlicePreviewAsync(taskPlanSlice, SlicePreviewMissingTargetsMessage, LastSlicePatchDebugDetails.ToList());
+                return;
+            }
+
+            previewRequest.FileContexts = mergedFileContexts;
             previewRequest.Task = taskText;
             patchIntent = PatchIntentService.BuildIntent(previewRequest);
             contextSnapshot = CreateContextSnapshot(LocalCoderHistoryActionType.GeneratePatchPreview);
@@ -1140,6 +1119,26 @@
             if (planTask is not null)
             {
                 UpdatePlanTaskStatus(planTask.Id, LocalCoderPlanTaskStatus.PatchGenerated, "Patch preview generated.");
+            }
+
+            if (taskPlanSlice is not null)
+            {
+                await TaskSliceExecutionService.RecordSliceExecutionResultAsync(new TaskSliceExecutionResult
+                {
+                    PlanId = taskPlanSlice.PlanId,
+                    SliceId = taskPlanSlice.Id,
+                    SliceTitle = taskPlanSlice.Title,
+                    RequestedAction = "GeneratePatch",
+                    PatchPackageId = taskPlanSlice.PatchPackageId,
+                    Success = true,
+                    BuildSuccess = false,
+                    VerificationSuccess = false,
+                    Summary = $"{taskPlanSlice.Title}: GeneratePatch succeeded.",
+                    AppliedFiles = [],
+                    AppliedAt = null,
+                    Errors = [],
+                    ExecutedAt = DateTime.UtcNow
+                });
             }
 
             try
@@ -1286,6 +1285,7 @@
         LastPatchRepairSummary = null;
         LastPatchPromptAudit = null;
         LastPatchPromptTargetResolution = null;
+        LastSlicePatchDebugDetails = [];
     }
 
     #endregion
@@ -2640,6 +2640,22 @@
     private PatchPreviewMetricsSnapshot GetPatchPreviewMetrics()
     {
         return LocalCoderPatchPreviewMetricsCalculator.FromHistory(historyEntries);
+    }
+
+    private static IReadOnlyList<LocalCoderFileContext> MergeFileContexts(
+        IReadOnlyList<LocalCoderFileContext> baseContexts,
+        IReadOnlyList<LocalCoderFileContext>? additionalContexts)
+    {
+        if (additionalContexts is null || additionalContexts.Count == 0)
+        {
+            return baseContexts.ToArray();
+        }
+
+        return baseContexts
+            .Concat(additionalContexts)
+            .GroupBy(context => context.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToArray();
     }
 
     private static List<LocalCoderPlanTask> BuildPlanTasks(string planText)

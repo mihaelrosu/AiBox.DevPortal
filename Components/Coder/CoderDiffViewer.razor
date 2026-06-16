@@ -18,6 +18,19 @@
     </RadzenCard>
 }
 
+@if (SliceDebugDetails.Count > 0)
+{
+    <RadzenCard>
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Slice Preview Debug" TextStyle="TextStyle.H6" />
+            @foreach (var detail in SliceDebugDetails)
+            {
+                <RadzenText Text="@detail" TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+}
+
 @if (ValidationErrors.Count > 0)
 {
     <RadzenCard>
@@ -604,6 +617,7 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
     [Parameter] public LocalCoderPatchPreview? PatchPreview { get; set; }
     [Parameter] public LocalCoderPatchApplyResult? ApplyResult { get; set; }
     [Parameter] public LocalCoderPatchRollbackResult? RollbackResult { get; set; }
+    [Parameter] public IReadOnlyList<string> SliceDebugDetails { get; set; } = [];
     [Parameter] public bool CanApplyPatch { get; set; }
     [Parameter] public bool CanRollbackPatch { get; set; }
     [Parameter] public bool IsRollingBack { get; set; }

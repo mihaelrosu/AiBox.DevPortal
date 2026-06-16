@@ -137,6 +137,25 @@ public sealed class CoderComponentSmokeTests : TestContext
     }
 
     [Fact]
+    public void CoderDiffViewer_SliceDebug_RendersSliceDebugDetails()
+    {
+        var cut = RenderComponent<CoderDiffViewer>(parameters => parameters
+            .Add(component => component.SliceDebugDetails,
+            [
+                "SliceId: abc123",
+                "SliceTitle: Harden slice preview",
+                "TargetFiles count: 2",
+                "RelatedFiles count: 1",
+                "SelectedContextFiles count: 3",
+                "CreateTargets count: 1"
+            ]));
+
+        Assert.Contains("Slice Preview Debug", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("SliceId: abc123", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("CreateTargets count: 1", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CoderDiffViewer_ValidationGuidance_RendersCategoryAndSuggestedFix()
     {
         var cut = RenderComponent<CoderDiffViewer>(parameters => parameters

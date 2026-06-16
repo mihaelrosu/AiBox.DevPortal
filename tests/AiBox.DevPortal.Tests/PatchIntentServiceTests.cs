@@ -54,6 +54,18 @@ public sealed class PatchIntentServiceTests
     }
 
     [Fact]
+    public void ExtractRequestedCreateFiles_CreateSection_ExtractsPaths()
+    {
+        var files = PatchIntentService.ExtractRequestedCreateFiles("""
+            Create:
+            - Models/TaskPlan.cs
+            - Components/Coder/TaskPlanPreviewPanel.razor
+            """);
+
+        Assert.Equal(["Models/TaskPlan.cs", "Components/Coder/TaskPlanPreviewPanel.razor"], files);
+    }
+
+    [Fact]
     public void BuildIntent_CreateTargetInModels_OverridesAllowedCreateFolders()
     {
         var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
