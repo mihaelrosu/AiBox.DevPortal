@@ -69,8 +69,8 @@ public sealed class TaskSlicePatchPreviewPreparationServiceTests
                 {
                     Id = "slice-2",
                     Title = "Create a new model",
-                    Notes = """
-                    Create targets:
+                    Description = """
+                    Create:
                     - Models/NewModel.cs
                     """
                 },

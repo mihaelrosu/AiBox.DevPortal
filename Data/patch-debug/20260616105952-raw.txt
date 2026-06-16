@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Services/PatchIntentService.cs",
+      "operation": "insert_after",
+      "anchor": "public static string BuildPromptText(PatchIntent intent)",
+      "oldText": "",
+      "newText": "\n\n        return $\"{intent.Goal}\\n\\nAllowed files:\\n{string.Join(Environment.NewLine, allowedFiles.Select(path => \"- \" + path))}\\n\\n{(intent.TargetCreatedFiles.Count > 0\n            ? $\"\\nTarget created file(s):\\n{string.Join(Environment.NewLine, intent.TargetCreatedFiles.Select(path => \"- \" + path))}\"\\n\"\n            : string.Empty)}\\n\\n{(intent.AllowedCreateFolders.Count > 0\n            ? $\"\\nAllowed create folders:\\n{string.Join(Environment.NewLine, intent.AllowedCreateFolders.Select(path => \"- \" + path))}\"\\n\"\n            : string.Empty)}\\n\\nExpected change type:\\n{intent.ExpectedChangeType}\\n\\nMust not change:\\n{string.Join(Environment.NewLine, intent.MustNotChange.Select(item => \"- \" + item))}\\n\\nVerification:\\n{intent.VerificationCommand}\";",
+      "summary": "Insert content after the BuildPromptText method"
+    }
+  ]
+}
+```

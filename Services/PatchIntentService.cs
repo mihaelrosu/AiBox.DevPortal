@@ -342,9 +342,28 @@ public static class PatchIntentService
 
     private static void AddCreatePaths(List<string> createdFiles, string text)
     {
+        var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".cs", ".razor", ".md", ".json", ".css", ".js", ".ts", ".html"
+        };
+
         foreach (Match match in CreateTaskPathRegex().Matches(text ?? string.Empty))
         {
-            AddCreatePath(createdFiles, match.Groups["path"].Value);
+            var normalized = NormalizePath(match.Groups["path"].Value);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                continue;
+            }
+
+            if (!allowedExtensions.Contains(Path.GetExtension(normalized)))
+            {
+                continue;
+            }
+
+            if (!createdFiles.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+            {
+                createdFiles.Add(normalized);
+            }
         }
     }
 
@@ -366,13 +385,29 @@ public static class PatchIntentService
             return false;
         }
 
-        remainder = match.Groups["rest"].Value;
-        return true;
+        remainder = match.Groups["rest"].Value.Trim();
+        var delimiter = match.Groups["delimiter"].Value;
+
+        if (delimiter.Contains(':', StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return CreateTaskPathRegex().Matches(remainder)
+            .Select(pathMatch => NormalizePath(pathMatch.Groups["path"].Value))
+            .Any(path => string.Equals(Path.GetExtension(path), ".cs", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(Path.GetExtension(path), ".razor", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(Path.GetExtension(path), ".md", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(Path.GetExtension(path), ".css", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(Path.GetExtension(path), ".js", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(Path.GetExtension(path), ".ts", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(Path.GetExtension(path), ".html", StringComparison.OrdinalIgnoreCase));
     }
 
     private static Regex CreateTaskHeaderRegex()
     {
-        return new Regex(@"\bcreate(?:\s+file)?\s*:?\s*(?<rest>.*)$",
+        return new Regex(@"^\s*(?:[-*]\s*)?(?:create(?:\s+file)?)(?<delimiter>\s*:\s*|\s+)(?<rest>.*)$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
     }
 

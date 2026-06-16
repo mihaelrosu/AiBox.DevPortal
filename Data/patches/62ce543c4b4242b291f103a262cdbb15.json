@@ -1,7 +1,7 @@
 {
   "id": "62ce543c4b4242b291f103a262cdbb15",
   "createdAt": "2026-06-16T10:26:37.029095+00:00",
-  "updatedAt": "2026-06-16T10:26:49.6665542+00:00",
+  "updatedAt": "2026-06-16T10:52:50.2503441+00:00",
   "backupFolder": "Data/patch-backups/20260616102649",
   "appliedAt": "2026-06-16T10:26:49.6649529+00:00",
   "rolledBack": false,
@@ -71,8 +71,8 @@
     ],
     "isBlocking": false
   },
-  "status": "applied",
-  "statusMessage": "Applied with 1 backup file(s).",
+  "status": "reviewed",
+  "statusMessage": "Patch reviewed.",
   "approvalGateResults": [
     {
       "gateKey": "patch-intent-partial",

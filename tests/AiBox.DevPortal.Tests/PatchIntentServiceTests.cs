@@ -66,6 +66,36 @@ public sealed class PatchIntentServiceTests
     }
 
     [Fact]
+    public void ExtractRequestedCreateFiles_RealCreateBlock_IgnoresUnsupportedPaths()
+    {
+        var files = PatchIntentService.ExtractRequestedCreateFiles("""
+            Create:
+            - Models/AgentDashboardMetrics.cs
+            - Services/AgentDashboardMetricsService.cs
+            - Components/Coder/AgentDashboardPanel.razor
+            - Docs/AgentDashboardPlan.txt
+            - App/App.csproj
+            """);
+
+        Assert.Equal(
+            [
+                "Models/AgentDashboardMetrics.cs",
+                "Services/AgentDashboardMetricsService.cs",
+                "Components/Coder/AgentDashboardPanel.razor"
+            ],
+            files);
+    }
+
+    [Fact]
+    public void ExtractRequestedCreateFiles_NonBlockSentence_DoesNotCreateRequest()
+    {
+        var files = PatchIntentService.ExtractRequestedCreateFiles(
+            "Create V2.6 Agent Dashboard Metrics Foundation");
+
+        Assert.Empty(files);
+    }
+
+    [Fact]
     public void BuildIntent_CreateTargetInModels_OverridesAllowedCreateFolders()
     {
         var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
@@ -130,7 +160,7 @@ public sealed class PatchIntentServiceTests
                    - Models/TaskPlan.cs
                    - Features/Admin/AdminPanel.razor
                    - Data/ProjectIndex.json
-                   - App/App.csproj
+                   - App/App.html
                    """,
             AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
             FileContexts =
@@ -146,7 +176,7 @@ public sealed class PatchIntentServiceTests
         Assert.Contains("Models/", intent.AllowedCreateFolders);
 
         Assert.Equal(4, intent.TargetCreatedFiles.Count);
-        Assert.Contains("App/App.csproj", intent.TargetCreatedFiles);
+        Assert.Contains("App/App.html", intent.TargetCreatedFiles);
         Assert.Contains("Data/ProjectIndex.json", intent.TargetCreatedFiles);
         Assert.Contains("Features/Admin/AdminPanel.razor", intent.TargetCreatedFiles);
         Assert.Contains("Models/TaskPlan.cs", intent.TargetCreatedFiles);
