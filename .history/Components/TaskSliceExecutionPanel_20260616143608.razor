@@ -1,0 +1,15 @@
+<file>TaskSliceExecutionPanel.razor</file>
+
+@using AiBox.DevPortal.Models
+@using AiBox.DevPortal.Services
+
+@inherits ComponentBase
+
+@code {
+    [Parameter]
+    public TaskPlanSlice Slice { get; set; }
+
+    private bool IsVerified => Slice.Status == TaskPlanSliceStatus.Verified;
+}
+
+@if (Is

@@ -1,0 +1,27 @@
+<file>TaskSliceExecutionPanel.razor</file>
+
+@using AiBox.DevPortal.Models
+@using AiBox.DevPortal.Services
+
+@inherits ComponentBase
+
+@code {
+    [Parameter]
+    public TaskPlanSlice Slice { get; set; }
+
+    private bool IsVerified => Slice.Status == TaskPlanSliceStatus.Verified;
+}
+
+@if (IsVerified)
+{
+    <button @onclick="HandleApplyClick">Apply</button>
+}
+
+}
+    private void HandleApplyClick()
+    {
+        // Placeholder for Safe Apply logic
+        // Do not apply patches yet
+        _logger.LogInformation("Safe Apply is not implemented yet. Backup support is ready.");
+    }
+}

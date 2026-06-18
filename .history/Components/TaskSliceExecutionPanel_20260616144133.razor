@@ -1,0 +1,42 @@
+@using AiBox.DevPortal.Models
+
+@if (Slice is null)
+{
+    return;
+}
+
+@if (IsVerified)
+{
+    <RadzenButton Text="Apply"
+                  Icon="done_all"
+                  ButtonStyle="ButtonStyle.Success"
+                  Size="ButtonSize.Small"
+                  Click="@OnApplyClicked" />
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.Caption">
+        Apply is available after verification.
+    </RadzenText>
+}
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <RadzenAlert Severity="AlertSeverity.Info"
+                 Summary="@message"
+                 Style="margin-top: 0.5rem;" />
+}
+
+@code {
+    [Parameter]
+    public TaskPlanSlice? Slice { get; set; }
+
+    private string? message;
+
+    private bool IsVerified => Slice?.Status == TaskPlanSliceStatus.Verified;
+
+    private void OnApplyClicked()
+    {
+        message = "Safe Apply is not implemented yet. Backup support is ready.";
+    }
+}

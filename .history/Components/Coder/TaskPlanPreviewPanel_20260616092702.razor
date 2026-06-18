@@ -25,8 +25,7 @@
             {
                 <RadzenCard Style="margin: 0;">
                     <RadzenStack Gap="0.5rem">
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem"
-                                     Wrap="FlexWrap.Wrap">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Wrap="FlexWrap.Wrap">
                             @if (!string.IsNullOrWhiteSpace(slice.Id))
                             {
                                 <RadzenBadge Text="@slice.Id" BadgeStyle="BadgeStyle.Light" />
@@ -76,24 +75,26 @@
                             }
                         </RadzenStack>
 
-                        <RadzenButton Text="Generate Patch" Icon="difference" ButtonStyle="ButtonStyle.Primary"
+                        <RadzenButton Text="Generate Patch"
+                                      Icon="difference"
+                                      ButtonStyle="ButtonStyle.Primary"
                                       Disabled="@(!OnGeneratePatchRequested.HasDelegate || IsGeneratingPatch)"
                                       Click="@(() => OnGeneratePatchRequested.InvokeAsync(slice))" />
 
                         @if (slice.Status == TaskSliceStatus.Previewed)
                         {
-                            <RadzenButton Text="Verify" Icon="check_circle" ButtonStyle="ButtonStyle.Success"
+                            <RadzenButton Text="Verify"
+                                          Icon="check_circle"
+                                          ButtonStyle="ButtonStyle.Success"
                                           Disabled="@(!OnVerifyRequested.HasDelegate || IsVerifyingSlice)"
                                           Click="@(() => OnVerifyRequested.InvokeAsync(slice))" />
                         }
-                        @if (slice.Status == TaskSliceStatus.Verified)
-                        {
-                            <RadzenButton Text="Apply" Icon="done_all" ButtonStyle="ButtonStyle.Success"
-                                          Disabled="@(!OnApplyRequested.HasDelegate)" Click="@(() => OnApplyRequested.InvokeAsync(slice))" />
-                        }
+
                         @if (slice.Status == TaskSliceStatus.Applied)
                         {
-                            <RadzenButton Text="Rollback" Icon="undo" ButtonStyle="ButtonStyle.Warning"
+                            <RadzenButton Text="Rollback"
+                                          Icon="undo"
+                                          ButtonStyle="ButtonStyle.Warning"
                                           Disabled="@(!OnRollbackRequested.HasDelegate || IsRollingBack || string.IsNullOrWhiteSpace(slice.PatchPackageId))"
                                           Click="@(() => OnRollbackRequested.InvokeAsync(slice))" />
                         }
@@ -115,12 +116,10 @@
     [Parameter] public EventCallback<TaskPlanSlice> OnGeneratePatchRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnVerifyRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnRollbackRequested { get; set; }
-    [Parameter] public EventCallback<TaskPlanSlice> OnApplyRequested { get; set; } 
     [Parameter] public bool IsGeneratingPatch { get; set; }
     [Parameter] public bool IsVerifyingSlice { get; set; }
     [Parameter] public bool IsRollingBack { get; set; }
-    [Parameter]
-    public IReadOnlyDictionary<string, string> SliceStatusMessages { get; set; } = new Dictionary<string,string>();
+    [Parameter] public IReadOnlyDictionary<string, string> SliceStatusMessages { get; set; } = new Dictionary<string, string>();
 
     private static BadgeStyle GetStatusBadgeStyle(TaskSliceStatus status)
     {
@@ -135,7 +134,7 @@
             _ => BadgeStyle.Light
         };
     }
-    
+
     private static string GetSliceBodyText(TaskPlanSlice slice)
     {
         if (!string.IsNullOrWhiteSpace(slice.Description))

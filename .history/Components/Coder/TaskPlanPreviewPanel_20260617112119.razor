@@ -115,12 +115,13 @@
     [Parameter] public EventCallback<TaskPlanSlice> OnGeneratePatchRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnVerifyRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnRollbackRequested { get; set; }
-    [Parameter] public EventCallback<TaskPlanSlice> OnApplyRequested { get; set; } 
+    [Parameter] public EventCallback<TaskPlanSlice> OnApplyRequested { get; set; }
     [Parameter] public bool IsGeneratingPatch { get; set; }
     [Parameter] public bool IsVerifyingSlice { get; set; }
     [Parameter] public bool IsRollingBack { get; set; }
     [Parameter]
-    public IReadOnlyDictionary<string, string> SliceStatusMessages { get; set; } = new Dictionary<string,string>();
+    public IReadOnlyDictionary<string, string> SliceStatusMessages { get; set; } = new Dictionary<string,
+string>();
 
     private static BadgeStyle GetStatusBadgeStyle(TaskSliceStatus status)
     {
@@ -135,7 +136,7 @@
             _ => BadgeStyle.Light
         };
     }
-    
+
     private static string GetSliceBodyText(TaskPlanSlice slice)
     {
         if (!string.IsNullOrWhiteSpace(slice.Description))
