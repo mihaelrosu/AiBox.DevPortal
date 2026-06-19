@@ -1,0 +1,346 @@
+@inject AgentDashboardService AgentDashboardService
+
+<RadzenCard>
+    <RadzenStack Gap="1rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Agent Dashboard" TextStyle="TextStyle.H5" />
+                <RadzenText Text="@GetGeneratedAtText()" TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@LoadAsync"
+                          Disabled="@isLoading" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else
+        {
+            <RadzenRow Gap="0.75rem">
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenText Text="Agent Runs" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@summary.TotalAgentRuns.ToString()" TextStyle="TextStyle.H4" />
+                        <RadzenText Text="@GetAgentRunsText()" TextStyle="TextStyle.Body2" />
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenText Text="Apply Attempts" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@summary.ApplyAttempts.ToString()" TextStyle="TextStyle.H4" />
+                        <RadzenText Text="@GetApplyAttemptsText()" TextStyle="TextStyle.Body2" />
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenText Text="Rollbacks" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@summary.RollbackCount.ToString()" TextStyle="TextStyle.H4" />
+                        <RadzenText Text="Stored rollback records" TextStyle="TextStyle.Body2" />
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenText Text="Generated" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@GetGeneratedAtCardText()" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="UTC" TextStyle="TextStyle.Body2" />
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="0.75rem">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenText Text="Overall Success" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@GetRateText(summary.OverallSuccessRate)" TextStyle="TextStyle.H4" />
+                        <RadzenText Text="All agent runs" TextStyle="TextStyle.Body2" />
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenText Text="Apply Success" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@GetRateText(summary.ApplySuccessRate)" TextStyle="TextStyle.H4" />
+                        <RadzenText Text="Apply attempts" TextStyle="TextStyle.Body2" />
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenText Text="Verification Success" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@GetRateText(summary.VerificationSuccessRate)" TextStyle="TextStyle.H4" />
+                        <RadzenText Text="Verify runs" TextStyle="TextStyle.Body2" />
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenCard Style="margin: 0;">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="Model Usage" TextStyle="TextStyle.H6" />
+                    @if (summary.ModelUsage.Count == 0)
+                    {
+                        <RadzenText Text="No model usage data available." TextStyle="TextStyle.Body2" />
+                    }
+                    else
+                    {
+                        <RadzenDataGrid Data="@summary.ModelUsage"
+                                        TItem="AgentDashboardModelUsage"
+                                        AllowPaging="false"
+                                        AllowSorting="false"
+                                        AllowFiltering="false"
+                                        Density="Density.Compact">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="AgentDashboardModelUsage" Property="ModelName" Title="Model" />
+                                <RadzenDataGridColumn TItem="AgentDashboardModelUsage" Property="TotalRuns" Title="Total" Width="90px" />
+                                <RadzenDataGridColumn TItem="AgentDashboardModelUsage" Property="SuccessfulRuns" Title="Success" Width="100px" />
+                                <RadzenDataGridColumn TItem="AgentDashboardModelUsage" Property="FailedRuns" Title="Failed" Width="90px" />
+                            </Columns>
+                        </RadzenDataGrid>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenCard Style="margin: 0;">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="Action Metrics" TextStyle="TextStyle.H6" />
+                    @if (summary.ActionMetrics.Count == 0)
+                    {
+                        <RadzenText Text="No action metrics available." TextStyle="TextStyle.Body2" />
+                    }
+                    else
+                    {
+                        <RadzenDataGrid Data="@summary.ActionMetrics"
+                                        TItem="AgentDashboardActionMetric"
+                                        AllowPaging="false"
+                                        AllowSorting="false"
+                                        AllowFiltering="false"
+                                        Density="Density.Compact">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="AgentDashboardActionMetric" Property="ActionKey" Title="Action" />
+                                <RadzenDataGridColumn TItem="AgentDashboardActionMetric" Property="TotalRuns" Title="Total" Width="90px" />
+                                <RadzenDataGridColumn TItem="AgentDashboardActionMetric" Property="SuccessfulRuns" Title="Success" Width="100px" />
+                                <RadzenDataGridColumn TItem="AgentDashboardActionMetric" Property="FailedRuns" Title="Failed" Width="90px" />
+                            </Columns>
+                        </RadzenDataGrid>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenCard Style="margin: 0;">
+                <RadzenStack Gap="0.75rem">
+                    <RadzenText Text="Risk Distribution" TextStyle="TextStyle.H6" />
+                    <RadzenRow Gap="0.5rem">
+                        <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenBadge Text="@($"Low: {summary.LowRiskApplyAttempts}")" BadgeStyle="BadgeStyle.Success" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenBadge Text="@($"Medium: {summary.MediumRiskApplyAttempts}")" BadgeStyle="BadgeStyle.Warning" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenBadge Text="@($"High: {summary.HighRiskApplyAttempts}")" BadgeStyle="BadgeStyle.Danger" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenBadge Text="@($"Critical: {summary.CriticalRiskApplyAttempts}")" BadgeStyle="BadgeStyle.Danger" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenRow Gap="0.75rem">
+                <RadzenColumn Size="12" SizeLG="4">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenText Text="Latest Agent Runs" TextStyle="TextStyle.H6" />
+                            @if (summary.RecentAgentRuns.Count == 0)
+                            {
+                                <RadzenText Text="No agent runs available." TextStyle="TextStyle.Body2" />
+                            }
+                            else
+                            {
+                                <RadzenDataGrid Data="@summary.RecentAgentRuns"
+                                                TItem="AiBox.DevPortal.Models.Agents.AgentRunRecord"
+                                                AllowPaging="false"
+                                                AllowSorting="false"
+                                                AllowFiltering="false"
+                                                Density="Density.Compact">
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="AiBox.DevPortal.Models.Agents.AgentRunRecord" Title="UTC">
+                                            <Template Context="item">
+                                                @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="AiBox.DevPortal.Models.Agents.AgentRunRecord" Property="ActionKey" Title="Action" />
+                                        <RadzenDataGridColumn TItem="AiBox.DevPortal.Models.Agents.AgentRunRecord" Title="Status">
+                                            <Template Context="item">
+                                                <RadzenBadge Text="@(item.Success ? "Success" : "Failed")"
+                                                             BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </RadzenDataGrid>
+                            }
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeLG="4">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenText Text="Latest Apply Attempts" TextStyle="TextStyle.H6" />
+                            @if (summary.RecentApplyAttempts.Count == 0)
+                            {
+                                <RadzenText Text="No apply attempts available." TextStyle="TextStyle.Body2" />
+                            }
+                            else
+                            {
+                                <RadzenDataGrid Data="@summary.RecentApplyAttempts"
+                                                TItem="TaskSliceApplyAuditEntry"
+                                                AllowPaging="false"
+                                                AllowSorting="false"
+                                                AllowFiltering="false"
+                                                Density="Density.Compact">
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Title="UTC">
+                                            <Template Context="item">
+                                                @item.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Property="SliceTitle" Title="Slice" />
+                                        <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Title="Risk">
+                                            <Template Context="item">
+                                                <RadzenBadge Text="@item.RiskLevel.ToString()"
+                                                             BadgeStyle="@GetRiskBadgeStyle(item.RiskLevel)" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Title="Result">
+                                            <Template Context="item">
+                                                <RadzenBadge Text="@(item.Blocked ? "Blocked" : item.Success ? "Success" : "Failed")"
+                                                             BadgeStyle="@(item.Blocked ? BadgeStyle.Danger : item.Success ? BadgeStyle.Success : BadgeStyle.Warning)" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </RadzenDataGrid>
+                            }
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeLG="4">
+                    <RadzenCard Style="margin: 0;">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenText Text="Latest Rollbacks" TextStyle="TextStyle.H6" />
+                            @if (summary.RecentRollbacks.Count == 0)
+                            {
+                                <RadzenText Text="No rollbacks available." TextStyle="TextStyle.Body2" />
+                            }
+                            else
+                            {
+                                <RadzenDataGrid Data="@summary.RecentRollbacks"
+                                                TItem="PatchRollbackEntry"
+                                                AllowPaging="false"
+                                                AllowSorting="false"
+                                                AllowFiltering="false"
+                                                Density="Density.Compact">
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="PatchRollbackEntry" Title="UTC">
+                                            <Template Context="item">
+                                                @item.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="PatchRollbackEntry" Property="SliceId" Title="Slice" />
+                                        <RadzenDataGridColumn TItem="PatchRollbackEntry" Title="Status">
+                                            <Template Context="item">
+                                                <RadzenBadge Text="@(item.Restored ? "Restored" : "Pending")"
+                                                             BadgeStyle="@(item.Restored ? BadgeStyle.Success : BadgeStyle.Warning)" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </RadzenDataGrid>
+                            }
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private AgentDashboardSummary summary = new();
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            summary = await AgentDashboardService.GetSummaryAsync();
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to load agent dashboard: {exception.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetGeneratedAtText()
+    {
+        return $"Generated at UTC: {summary.GeneratedAtUtc:O}";
+    }
+
+    private string GetGeneratedAtCardText()
+    {
+        return summary.GeneratedAtUtc.ToString("yyyy-MM-dd HH:mm:ss");
+    }
+
+    private string GetAgentRunsText()
+    {
+        return $"{summary.SuccessfulRuns} successful / {summary.FailedRuns} failed";
+    }
+
+    private string GetApplyAttemptsText()
+    {
+        return $"{summary.SuccessfulApplies} successful / {summary.BlockedApplies} blocked";
+    }
+
+    private static string GetRateText(double? rate)
+    {
+        return rate.HasValue ? $"{rate.Value:0.0}%" : "N/A";
+    }
+
+    private static BadgeStyle GetRiskBadgeStyle(RiskLevel riskLevel)
+    {
+        return riskLevel switch
+        {
+            RiskLevel.Low => BadgeStyle.Success,
+            RiskLevel.Medium => BadgeStyle.Warning,
+            RiskLevel.High => BadgeStyle.Danger,
+            RiskLevel.Critical => BadgeStyle.Danger,
+            _ => BadgeStyle.Light
+        };
+    }
+}

@@ -49,11 +49,11 @@ public sealed class CoderComponentSmokeTests : TestContext
     }
 
     [Fact]
-    public void CoderAgentProfilesPanel_MissingProfiles_RendersLoadingState()
+    public void AgentProfilesPanel_MissingProfiles_RendersLoadingState()
     {
-        var cut = RenderComponent<CoderAgentProfilesPanel>();
+        var cut = RenderComponent<AgentProfilesPanel>();
 
-        Assert.Contains("Loading profiles...", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Agent Model Routing", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -487,7 +487,10 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(patchPackageService);
         Services.AddSingleton(Substitute.For<IPatchBackupService>());
         Services.AddSingleton(Substitute.For<IPatchApplyService>());
-        Services.AddSingleton(Substitute.For<IPatchRollbackService>());
+        var patchRollbackService = Substitute.For<IPatchRollbackService>();
+        patchRollbackService.GetLatestAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PatchRollbackEntry>>([]));
+        Services.AddSingleton(patchRollbackService);
         Services.AddSingleton(new TaskSliceExecutionService(instructionEnvironment));
         Services.AddSingleton(verificationService);
         Services.AddSingleton<TaskSlicePatchPreviewPreparationService>(sp =>
@@ -496,6 +499,8 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(riskAnalysisService);
         Services.AddSingleton(new TaskSliceApplyHistoryService(instructionEnvironment));
         Services.AddSingleton(new TaskSliceApplyAuditService(instructionEnvironment));
+        Services.AddSingleton<AgentDashboardService>();
+        Services.AddSingleton<AgentModelRoutingService>();
         Services.AddSingleton<TaskSliceApplyService>();
         Services.AddSingleton<TaskPlanApplyService>();
         Services.AddSingleton<TaskSliceRollbackService>();

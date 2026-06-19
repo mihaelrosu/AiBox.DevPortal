@@ -5,28 +5,39 @@
 * SourceType: Roadmap
 * Status: Active
 * Owner: DevPortal
-* LastUpdated: 2026-06-15
+* LastUpdated: 2026-06-19
 * Tags: roadmap, planning, project-history-index
 
 ## Vision
 
 AiBox.DevPortal is a local agentic development environment for the AiBox workspace.
 It combines local Ollama models, Blazor, and Radzen UI with planning, patch generation,
-verification, review, safe apply, rollback, and project memory so development work can be
-tracked and repeated safely.
+verification, review, safe apply, rollback, dashboard metrics, and project memory so development
+work can be tracked and repeated safely.
 
 ## Current Status
 
 Completed:
 
 * Agent Mode Profiles
-* Planner
-* Patch Builder
 * Run History
 * Patch Queue
 * Project Knowledge Index
-* Context File Selection
-* Suggest Context Files
+* Project History Index
+* Context Suggestions
+* Task Plan / Slice Workflow
+* Slice Verification
+* Risk Analysis
+* Risk Gates
+* Multi-Slice Apply
+* Apply Audit Log
+* Patch Rollback Service
+* Agent Dashboard
+* Agent Model Routing
+
+Current:
+
+* Multi-Model Intelligence
 
 ## Related Files
 
@@ -45,7 +56,7 @@ Completed:
 ## V2.1 Reliable Patch Generation
 
 * Id: v2-1-reliable-patch-generation
-* Status: Planned
+* Status: Completed
 * Priority: High
 * SourceType: Roadmap
 * Tags: patch-builder, validation, repair
@@ -55,14 +66,15 @@ Dependencies:
 * Patch Builder
 * Validation pipeline
 
-* Create workflow hardening
-* Patch JSON robustness
-* XML documentation mode
+Implementation notes:
 
-## V2.2 Planner -> Task Slice Workflow
+* Patch preview generation is now hardened against malformed intent and missing safe targets.
+* Preview-only generation remains separate from apply authorization.
 
-* Id: v2-2-planner-task-slice-workflow
-* Status: Planned
+## V2.2 Planner -> Slice Workflow
+
+* Id: v2-2-planner-slice-workflow
+* Status: Completed
 * Priority: High
 * SourceType: Roadmap
 * Tags: planner, task-plan, task-slice
@@ -72,16 +84,15 @@ Dependencies:
 * Task Plan
 * Task Slice
 
-* Task Plan
-* Task Slice
-* TaskSliceExecutionRequest
-* TaskSliceExecutionResult
-* Slice states
+Implementation notes:
+
+* Task planning now flows through canonical slices with preview, verification, and apply steps.
+* Multi-slice apply now respects dependency order instead of the original list order.
 
 ## V2.3 Context Intelligence
 
 * Id: v2-3-context-intelligence
-* Status: Planned
+* Status: Completed
 * Priority: High
 * SourceType: Roadmap
 * Tags: context, knowledge-index, agents
@@ -91,15 +102,15 @@ Dependencies:
 * Project Knowledge Index
 * AGENTS.md routing
 
-* Project Knowledge Index integration
-* Context suggestions
-* AGENTS.md routing
-* Token budget panel
+Implementation notes:
+
+* Context suggestions now combine knowledge index results and selected file context.
+* History-aware guidance is surfaced in the Coder workflow.
 
 ## V2.4 Verification Loop
 
 * Id: v2-4-verification-loop
-* Status: Planned
+* Status: Completed
 * Priority: High
 * SourceType: Roadmap
 * Tags: verification, reviewer, recovery
@@ -109,15 +120,15 @@ Dependencies:
 * Verifier profile
 * Reviewer profile
 
-* Verifier profile
-* Reviewer profile
-* Risk assessment
-* Recovery mode
+Implementation notes:
+
+* Verification is build-based and runs before any apply step.
+* Failed verification blocks the workflow from advancing into safe apply.
 
 ## V2.5 Safe Apply Workflow
 
 * Id: v2-5-safe-apply-workflow
-* Status: Planned
+* Status: Completed
 * Priority: High
 * SourceType: Roadmap
 * Tags: apply, backup, rollback
@@ -127,14 +138,15 @@ Dependencies:
 * Patch Queue
 * Backup system
 
-* Approval workflow
-* Backup system
-* Rollback
+Implementation notes:
+
+* Apply is now risk-gated, audited, and rollback-aware.
+* Rollback metadata is captured before apply and preserved for recovery.
 
 ## V2.6 Agent Dashboard
 
 * Id: v2-6-agent-dashboard
-* Status: Planned
+* Status: Completed
 * Priority: Medium
 * SourceType: Roadmap
 * Tags: metrics, dashboard, analysis
@@ -143,14 +155,15 @@ Dependencies:
 
 * Run History
 
-* Run History
-* Metrics
-* Failure analysis
+Implementation notes:
+
+* The dashboard now summarizes agent runs, apply attempts, and rollbacks.
+* Model usage and action metrics are displayed alongside recent activity.
 
 ## V2.7 Multi-Model Intelligence
 
 * Id: v2-7-multi-model-intelligence
-* Status: Planned
+* Status: In Progress
 * Priority: Medium
 * SourceType: Roadmap
 * Tags: models, planner, reviewer
@@ -161,15 +174,24 @@ Dependencies:
 * Patch Builder
 * Reviewer
 
-* Planner model
-* Patch Builder model
-* Reviewer model
-* Comparison metrics
+Current milestones:
+
+* Agent Model Routing
+* Model Benchmark Runs
+* Model Comparison Runs
+* Automatic Model Recommendation
+* Agent Orchestration
+* Autonomous Execution Safeguards
+
+Implementation notes:
+
+* Routing has started with preferred and fallback model assignments per profile.
+* The next step is to make routing data-driven rather than purely rule-based.
 
 ## V2.8 Project History Index
 
 * Id: v2-8-project-history-index
-* Status: Planned
+* Status: Completed
 * Priority: High
 * SourceType: Roadmap
 * Tags: project-history-index, memory, indexing
@@ -181,16 +203,16 @@ Dependencies:
 * Patch History
 * Verification History
 
+Implementation notes:
+
+* The index is rebuilt from docs and runtime data.
+* Summary output now reflects completed safe apply work, completed dashboard work, and in-progress multi-model work.
+
 Acceptance Criteria:
 
 * Items can be rebuilt from docs and runtime data.
 * Summary output shows completed, pending, failed, and recommended work.
 * Items retain relative file paths and stable IDs.
-
-* ProjectHistoryItem
-* ProjectHistoryIndex
-* ProjectHistorySummary
-* ProjectHistoryIndexService
 
 Data Sources:
 

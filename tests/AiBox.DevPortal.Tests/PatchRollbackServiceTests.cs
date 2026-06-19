@@ -221,7 +221,7 @@ public sealed class PatchRollbackServiceTests
         public string ApplicationName { get; set; } = string.Empty;
         public IFileProvider WebRootFileProvider { get; set; } = default!;
         public string WebRootPath { get; set; } = string.Empty;
-        public string EnvironmentName { get; set; } = Environments.Development;
+        public string EnvironmentName { get; set; } = "Development";
         public string ContentRootPath { get; set; } = contentRootPath;
         public IFileProvider ContentRootFileProvider { get; set; } = default!;
     }

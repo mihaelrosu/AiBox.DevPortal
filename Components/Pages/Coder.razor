@@ -145,6 +145,24 @@
             </RadzenStack>
         </RadzenTabsItem>
 
+        <RadzenTabsItem Text="Dashboard" Icon="dashboard">
+            <RadzenStack Gap="1rem">
+                <RadzenCard>
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Agent activity overview" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="Review agent runs, apply activity, routing recommendations, risk distribution, and rollback records in one place."
+                                    TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+
+                <AgentDashboardPanel />
+                <AgentModelRecommendationPanel />
+                <AgentProfilesPanel />
+                <AgentModelBenchmarkPanel />
+                <AgentModelComparisonPanel />
+            </RadzenStack>
+        </RadzenTabsItem>
+
         <RadzenTabsItem Text="Plan" Icon="assignment">
             <RadzenStack Gap="1rem">
                 <RadzenCard>
@@ -227,7 +245,7 @@
                                     TextStyle="TextStyle.Body2" />
                     </RadzenStack>
                 </RadzenCard>
-                <CoderAgentProfilesPanel ProfileRows="@GetProfileRows()" />
+                <AgentProfilesPanel />
             </RadzenStack>
         </RadzenTabsItem>
 
@@ -3225,30 +3243,6 @@
         }
 
         return profile;
-    }
-
-    private IReadOnlyList<(string ActionLabel, AgentModeProfile Profile)> GetProfileRows()
-    {
-        var actions = new (string ActionLabel, AgentMode Mode)[]
-        {
-            ("Create Plan", AgentActionProfiles.ForCreatePlan()),
-            ("Generate Patch Preview", AgentActionProfiles.ForGeneratePatchPreview()),
-            ("Apply Patch", AgentActionProfiles.ForApplyPatch()),
-            ("Rollback Patch", AgentActionProfiles.ForRollbackPatch()),
-            ("Run Command", AgentActionProfiles.ForRunCommand()),
-            ("Verify Project", AgentActionProfiles.ForVerifyProject()),
-            ("Commit Changes", AgentActionProfiles.ForCommitChanges()),
-            ("Build & Deploy", AgentActionProfiles.ForBuildDeploy()),
-            ("Reviewer", AgentActionProfiles.ForReviewDiff())
-        };
-
-        return actions
-            .Select(action => (
-                action.ActionLabel,
-                Profile: agentModeProfiles.FirstOrDefault(profile => profile.Mode == action.Mode)))
-            .Where(row => row.Profile is not null)
-            .Select(row => (row.ActionLabel, row.Profile!))
-            .ToArray();
     }
 
     #endregion

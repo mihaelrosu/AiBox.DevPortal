@@ -1,0 +1,198 @@
+@using AiBox.DevPortal.Models
+@using AiBox.DevPortal.Models.Agents
+@inject AgentModelComparisonService AgentModelComparisonService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Model Comparison Runs" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Compare multiple models for the same agent role and prompt."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@LoadAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+                @statusMessage
+            </RadzenAlert>
+        }
+
+        <RadzenRow Gap="0.75rem">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenFormField Text="Agent role" Style="width: 100%;">
+                    <RadzenDropDown TValue="AgentMode"
+                                    Data="@agentRoles"
+                                    @bind-Value="@selectedRole"
+                                    Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenFormField Text="Models" Style="width: 100%;">
+                    <RadzenTextArea @bind-Value="@modelListText"
+                                    Rows="4"
+                                    Style="width: 100%;"
+                                    Placeholder="one model per line or comma-separated" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenFormField Text="Prompt" Style="width: 100%;">
+                    <RadzenTextArea @bind-Value="@prompt"
+                                    Rows="4"
+                                    Style="width: 100%;"
+                                    Placeholder="Same prompt for each model" />
+                </RadzenFormField>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Text="Run Comparison"
+                          Icon="compare_arrows"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="@RunComparisonAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else
+        {
+            <RadzenText Text="@GetComparisonCountText()" TextStyle="TextStyle.Caption" />
+
+            @if (latestRuns.Count == 0)
+            {
+                <RadzenText Text="No model comparison runs recorded yet." TextStyle="TextStyle.Body2" />
+            }
+            else
+            {
+                <RadzenDataGrid Data="@latestRuns"
+                                TItem="AgentModelComparisonRun"
+                                AllowPaging="false"
+                                AllowSorting="false"
+                                AllowFiltering="false"
+                                Density="Density.Compact">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="AgentModelComparisonRun" Title="UTC">
+                            <Template Context="item">
+                                @item.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="AgentModelComparisonRun" Property="AgentRole" Title="Role" />
+                        <RadzenDataGridColumn TItem="AgentModelComparisonRun" Title="Compared Models">
+                            <Template Context="item">
+                                @string.Join(", ", item.ComparedModels)
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="AgentModelComparisonRun" Property="BestModel" Title="Best Model" />
+                        <RadzenDataGridColumn TItem="AgentModelComparisonRun" Title="Reason">
+                            <Template Context="item">
+                                @item.BestModelReason
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            }
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private readonly AgentMode[] agentRoles = Enum.GetValues<AgentMode>();
+    private IReadOnlyList<AgentModelComparisonRun> latestRuns = [];
+    private AgentMode selectedRole = AgentMode.Planner;
+    private string modelListText = "qwen2.5-coder:7b";
+    private string prompt = "Compare these models for the selected agent role.";
+    private bool isBusy;
+    private bool isLoading = true;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            latestRuns = await AgentModelComparisonService.GetLatestAsync(10);
+            statusMessage = $"Loaded {latestRuns.Count} comparison runs.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to load comparison runs: {exception.Message}";
+            latestRuns = [];
+            statusMessage = string.Empty;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RunComparisonAsync()
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            var models = ParseModels(modelListText);
+            await AgentModelComparisonService.RunComparisonAsync(selectedRole, models, prompt);
+            await LoadAsync();
+            statusMessage = $"Comparison run saved for {selectedRole}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to run comparison: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private string GetComparisonCountText()
+    {
+        return $"{latestRuns.Count} recent comparison runs";
+    }
+
+    private static IReadOnlyList<string> ParseModels(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return [];
+        }
+
+        return text
+            .Split(['\r', '\n', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+}

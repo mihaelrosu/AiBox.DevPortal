@@ -350,6 +350,8 @@ public sealed class ProjectHistoryIndexService(IWebHostEnvironment environment)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        recommended = PrioritizeRecommendations(recommended);
+
         if (recommended.Count == 0)
         {
             recommended = pending.Take(5).ToList();
@@ -379,6 +381,38 @@ public sealed class ProjectHistoryIndexService(IWebHostEnvironment environment)
             RecommendedNextSlices = recommended,
             KnownIssues = issues
         };
+    }
+
+    private static List<string> PrioritizeRecommendations(IEnumerable<string> recommendations)
+    {
+        var normalized = recommendations
+            .Select(NormalizeText)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var priorityOrder = new[]
+        {
+            "Model Benchmark Runs",
+            "Model Comparison Runs",
+            "Automatic Model Recommendation",
+            "Agent Orchestration",
+            "Autonomous Execution Safeguards"
+        };
+
+        var prioritized = new List<string>(priorityOrder.Length + normalized.Count);
+        foreach (var priority in priorityOrder)
+        {
+            var match = normalized.FirstOrDefault(item => item.Contains(priority, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(match) &&
+                !prioritized.Any(item => item.Equals(match, StringComparison.OrdinalIgnoreCase)))
+            {
+                prioritized.Add(match);
+            }
+        }
+
+        prioritized.AddRange(normalized.Where(item => !prioritized.Any(prioritizedItem => prioritizedItem.Equals(item, StringComparison.OrdinalIgnoreCase))));
+        return prioritized;
     }
 
     private async Task<ProjectHistoryIndex> LoadUnlockedAsync(CancellationToken cancellationToken)
