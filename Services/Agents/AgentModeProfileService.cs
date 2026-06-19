@@ -157,6 +157,9 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.Planner,
                 Name = "Planner",
                 Model = "qwen2.5-coder:7b",
+                PreferredModel = "qwen2.5-coder:7b",
+                FallbackModel = string.Empty,
+                AllowFallback = false,
                 RulesSummary = "No tools. Produce code-change tasks only."
             },
             new AgentModeProfile
@@ -165,6 +168,9 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.PatchBuilder,
                 Name = "Patch Builder",
                 Model = "qwen2.5-coder:7b",
+                PreferredModel = "qwen2.5-coder:7b",
+                FallbackModel = string.Empty,
+                AllowFallback = false,
                 RulesSummary = "Patch preview only. Return JSON edit operations."
             },
             new AgentModeProfile
@@ -173,6 +179,9 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.Verifier,
                 Name = "Verifier",
                 Model = "qwen2.5-coder:7b",
+                PreferredModel = "qwen2.5-coder:7b",
+                FallbackModel = string.Empty,
+                AllowFallback = false,
                 RulesSummary = "Verification commands only. No file edits."
             },
             new AgentModeProfile
@@ -181,6 +190,9 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.Reviewer,
                 Name = "Reviewer",
                 Model = "qwen2.5-coder:7b",
+                PreferredModel = "qwen2.5-coder:7b",
+                FallbackModel = string.Empty,
+                AllowFallback = false,
                 RulesSummary = "Diff review only. No commands or edits."
             },
             new AgentModeProfile
@@ -189,6 +201,9 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.ToolRunner,
                 Name = "Tool Runner",
                 Model = "qwen2.5-coder:7b",
+                PreferredModel = "qwen2.5-coder:7b",
+                FallbackModel = string.Empty,
+                AllowFallback = false,
                 RulesSummary = "Approved tools only. No arbitrary shell usage."
             }
         ];
@@ -208,6 +223,9 @@ private static AgentModeProfile Clone(AgentModeProfile profile)
             Mode = profile.Mode,
             Name = profile.Name,
             Model = profile.Model,
+            PreferredModel = profile.PreferredModel,
+            FallbackModel = profile.FallbackModel,
+            AllowFallback = profile.AllowFallback,
             RulesSummary = profile.RulesSummary
         };
     }

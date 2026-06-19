@@ -70,6 +70,11 @@ builder.Services.AddScoped<IProjectKnowledgeIndexService, ProjectKnowledgeIndexS
 builder.Services.AddScoped<ProjectHistoryIndexService>();
 builder.Services.AddScoped<TaskSliceExecutionService>();
 builder.Services.AddScoped<RiskAnalysisService>();
+builder.Services.AddScoped<AgentDashboardService>();
+builder.Services.AddScoped<AgentModelRoutingService>();
+builder.Services.AddScoped<AgentModelBenchmarkService>();
+builder.Services.AddScoped<AgentModelComparisonService>();
+builder.Services.AddScoped<AgentModelRecommendationService>();
 builder.Services.AddScoped<TaskPlanApplyService>();
 builder.Services.AddScoped<TaskPlanDependencyGraphService>();
 builder.Services.AddScoped<TaskSliceApplyHistoryService>();

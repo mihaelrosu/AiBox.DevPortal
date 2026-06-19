@@ -1,0 +1,213 @@
+@using AiBox.DevPortal.Models
+@using AiBox.DevPortal.Models.Agents
+@inject AgentModelRoutingService AgentModelRoutingService
+@inject AgentModelRecommendationService AgentModelRecommendationService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Model Recommendations" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Refresh recommendations from benchmark and comparison history for each agent role."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh recommendations"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="@RefreshRecommendationsAsync"
+                          Disabled="@isBusy" />
+            <RadzenButton Text="Apply all recommendations"
+                          Icon="done_all"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@ApplyAllRecommendationsAsync"
+                          Disabled="@(!CanApplyAllRecommendations())" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+                @statusMessage
+            </RadzenAlert>
+        }
+
+        @if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else if (latestRecommendations.Count == 0)
+        {
+            <RadzenText Text="No model recommendations available yet." TextStyle="TextStyle.Body2" />
+        }
+        else
+        {
+            <RadzenDataGrid Data="@latestRecommendations"
+                            TItem="AgentModelRecommendation"
+                            AllowPaging="false"
+                            AllowSorting="false"
+                            AllowFiltering="false"
+                            Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="AgentModelRecommendation" Title="Role">
+                        <Template Context="item">
+                            @GetRoleLabel(item.AgentRole)
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentModelRecommendation" Title="Recommended Model">
+                        <Template Context="item">
+                            @GetRecommendationText(item)
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentModelRecommendation" Property="Score" Title="Score" Width="100px" />
+                    <RadzenDataGridColumn TItem="AgentModelRecommendation" Title="Reason">
+                        <Template Context="item">
+                            @item.Reason
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentModelRecommendation" Property="SourceRunCount" Title="Sources" Width="95px" />
+                    <RadzenDataGridColumn TItem="AgentModelRecommendation" Title="Last Updated" Width="185px">
+                        <Template Context="item">
+                            @item.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentModelRecommendation" Title="Actions" Width="210px">
+                        <Template Context="item">
+                            <RadzenButton Text="Apply recommendation to routing"
+                                          Icon="send"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Light"
+                                          Click="@(async () => await ApplyRecommendationAsync(item.AgentRole))"
+                                          Disabled="@(!CanApplyRecommendation(item))" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private IReadOnlyList<AgentModelRecommendation> latestRecommendations = [];
+    private bool isBusy;
+    private bool isLoading = true;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshRecommendationsAsync();
+    }
+
+    private async Task RefreshRecommendationsAsync()
+    {
+        isBusy = true;
+        isLoading = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            latestRecommendations = await AgentModelRecommendationService.RefreshAsync();
+            statusMessage = $"Loaded {latestRecommendations.Count} role recommendation(s).";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to refresh model recommendations: {exception.Message}";
+            latestRecommendations = [];
+        }
+        finally
+        {
+            isBusy = false;
+            isLoading = false;
+        }
+    }
+
+    private async Task ApplyRecommendationAsync(AgentMode role)
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            await AgentModelRoutingService.ApplyRecommendationAsync(role);
+            statusMessage = $"Recommendation enabled for {GetRoleLabel(role)} routing.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to apply recommendation for {GetRoleLabel(role)}: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ApplyAllRecommendationsAsync()
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            var appliedRoles = new List<string>();
+            foreach (var recommendation in latestRecommendations.Where(item => item.HasRecommendation))
+            {
+                await AgentModelRoutingService.ApplyRecommendationAsync(recommendation.AgentRole);
+                appliedRoles.Add(GetRoleLabel(recommendation.AgentRole));
+            }
+
+            statusMessage = appliedRoles.Count == 0
+                ? "No recommendations were available to apply."
+                : $"Applied recommendations to {string.Join(", ", appliedRoles)}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to apply recommendations: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private static string GetRoleLabel(AgentMode role)
+    {
+        return role switch
+        {
+            AgentMode.Planner => "Planner",
+            AgentMode.PatchBuilder => "Patch Builder",
+            AgentMode.Verifier => "Verifier",
+            AgentMode.Reviewer => "Reviewer",
+            AgentMode.ToolRunner => "Tool Runner",
+            _ => role.ToString()
+        };
+    }
+
+    private static string GetRecommendationText(AgentModelRecommendation recommendation)
+    {
+        return recommendation.HasRecommendation ? recommendation.RecommendedModel : "No recommendation";
+    }
+
+    private bool CanApplyAllRecommendations()
+    {
+        return !isBusy && latestRecommendations.Any(item => item.HasRecommendation);
+    }
+
+    private bool CanApplyRecommendation(AgentModelRecommendation recommendation)
+    {
+        return !isBusy && recommendation.HasRecommendation;
+    }
+}

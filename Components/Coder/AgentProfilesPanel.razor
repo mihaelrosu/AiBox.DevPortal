@@ -1,0 +1,177 @@
+@using AiBox.DevPortal.Models
+@using AiBox.DevPortal.Models.Agents
+@inject IAgentModeProfileService AgentModeProfileService
+@inject AgentModelRoutingService AgentModelRoutingService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Agent Model Routing" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Current model assignments and routing behavior for each agent role."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@LoadAsync"
+                          Disabled="@isLoading" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else if (rows.Count == 0)
+        {
+            <RadzenText Text="No routing assignments available." TextStyle="TextStyle.Body2" />
+        }
+        else
+        {
+            <RadzenDataGrid Data="@rows"
+                            TItem="AgentProfileRoutingRow"
+                            AllowPaging="false"
+                            AllowSorting="false"
+                            AllowFiltering="false"
+                            Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Property="RoleLabel" Title="Role" />
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Property="ProfileName" Title="Profile" />
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Property="PreferredModel" Title="Preferred Model" />
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Title="Use recommendation" Width="150px">
+                        <Template Context="item">
+                            <RadzenCheckBox TValue="bool"
+                                            Value="@item.UseRecommendedModel"
+                                            Change="@(async (bool value) => await ToggleUseRecommendedModelAsync(item.Role, value))" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Property="FallbackModel" Title="Fallback Model" />
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Title="Allow Fallback" Width="120px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@(item.AllowFallback ? "Yes" : "No")"
+                                         BadgeStyle="@(item.AllowFallback ? BadgeStyle.Success : BadgeStyle.Light)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Property="SelectedModel" Title="Selected Model" />
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Title="Fallback Used" Width="120px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@(item.FallbackUsed ? "Yes" : "No")"
+                                         BadgeStyle="@(item.FallbackUsed ? BadgeStyle.Warning : BadgeStyle.Light)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentProfileRoutingRow" Title="Reason">
+                        <Template Context="item">
+                            @item.RoutingReason
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private readonly Dictionary<AgentMode, string> profileNames = new();
+    private List<AgentProfileRoutingRow> rows = [];
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            profileNames.Clear();
+            var profiles = await AgentModeProfileService.GetAllAsync();
+            foreach (var profile in profiles)
+            {
+                profileNames[profile.Mode] = profile.Name;
+            }
+
+            var assignments = await AgentModelRoutingService.GetAllAsync();
+            var resolvedAssignments = new List<AgentProfileRoutingRow>(assignments.Count);
+
+            foreach (var assignment in assignments.OrderBy(item => item.Role))
+            {
+                var resolved = await AgentModelRoutingService.ResolveAsync(assignment.Role);
+                resolvedAssignments.Add(new AgentProfileRoutingRow
+                {
+                    Role = assignment.Role,
+                    RoleLabel = assignment.Role.ToString(),
+                    ProfileName = profileNames.TryGetValue(assignment.Role, out var profileName) ? profileName : assignment.Role.ToString(),
+                    PreferredModel = assignment.PreferredModel,
+                    UseRecommendedModel = assignment.UseRecommendedModel,
+                    FallbackModel = assignment.FallbackModel,
+                    AllowFallback = assignment.AllowFallback,
+                    SelectedModel = string.IsNullOrWhiteSpace(resolved.SelectedModel) ? "N/A" : resolved.SelectedModel,
+                    RoutingReason = resolved.RoutingReason,
+                    FallbackUsed = resolved.FallbackUsed
+                });
+            }
+
+            rows = resolvedAssignments;
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to load agent model routing: {exception.Message}";
+            rows = [];
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ToggleUseRecommendedModelAsync(AgentMode role, bool enabled)
+    {
+        try
+        {
+            var assignment = await AgentModelRoutingService.GetByRoleAsync(role);
+            if (assignment is null)
+            {
+                return;
+            }
+
+            assignment.UseRecommendedModel = enabled;
+            await AgentModelRoutingService.UpsertAsync(assignment);
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to update recommendation routing: {exception.Message}";
+        }
+    }
+
+    private sealed class AgentProfileRoutingRow
+    {
+        public AgentMode Role { get; set; } = AgentMode.Planner;
+        public string RoleLabel { get; set; } = string.Empty;
+        public string ProfileName { get; set; } = string.Empty;
+        public string PreferredModel { get; set; } = string.Empty;
+        public bool UseRecommendedModel { get; set; }
+        public string FallbackModel { get; set; } = string.Empty;
+        public bool AllowFallback { get; set; }
+        public string SelectedModel { get; set; } = string.Empty;
+        public string RoutingReason { get; set; } = string.Empty;
+        public bool FallbackUsed { get; set; }
+    }
+}

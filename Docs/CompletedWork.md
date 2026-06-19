@@ -5,393 +5,419 @@
 * SourceType: CompletedWork
 * Status: Active
 * Owner: DevPortal
-* LastUpdated: 2026-06-15
+* LastUpdated: 2026-06-19
 * Tags: completed-work, history, project-memory
 
 ## Project Overview
 
 AiBox.DevPortal is a local AI-assisted development environment for Blazor/Radzen projects using local Ollama models.
-It supports planning, patch generation, verification, safe application, rollback, and project memory for the AiBox workspace.
+It supports planning, slice decomposition, patch generation, verification, safe application, rollback, auditing, dashboard metrics, and project memory for the AiBox workspace.
 
 ## 2026
 
-### Agent Infrastructure
+### Agent Mode Profiles
 
 Completed:
 
-* Agent Mode Profiles
 * Planner profile
 * Patch Builder profile
 * Reviewer profile
 * Verifier profile
 * Tool Runner profile
+* Preferred and fallback model routing per profile
 
 Related Files:
 
 * Services/Agents/AgentModeProfileService.cs
-* Services/Agents/AgentRegistryService.cs
-* Services/Agents/AgentModeRunner.cs
+* Services/AgentModelRoutingService.cs
+* Models/Agents/AgentModeProfile.cs
 
-Notes:
-
-* Different models can be assigned per profile.
-
-### Coder UI
+### Run History
 
 Completed:
 
-* Coder page
-* Context file selection
-* Multi-file context support
-* Patch queue
-* Patch preview workflow
-* Run history UI
+* Persistent agent run history
+* Agent run history UI in Coder
+* Run detail inspection
+* Local request, prompt, and result capture
 
 Related Files:
 
-* Components/Pages/Coder.razor
-* Components/Coder/CoderKnowledgePanel.razor
+* Data/agent-runs.json
 * Components/Coder/CoderHistoryPanel.razor
-* Components/Coder/ProjectHistoryPanel.razor
+* Components/Pages/Coder.razor
 
-### Patch Management
+### Patch Queue
 
 Completed:
 
-* Patch preview generation
-* Validation pipeline
-* Patch queue
-* Backup support foundations
+* Patch preview queue
+* Queue inspection in Coder
+* Safe preview-first patch flow
 
 Related Files:
 
-* Services/PatchEditOperationService.cs
-* Services/PatchPackageService.cs
-* Services/PatchApprovalGateService.cs
-* Services/PatchApplyService.cs
+* Services/PatchQueueService.cs
+* Components/Pages/Coder.razor
 
-### Project Knowledge
+### Project Knowledge Index (PKI)
 
 Completed:
 
 * Project Knowledge Index model
-* Project Knowledge Index Service
+* Project Knowledge Index service
 * Knowledge rebuild workflow
 * Knowledge panel
 * Context file suggestions
 
-Dependencies:
+Related Files:
 
-* Coder page
-* Context file selection
+* Services/ProjectKnowledgeIndexService.cs
+* Components/Coder/CoderKnowledgePanel.razor
+* Components/Pages/Coder.razor
 
-### Planning Workflow
+### Project History Index (PHI)
+
+Completed:
+
+* ProjectHistoryItem model
+* ProjectHistoryIndex model
+* ProjectHistorySummary model
+* ProjectHistoryIndexService
+* ProjectHistoryPanel
+* History rebuild workflow
+* History summary generation
+* Recommendation extraction
+* Indexed item viewer
+
+Related Files:
+
+* Models/ProjectHistoryItem.cs
+* Models/ProjectHistoryIndex.cs
+* Models/ProjectHistorySummary.cs
+* Services/ProjectHistoryIndexService.cs
+* Components/Coder/ProjectHistoryPanel.razor
+
+### Context Suggestions
+
+Completed:
+
+* Context file suggestions from the Project Knowledge Index
+* Selected file context support
+* Multi-file context support
+
+Related Files:
+
+* Services/ProjectKnowledgeIndexService.cs
+* Components/Coder/CoderKnowledgePanel.razor
+* Components/Pages/Coder.razor
+
+### Task Plan / Slice Workflow
 
 Completed:
 
 * Task planning foundations
-* Slice-oriented roadmap direction
-
-Known Issues:
-
-* Task Slice execution is not yet fully implemented.
-
-### Local AI Integration
-
-Completed:
-
-* Ollama integration
-* Agent profile execution model
-* Local model support
-* Prompt orchestration
+* Canonical TaskPlanSlice model
+* Task decomposition service
+* Slice preview generation
+* Ordered slice apply support
+* Multi-slice apply flow
 
 Related Files:
 
-* Services/OllamaService.cs
-* Services/OllamaLocalLlmService.cs
-* Services/PromptEnhancerService.cs
+* Models/TaskPlan.cs
+* Models/TaskPlanSlice.cs
+* Services/TaskDecompositionService.cs
+* Services/TaskPlanApplyService.cs
+* Components/Coder/TaskPlanPreviewPanel.razor
 
-## 2026-06-15
-### V2.2 Slice to PatchBuilder Integration Hardening
-Status: Completed
-
-Completed:
-* Added TaskSlicePatchPreviewPreparationService
-* Registered preparation service in Program.cs
-* Validated slice patch preview targets before calling PatchBuilder
-* Prevented PatchBuilder calls when a slice has no editable target files or create targets
-* Added clear failure behavior for slices without valid targets
-* Passed slice TargetFiles into PatchBuilder context
-* Used targeting priority: TargetFiles, RelatedFiles, selected context files
-* Preserved normal non-slice patch preview workflow
-* Added tests for missing-target and target-priority behavior
-
-Tests:
-* dotnet build succeeded
-* TaskSlicePatchPreviewPreparationServiceTests passed
-* CoderConsoleServiceRepairTests passed
-
-Result:
-* Generate Patch for Slice no longer fails with unclear PatchBuilder errors when slice targets are missing.
-* Slice patch generation now has a safe preparation layer before PatchBuilder.
-
-Known warning:
-* Existing nullable warning remains in Services/PatchIntentService.cs.
-
-### Project History Index
-
-Status: Completed
+### Slice Verification
 
 Completed:
 
-* Created Docs/Roadmap.md
-* Created Docs/CompletedWork.md
-* Created Docs/Architecture.md
-* Added metadata blocks for indexing
-* Added ProjectHistoryItem model
-* Added ProjectHistoryIndex model
-* Added ProjectHistorySummary model
-* Added ProjectHistoryIndexService
-* Added ProjectHistoryPanel
-* Registered ProjectHistoryIndexService in Program.cs
-* Wired ProjectHistoryPanel into Coder UI
-* Added history rebuild workflow
-* Added history summary generation
-* Added recommendation extraction
-* Added indexed item viewer
-* Improved status classification
-* Improved source type classification
-* Reduced noisy duplicated history items
-* Cleaned recommendation titles
+* Slice verification service
+* Verify button in Coder
+* Real dotnet build verification
+* Verified and failed slice states
 
-Results:
+Related Files:
 
-* dotnet build succeeded
-* Data/project-history-index.json was generated
-* 1221 history items indexed
-* 5 recommended next slices generated:
+* Services/TaskSliceVerificationService.cs
+* Components/Pages/Coder.razor
 
-  * Project History Index foundation
-  * Task Slice execution
-  * Verification loop
-  * Safe Apply workflow
-  * Agent dashboard metrics
+### Risk Analysis
 
-Known warning:
+Completed:
 
-* Existing nullable warning remains in Services/PatchIntentService.cs:74
+* Slice risk scoring
+* Risk factors for file count, security, database, and service changes
+* Risk summary generation
 
-### V2.2 Canonical Task Slice Model
+Related Files:
+
+* Models/RiskAnalysisResult.cs
+* Services/RiskAnalysisService.cs
+* Models/TaskPlanSlice.cs
+
+### Risk Gates
+
+Completed:
+
+* Low-risk slice applies allowed
+* Medium-risk slice warnings
+* High-risk approval gate
+* Critical-risk apply block
+
+Related Files:
+
+* Services/TaskSliceApplyService.cs
+* Components/Pages/Coder.razor
+
+### Multi-Slice Apply
+
+Completed:
+
+* Dependency graph validation before apply
+* Ordered slice apply execution
+* Safe apply, audit, and rollback behavior preserved
+
+Related Files:
+
+* Services/TaskPlanApplyService.cs
+* Services/TaskPlanDependencyGraphService.cs
+
+### Apply Audit Log
+
+Completed:
+
+* Persistent slice apply audit log
+* Blocked apply attempts recorded
+* Apply attempt details captured for UI review
+
+Related Files:
+
+* Models/TaskSliceApplyAuditEntry.cs
+* Services/TaskSliceApplyAuditService.cs
+* Components/Pages/Coder.razor
+
+### Patch Rollback Service
+
+Completed:
+
+* Rollback metadata capture
+* Backup-aware restore flow
+* Rollback audit recording
+
+Related Files:
+
+* Models/PatchRollbackEntry.cs
+* Services/PatchRollbackService.cs
+* Services/TaskSliceApplyService.cs
+
+### Agent Dashboard Foundation
+
+Completed:
+
+* Agent dashboard summary service
+* Dashboard panel in Coder
+* Recent activity panels
+* Summary cards for runs, applies, and rollbacks
+
+Related Files:
+
+* Models/AgentDashboardSummary.cs
+* Services/AgentDashboardService.cs
+* Components/Coder/AgentDashboardPanel.razor
+
+### Dashboard Metrics
+
+Completed:
+
+* Model usage metrics
+* Action metrics
+* Success rate cards
+* Risk distribution metrics
+
+Related Files:
+
+* Models/AgentDashboardSummary.cs
+* Services/AgentDashboardService.cs
+
+### Agent Model Routing
+
+Completed:
+
+* Preferred model selection per agent role
+* Fallback model selection
+* Routing reason tracking
+* Routing assignment persistence
+
+Related Files:
+
+* Models/AgentModelAssignment.cs
+* Services/AgentModelRoutingService.cs
+* Models/Agents/AgentModeProfile.cs
+* Components/Coder/AgentProfilesPanel.razor
+
+## 2026-06-19
+
+### V2.1 Reliable Patch Generation
+
+Status: Completed
+
+Completed:
+
+* Hardened patch preview generation
+* Validated patch intent and preview targets
+* Reduced malformed patch output failures
+
+Implementation notes:
+
+* Patch preview now fails fast when the request cannot produce a safe patch package.
+* Generated patch output remains preview-only until apply workflow authorizes it.
+
+### V2.2 Planner -> Slice Workflow
+
+Status: Completed
+
+Completed:
+
+* Canonical TaskPlanSlice workflow
+* Slice decomposition from planner output
+* Slice preview and verification actions
+* Ordered multi-slice application
+
+Implementation notes:
+
+* Planner output now flows through deterministic slice identities and statuses.
+* Slice execution is now handled as an explicit workflow rather than ad hoc patch generation.
+
+### V2.3 Context Intelligence
+
+Status: Completed
+
+Completed:
+
+* Project Knowledge Index
+* Context suggestions
+* Selected file context support
+* Project History Index
+
+Implementation notes:
+
+* The Coder page now combines search-driven context selection with history-aware guidance.
+* Context selection is designed to support the next-slice workflow and model routing work.
+
+### V2.4 Verification Loop
+
+Status: Completed
+
+Completed:
+
+* Slice verification service
+* Real build verification
+* Verification results surfaced in the UI
+
+Implementation notes:
+
+* Verification is build-based and remains separate from apply.
+* Failed verification keeps the slice out of the apply path.
+
+### V2.5 Safe Apply Workflow
+
+Status: Completed
+
+Completed:
+
+* Safe apply service
+* Approval gates
+* Audit logging
+* Backup-aware rollback path
+
+Implementation notes:
+
+* Apply operations are now auditable and reversible.
+* High-risk slices require approval and critical slices remain blocked.
+
+### V2.6 Agent Dashboard
+
+Status: Completed
+
+Completed:
+
+* Dashboard foundation
+* Summary cards
+* Model usage metrics
+* Action metrics
+* Recent activity panels
+
+Implementation notes:
+
+* The dashboard aggregates run history, apply audit history, and rollback history.
+* This gives a single view for workflow health and model performance.
+
+### V2.7 Multi-Model Intelligence
 
 Status: In Progress
 
-Completed:
+Started:
 
-* Added TaskSliceStatus
-* Added TaskPlanSlice
-* Added TaskSliceExecutionResult
-* Added TaskSliceExecutionService foundation
-* Extended TaskPlanSlice with planner metadata
-* Added TaskSliceMapper for compatibility
-* Updated TaskPlan to use TaskPlanSlice as canonical slice model
-* Updated TaskPlanPreviewPanel to render TaskPlanSlice directly
-* Updated TaskDecompositionService to emit TaskPlanSlice directly
+* Agent Model Routing
+* Preferred and fallback model assignments
 
-Result:
+Current focus:
 
-* TaskPlan now owns canonical TaskPlanSlice items
-* Planner output now includes slice identity, status, timestamps, metadata, related files, and verification commands
-* Legacy TaskSlice remains temporarily for compatibility
+* Model benchmark runs
+* Model comparison runs
+* Automatic model recommendation
+* Agent orchestration
+* Autonomous execution safeguards
 
-Next:
+Implementation notes:
 
-* Update TaskSliceExecutionRequest to use canonical slice identifiers
-* Wire Generate Patch for Slice
-* Track slice state through Previewed, Applied, Verified, Failed, RolledBack
-* Eventually retire legacy TaskSlice
+* Routing is now profile-aware, but model selection remains rule-driven.
+* The next step is to turn routing into measurable, comparative intelligence.
 
-### V2.2 Generate Patch For Slice
+### V2.8 Project History Index
 
 Status: Completed
 
 Completed:
-
-* Added Generate Patch action per TaskPlanSlice
-* Routed slice patch requests through TaskSliceExecutionService
-* Created TaskSliceExecutionRequest with PlanId, SliceId, SliceTitle, and RequestedAction
-* Preserved existing patch preview workflow
-* Advanced slice status from Pending to Previewed after successful patch preview
-* Preserved safe behavior: no automatic apply and no automatic build verification
-
-Result:
-
-* DevPortal can now generate patch previews from individual task slices.
-* The Planner -> Slice -> Patch Preview workflow is functional.
-
-Known limitation:
-
-* PlanId is currently derived from TaskPlan.CreatedAtUtc until TaskPlan receives a persistent Id.
-
-### V2.2 Slice Verification UI
-
-Status: Completed
-
-Completed:
-
-* Added TaskSliceVerificationService
-* Registered TaskSliceVerificationService in Program.cs
-* Added Verify button for Previewed task slices
-* Wired Verify button through Coder page
-* Added per-slice verification result message
-* Advanced slice status from Previewed to Verified on success
-* Advanced slice status to Failed on verification failure
-* Preserved safe behavior: no patch apply and no real dotnet build yet
-
-Result:
-
-* DevPortal now supports the slice workflow:
-  Pending -> Previewed -> Verified
-
-Known limitation:
-
-* Verification is currently framework-only and does not run dotnet build yet.
-
-### V2.4 Real Build Verification Foundation
-
-Status: Completed
-
-Completed:
-
-* Updated TaskSliceVerificationService to run dotnet build
-* Used ContentRootPath as working directory
-* Captured standard output
-* Captured standard error
-* Added exit-code based verification result
-* Added timeout protection
-* Set slice status to Verified when build succeeds
-* Set slice status to Failed when build fails
-* Preserved safe behavior: no patch apply during verification
-
-Result:
-
-* DevPortal can now verify a task slice with a real project build.
-* The slice workflow is now:
-  Pending -> Previewed -> Verified or Failed
-
-### V2.5 Safe Apply Workflow Foundation
-
-Status: Completed
-
-Completed:
-
-* Added TaskSliceApplyService
-* Registered TaskSliceApplyService in Program.cs
-* Added Apply button for Verified task slices
-* Wired Apply button through Coder page
-* Added per-slice apply result message
-* Advanced slice status from Verified to Applied on success
-* Advanced slice status to Failed on apply failure
-* Added BackupId, AppliedFiles, and AppliedAt fields to TaskSliceExecutionResult
-* Preserved safe behavior: no real patch apply yet
-
-Result:
-
-* DevPortal now supports the slice workflow:
-  Pending -> Previewed -> Verified -> Applied
-
-Known limitation:
-
-* Apply is currently framework-only and does not execute real patch application yet.
-
-### V2.5 Real Safe Apply Through Patch Package
-
-Status: Completed
-
-Completed:
-
-* Linked TaskPlanSlice to generated PatchPackageId
-* Added PatchPreviewCreatedAt to TaskPlanSlice
-* Added PatchPackageId to TaskSliceExecutionResult
-* Stored PatchPackageId in slice execution history
-* Updated TaskSliceApplyService to require Verified status
-* Updated TaskSliceApplyService to require linked PatchPackageId
-* Reused existing PatchApplyService for real patch application
-* Recorded BackupId, AppliedFiles, AppliedAt, and PatchPackageId in apply result
-* Preserved existing patch queue apply workflow
-
-Result:
-
-* DevPortal can now apply a verified task slice through the existing safe patch package pipeline.
-* The slice workflow now supports:
-  Pending -> Previewed -> Verified -> Applied
-
-Known limitation:
-
-* Slice-level rollback is not implemented yet.
-
-### V2.4 Slice Execution History
-
-Status: Completed
-
-Completed:
-
-* Added persistent slice execution history
-* Stored history under Data/task-slice-execution-history.json
-* Recorded GeneratePatch actions
-* Recorded Verify actions
-* Added TaskSliceHistoryPanel
-* Displayed latest 10 slice execution records
-* Embedded slice history panel in Coder page
-
-Result:
-
-* DevPortal can now track slice execution and verification history.
-* The user can inspect recent slice actions directly in the Coder UI.
-
-## In Progress
-
-### Planner -> Slice Execution
-
-Status: In Progress
-
-Dependencies:
-
-* Task Plan
-* Task Slice
-
-Acceptance Criteria:
-
-* Planner output can be split into actionable slices.
-* Slice execution records are indexable.
-
-### Verification Loop
-
-Status: Planned
-
-Dependencies:
-
-* Verifier profile
-* Reviewer profile
-
-### Safe Apply Workflow
-
-Status: Planned
-
-Dependencies:
-
-* Patch Queue
-* Backup support foundations
-
-### Project History Index
-
-Status: Planned
-
-Dependencies:
 
 * Docs/Roadmap.md
 * Docs/CompletedWork.md
 * Docs/Architecture.md
-* Runtime history sources
+* ProjectHistoryItem
+* ProjectHistoryIndex
+* ProjectHistorySummary
+* ProjectHistoryIndexService
+* ProjectHistoryPanel
+* Rebuild workflow
+* Summary generation
+* Recommendation extraction
+
+Implementation notes:
+
+* The index is generated from docs and runtime data under Data/.
+* History summaries now reflect completed safe-apply and dashboard work while keeping multi-model work current.
+
+## In Progress
+
+### Multi-Model Intelligence
+
+Status: In Progress
+
+Dependencies:
+
+* Agent Mode Profiles
+* Agent Model Routing
+* Dashboard metrics
+
+Acceptance Criteria:
+
+* Compare local models by task type and execution outcome.
+* Recommend the best model per agent role.
+* Keep routing explainable and auditable.
 
 ## Known Technical Decisions
 
@@ -404,8 +430,8 @@ Dependencies:
 
 ## Next Recommended Work
 
-1. Project History Index foundation
-2. Task Slice execution
-3. Verification loop
-4. Safe Apply workflow
-5. Agent dashboard metrics
+1. Model Benchmark Runs
+2. Model Comparison Runs
+3. Automatic Model Recommendation
+4. Agent Orchestration
+5. Autonomous Execution Safeguards

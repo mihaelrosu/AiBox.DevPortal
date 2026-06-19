@@ -1,0 +1,181 @@
+@using AiBox.DevPortal.Models
+@using AiBox.DevPortal.Models.Agents
+@inject AgentModelBenchmarkService AgentModelBenchmarkService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Model Benchmark Runs" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Benchmark one model against one agent role and keep the latest results for comparison."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@LoadAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+                @statusMessage
+            </RadzenAlert>
+        }
+
+        <RadzenRow Gap="0.75rem">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenFormField Text="Agent role" Style="width: 100%;">
+                    <RadzenDropDown TValue="AgentMode"
+                                    Data="@agentRoles"
+                                    @bind-Value="@selectedRole"
+                                    Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenFormField Text="Model" Style="width: 100%;">
+                    <RadzenTextBox @bind-Value="@modelName"
+                                   Style="width: 100%;"
+                                   Placeholder="qwen2.5-coder:7b" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenFormField Text="Prompt" Style="width: 100%;">
+                    <RadzenTextArea @bind-Value="@prompt"
+                                    Rows="4"
+                                    Style="width: 100%;"
+                                    Placeholder="Benchmark prompt for this agent role" />
+                </RadzenFormField>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Text="Run Benchmark"
+                          Icon="play_arrow"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="@RunBenchmarkAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else
+        {
+            <RadzenText Text="@GetBenchmarkCountText()" TextStyle="TextStyle.Caption" />
+
+            @if (latestRuns.Count == 0)
+            {
+                <RadzenText Text="No benchmark runs recorded yet." TextStyle="TextStyle.Body2" />
+            }
+            else
+            {
+                <RadzenDataGrid Data="@latestRuns"
+                                TItem="AgentModelBenchmarkRun"
+                                AllowPaging="false"
+                                AllowSorting="false"
+                                AllowFiltering="false"
+                                Density="Density.Compact">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="AgentModelBenchmarkRun" Title="UTC">
+                            <Template Context="item">
+                                @item.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="AgentModelBenchmarkRun" Property="AgentRole" Title="Role" />
+                        <RadzenDataGridColumn TItem="AgentModelBenchmarkRun" Property="ModelName" Title="Model" />
+                        <RadzenDataGridColumn TItem="AgentModelBenchmarkRun" Title="Result">
+                            <Template Context="item">
+                                <RadzenBadge Text="@(item.Success ? "Success" : "Failed")"
+                                             BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="AgentModelBenchmarkRun" Property="DurationMs" Title="Duration (ms)" />
+                        <RadzenDataGridColumn TItem="AgentModelBenchmarkRun" Property="OutputLength" Title="Output Len" />
+                        <RadzenDataGridColumn TItem="AgentModelBenchmarkRun" Property="ErrorMessage" Title="Error" />
+                    </Columns>
+                </RadzenDataGrid>
+            }
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private readonly AgentMode[] agentRoles = Enum.GetValues<AgentMode>();
+    private IReadOnlyList<AgentModelBenchmarkRun> latestRuns = [];
+    private AgentMode selectedRole = AgentMode.Planner;
+    private string modelName = "qwen2.5-coder:7b";
+    private string prompt = "Benchmark this model for the selected agent role. Return a concise response.";
+    private bool isBusy;
+    private bool isLoading = true;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            latestRuns = await AgentModelBenchmarkService.GetLatestAsync(10);
+            statusMessage = $"Loaded {latestRuns.Count} benchmark runs.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to load benchmark runs: {exception.Message}";
+            latestRuns = [];
+            statusMessage = string.Empty;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RunBenchmarkAsync()
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            await AgentModelBenchmarkService.RunBenchmarkAsync(selectedRole, modelName, prompt);
+            await LoadAsync();
+            statusMessage = $"Benchmark run saved for {selectedRole}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to run benchmark: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private string GetBenchmarkCountText()
+    {
+        return $"{latestRuns.Count} recent benchmark runs";
+    }
+}
