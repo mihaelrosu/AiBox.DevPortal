@@ -470,6 +470,9 @@ public sealed class CoderComponentSmokeTests : TestContext
 
         var instructionEnvironment = Substitute.For<IWebHostEnvironment>();
         instructionEnvironment.ContentRootPath.Returns(Path.GetTempPath());
+        var verificationService = new TaskSliceVerificationService(instructionEnvironment);
+        var riskAnalysisService = new TaskSliceRiskAnalysisService();
+        var verificationLoopService = new TaskSliceVerificationLoopService(verificationService, riskAnalysisService);
 
         Services.AddSingleton(coderConsoleService);
         Services.AddSingleton(Substitute.For<IAgentModeRunner>());
@@ -480,8 +483,20 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(new PlannerContextSelectionService());
         Services.AddSingleton(new TaskDecompositionService());
         Services.AddSingleton(patchPackageService);
+        Services.AddSingleton(Substitute.For<IPatchBackupService>());
         Services.AddSingleton(Substitute.For<IPatchApplyService>());
         Services.AddSingleton(Substitute.For<IPatchRollbackService>());
+        Services.AddSingleton(new TaskSliceExecutionService(instructionEnvironment));
+        Services.AddSingleton(verificationService);
+        Services.AddSingleton<TaskSlicePatchPreviewPreparationService>(sp =>
+            new TaskSlicePatchPreviewPreparationService(sp.GetRequiredService<ILocalCoderContextService>()));
+        Services.AddSingleton(new TaskSliceApprovalService(instructionEnvironment));
+        Services.AddSingleton(riskAnalysisService);
+        Services.AddSingleton(new TaskSliceApplyHistoryService(instructionEnvironment));
+        Services.AddSingleton<TaskSliceApplyService>();
+        Services.AddSingleton<TaskPlanApplyService>();
+        Services.AddSingleton<TaskSliceRollbackService>();
+        Services.AddSingleton(verificationLoopService);
         Services.AddSingleton(historyService);
         Services.AddSingleton(fileSearchService);
         Services.AddSingleton<ILocalCoderContextService, LocalCoderContextService>();

@@ -24,11 +24,6 @@ public sealed class TaskSliceRollbackServiceTests
             var environment = new TestWebHostEnvironment(projectRoot);
             var executionService = new TaskSliceExecutionService(environment);
             var verificationService = new TaskSliceVerificationService(environment);
-            var patchApplyService = Substitute.For<IPatchApplyService>();
-            var patchRollbackService = Substitute.For<IPatchRollbackService>();
-            var applyService = new TaskSliceApplyService(patchApplyService);
-            var rollbackService = new TaskSliceRollbackService(patchRollbackService);
-
             var slice = new TaskPlanSlice
             {
                 PlanId = "plan-1",
@@ -38,6 +33,46 @@ public sealed class TaskSliceRollbackServiceTests
                 PatchPackageId = "patch-1",
                 Status = TaskSliceStatus.Pending
             };
+
+            var patchBackupService = Substitute.For<IPatchBackupService>();
+            patchBackupService.CreateBackupAsync(Arg.Any<string>(), Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new PatchBackupResult
+                {
+                    BackupFolderPath = "Data/patch-backups/test",
+                    BackedUpFilesCount = 1
+                }));
+
+            var patchPackageService = Substitute.For<IPatchPackageService>();
+            patchPackageService.GetByIdAsync(slice.PatchPackageId, Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<PatchPackage?>(new PatchPackage
+                {
+                    Id = slice.PatchPackageId,
+                    ProjectPath = projectRoot,
+                    Status = PatchPackageStatus.Approved,
+                    FileChanges =
+                    [
+                        new PatchFileChange
+                        {
+                            RelativePath = "Program.cs",
+                            NewContent = """
+            Console.WriteLine("Hello, world!");
+            """
+                        }
+                    ]
+                }));
+            patchPackageService.SaveAsync(Arg.Any<PatchPackage>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo => Task.FromResult(callInfo.Arg<PatchPackage>()));
+
+            var patchRollbackService = Substitute.For<IPatchRollbackService>();
+            var rollbackService = new TaskSliceRollbackService(patchRollbackService);
+            var applyHistoryService = new TaskSliceApplyHistoryService(environment);
+            var approvalService = new TaskSliceApprovalService(environment);
+            var applyService = new TaskSliceApplyService(
+                patchBackupService,
+                patchPackageService,
+                rollbackService,
+                applyHistoryService,
+                approvalService);
 
             var generateResult = await executionService.ExecuteSliceAsync(
                 new TaskSliceExecutionRequest
@@ -58,20 +93,14 @@ public sealed class TaskSliceRollbackServiceTests
             Assert.True(verificationResult.Success);
             Assert.Equal(TaskSliceStatus.Verified, slice.Status);
 
-            var appliedAt = DateTimeOffset.UtcNow.AddMinutes(-1);
-            patchApplyService.ApplyAsync(slice.PatchPackageId, Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(new PatchPackage
-                {
-                    Id = slice.PatchPackageId,
-                    Status = PatchPackageStatus.Applied,
-                    AppliedAt = appliedAt,
-                    BackupFolder = "Data/patch-backups/test"
-                }));
+            await approvalService.ApproveAsync(slice, "tester");
 
-            var applyResult = await applyService.ApplySliceAsync(slice);
+            var applyResult = await applyService.ApplyAsync(projectRoot, slice);
             Assert.True(applyResult.Success);
             Assert.Equal(TaskSliceStatus.Applied, slice.Status);
-            Assert.Equal(slice.PatchPackageId, applyResult.PatchPackageId);
+            Assert.Equal(1, applyResult.AppliedFilesCount);
+            Assert.NotNull(applyResult.BuildVerificationResult);
+            Assert.True(applyResult.BuildVerificationResult!.Success);
 
             var rolledBackAt = DateTimeOffset.UtcNow;
             patchRollbackService.RollbackAsync(slice.PatchPackageId, Arg.Any<CancellationToken>())
@@ -142,6 +171,153 @@ public sealed class TaskSliceRollbackServiceTests
             .Add(component => component.IsRollingBack, false));
 
         Assert.DoesNotContain("Rollback", nonAppliedCut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TaskPlanPreviewPanel_RendersApprovalControlsForVerifiedSlices()
+    {
+        using var ctx = new TestContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        ctx.Services.AddRadzenComponents();
+
+        var verifiedPlan = new TaskPlan
+        {
+            OriginalRequest = "Test",
+            Slices =
+            [
+                new TaskPlanSlice { Title = "Verified slice", Status = TaskSliceStatus.Verified, PatchPackageId = "patch-1" }
+            ]
+        };
+
+        var cut = ctx.RenderComponent<TaskPlanPreviewPanel>(parameters => parameters
+            .Add(component => component.Plan, verifiedPlan)
+            .Add(component => component.IsGeneratingPatch, false)
+            .Add(component => component.IsVerifyingSlice, false)
+            .Add(component => component.IsRollingBack, false)
+            .Add(component => component.IsApplyingSlice, false)
+            .Add(component => component.IsApprovalBusy, false));
+
+        Assert.Contains("Approval", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains(TaskSliceApprovalStatus.PendingApproval.ToString(), cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Approve", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Reject", cut.Markup, StringComparison.Ordinal);
+
+        var applyButton = cut.FindAll("button")
+            .First(button => button.TextContent.Contains("Apply", StringComparison.Ordinal));
+
+        Assert.True(applyButton.HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void TaskPlanPreviewPanel_RendersRiskAnalysisForSlices()
+    {
+        using var ctx = new TestContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        ctx.Services.AddRadzenComponents();
+
+        var plan = new TaskPlan
+        {
+            OriginalRequest = "Test",
+            Slices =
+            [
+                new TaskPlanSlice
+                {
+                    Title = "Risky slice",
+                    Status = TaskSliceStatus.Verified,
+                    PatchPackageId = "patch-1",
+                    TargetFiles = ["Program.cs", "Pages/Home.razor"],
+                    VerificationCommands = [],
+                    Notes = "Urgent hotfix"
+                }
+            ]
+        };
+
+        var analysisService = new TaskSliceRiskAnalysisService();
+        var analysis = analysisService.Analyze(plan.Slices[0]);
+
+        var cut = ctx.RenderComponent<TaskPlanPreviewPanel>(parameters => parameters
+            .Add(component => component.Plan, plan)
+            .Add(component => component.IsGeneratingPatch, false)
+            .Add(component => component.IsVerifyingSlice, false)
+            .Add(component => component.IsRollingBack, false)
+            .Add(component => component.IsApplyingSlice, false)
+            .Add(component => component.IsApprovalBusy, false)
+            .Add(component => component.SliceRiskAnalyses, new Dictionary<string, TaskSliceRiskAnalysis>
+            {
+                [analysis.SliceId] = analysis
+            }));
+
+        Assert.Contains("Risk", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains(TaskSliceRiskLevel.High.ToString(), cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Application startup file.", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("No verification commands were provided.", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TaskPlanPreviewPanel_RendersVerificationLoopResults()
+    {
+        using var ctx = new TestContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        ctx.Services.AddRadzenComponents();
+
+        var plan = new TaskPlan
+        {
+            OriginalRequest = "Test",
+            Slices =
+            [
+                new TaskPlanSlice
+                {
+                    Id = "slice-1",
+                    Title = "Loop slice",
+                    Status = TaskSliceStatus.Previewed,
+                    PatchPackageId = "patch-1"
+                }
+            ]
+        };
+
+        var loopResult = new TaskSliceVerificationLoopResult
+        {
+            Success = false,
+            Attempts = 2,
+            FinalMessage = "Verification failed after 2 attempts.",
+            VerificationResults =
+            [
+                new TaskSliceExecutionResult
+                {
+                    SliceId = "slice-1",
+                    SliceTitle = "Loop slice",
+                    Summary = "Attempt one failed.",
+                    Errors = ["First error"],
+                    ExecutedAt = DateTime.UtcNow
+                },
+                new TaskSliceExecutionResult
+                {
+                    SliceId = "slice-1",
+                    SliceTitle = "Loop slice",
+                    Summary = "Attempt two failed.",
+                    Errors = ["Second error"],
+                    ExecutedAt = DateTime.UtcNow
+                }
+            ]
+        };
+
+        var cut = ctx.RenderComponent<TaskPlanPreviewPanel>(parameters => parameters
+            .Add(component => component.Plan, plan)
+            .Add(component => component.IsGeneratingPatch, false)
+            .Add(component => component.IsVerifyingSlice, false)
+            .Add(component => component.IsRollingBack, false)
+            .Add(component => component.IsApplyingSlice, false)
+            .Add(component => component.IsApprovalBusy, false)
+            .Add(component => component.SliceVerificationLoopResults, new Dictionary<string, TaskSliceVerificationLoopResult>
+            {
+                [loopResult.VerificationResults[0].SliceId] = loopResult
+            }));
+
+        Assert.Contains("Verification Loop", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Attempt 1/3", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Attempt 2/3", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Final result", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains(loopResult.FinalMessage, cut.Markup, StringComparison.Ordinal);
     }
 
     private static string CreateTempProjectRoot()

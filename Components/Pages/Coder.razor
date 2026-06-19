@@ -67,10 +67,50 @@
                                           IsGeneratingPatch="@isGeneratingPatch"
                                           IsVerifyingSlice="@isVerifyingSlice"
                                           IsRollingBack="@isRollingBackSlice"
+                                          IsApplyingSlice="@isApplyingSlice"
+                                          IsApplyingPlan="@isApplyingPlan"
+                                          IsApprovalBusy="@isApprovalBusy"
+                                          PlanApplyResult="@planApplyResult"
+                                          SliceApprovals="@sliceApprovals"
+                                          SliceRiskAnalyses="@sliceRiskAnalyses"
+                                          SliceVerificationLoopResults="@sliceVerificationLoopResults"
                                           SliceStatusMessages="@sliceStatusMessages"
                                           OnApplyRequested="@ApplySliceAsync"
+                                          OnApplyPlanRequested="@ApplyPlanAsync"
+                                          OnApproveRequested="@ApproveSliceAsync"
                                           OnGeneratePatchRequested="@GenerateSlicePatchPreviewAsync"
+                                          OnRejectRequested="@RejectSliceAsync"
                                           OnRollbackRequested="@RollbackSliceAsync" />
+
+                    @if (GetCurrentSliceBuildVerificationResults().Count > 0)
+                    {
+                        <RadzenCard>
+                            <RadzenStack Gap="0.75rem">
+                                <RadzenText Text="Apply Build Verification" TextStyle="TextStyle.H5" />
+
+                                @foreach (var entry in GetCurrentSliceBuildVerificationResults())
+                                {
+                                    <RadzenCard Style="margin: 0;">
+                                        <RadzenStack Gap="0.35rem">
+                                            <RadzenText Text="@GetSliceTitle(entry.Key)" TextStyle="TextStyle.Body1" />
+
+                                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                                <RadzenBadge Text="@GetBuildStatusText(entry.Value.Success)"
+                                                             BadgeStyle="@GetBuildStatusStyle(entry.Value.Success)" />
+                                                <RadzenText Text="@($"Exit code: {entry.Value.ExitCode}")" TextStyle="TextStyle.Body2" />
+                                                <RadzenText Text="@($"Verified at UTC: {entry.Value.VerifiedAtUtc:O}")" TextStyle="TextStyle.Caption" />
+                                            </RadzenStack>
+
+                                            <RadzenText Text="Build output" TextStyle="TextStyle.Caption" />
+                                            <pre class="coder-output">@GetBuildOutputPreview(entry.Value.Output)</pre>
+                                        </RadzenStack>
+                                    </RadzenCard>
+                                }
+                            </RadzenStack>
+                        </RadzenCard>
+                    }
+
+                    <TaskSliceApplyHistoryPanel Items="@applyHistoryItems" />
                 </RadzenStack>
             </RadzenStack>
         </RadzenTabsItem>
@@ -306,6 +346,11 @@
     [Inject] private IPatchPackageService PatchPackageService { get; set; } = default!;
     [Inject] private IPatchApplyService PatchApplyService { get; set; } = default!;
     [Inject] private IPatchRollbackService PatchRollbackService { get; set; } = default!;
+    [Inject] private TaskSliceApprovalService TaskSliceApprovalService { get; set; } = default!;
+    [Inject] private TaskSliceApplyService TaskSliceApplyService { get; set; } = default!;
+    [Inject] private TaskPlanApplyService TaskPlanApplyService { get; set; } = default!;
+    [Inject] private TaskSliceRiskAnalysisService TaskSliceRiskAnalysisService { get; set; } = default!;
+    [Inject] private TaskSliceApplyHistoryService TaskSliceApplyHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderVerificationProfileService LocalCoderVerificationProfileService { get; set; } = default!;
     [Inject] private IProjectKnowledgeIndexService ProjectKnowledgeIndexService { get; set; } = default!;
     [Inject] private PlannerContextSelectionService PlannerContextSelectionService { get; set; } = default!;
@@ -313,7 +358,7 @@
     [Inject] private TaskDecompositionService TaskDecompositionService { get; set; } = default!;
     [Inject] private TaskSliceExecutionService TaskSliceExecutionService { get; set; } = default!;
     [Inject] private TaskSliceRollbackService TaskSliceRollbackService { get; set; } = default!;
-    [Inject] private TaskSliceVerificationService TaskSliceVerificationService { get; set; } = default!;
+    [Inject] private TaskSliceVerificationLoopService TaskSliceVerificationLoopService { get; set; } = default!;
     [Inject] private AiBox.DevPortal.Services.ILocalCoderHistoryService LocalCoderHistoryService { get; set; } = default!;
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
@@ -336,6 +381,8 @@
     private IReadOnlyList<PatchPackage> patchPackages = [];
     private IReadOnlyList<LocalCoderHistoryEntry> historyEntries = [];
     private IReadOnlyList<TaskSliceExecutionResult> sliceExecutionHistory = [];
+    private IReadOnlyList<TaskSliceApplyHistoryItem> applyHistoryItems = [];
+    private IReadOnlyDictionary<string, TaskSliceApproval> sliceApprovals = new Dictionary<string, TaskSliceApproval>(StringComparer.OrdinalIgnoreCase);
     private ProjectKnowledgeIndex? projectKnowledgeIndex;
     private List<LocalCoderFileContext> fileContexts = [];
     private List<string> selectedFilePaths = [];
@@ -345,6 +392,9 @@
     private readonly List<LocalCoderPlanTask> planTasks = [];
     private TaskPlan? taskPlanPreview;
     private readonly Dictionary<string, string> sliceStatusMessages = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TaskSliceBuildVerificationResult> sliceBuildVerificationResults = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TaskSliceVerificationLoopResult> sliceVerificationLoopResults = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyDictionary<string, TaskSliceRiskAnalysis> sliceRiskAnalyses = new Dictionary<string, TaskSliceRiskAnalysis>(StringComparer.OrdinalIgnoreCase);
 
     private AiBox.DevPortal.Models.LocalCoderTask? currentTask;
     private LocalCoderPatchPreview? patchPreview;
@@ -352,6 +402,10 @@
     private PatchIntentValidation? patchIntentValidation;
     private LocalCoderPatchApplyResult? applyResult;
     private LocalCoderPatchRollbackResult? rollbackResult;
+    private bool isApplyingSlice;
+    private bool isApplyingPlan;
+    private bool isApprovalBusy;
+    private TaskPlanApplyResult? planApplyResult;
     private CommandRunResult? lastCommand;
     private LocalCoderHistoryEntry? selectedHistoryEntry;
     private LocalCoderContextRestoreResult? contextRestoreResult;
@@ -443,6 +497,8 @@
             await LoadAgentRunHistoryAsync();
             await LoadPatchQueueAsync();
             await LoadHistoryAsync();
+            await LoadApprovalStatesAsync();
+            await LoadApplyHistoryAsync();
         }
         catch (Exception exception)
         {
@@ -453,15 +509,209 @@
             isLoading = false;
         }
     }
-private Task ApplySliceAsync(TaskPlanSlice slice)
-{
-    sliceStatusMessages[slice.Id] = "Safe Apply is not implemented yet. Backup support is ready.";
-    return Task.CompletedTask;
-}
+    private async Task ApplySliceAsync(TaskPlanSlice slice)
+    {
+        isApplyingSlice = true;
+        try
+        {
+            var result = await TaskSliceApplyService.ApplyAsync(request.ProjectPath, slice);
+            sliceStatusMessages[slice.Id] = string.IsNullOrWhiteSpace(result.RollbackMessage)
+                ? result.Message
+                : $"{result.Message}{Environment.NewLine}{result.RollbackMessage}";
+            if (result.BuildVerificationResult is not null)
+            {
+                sliceBuildVerificationResults[slice.Id] = result.BuildVerificationResult;
+            }
+            else
+            {
+                sliceBuildVerificationResults.Remove(slice.Id);
+            }
+
+            if (result.RolledBack)
+            {
+                slice.Status = TaskSliceStatus.RolledBack;
+                slice.AppliedAt = null;
+            }
+            else if (result.BuildVerificationResult?.Success == true)
+            {
+                slice.Status = TaskSliceStatus.Applied;
+                slice.AppliedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                slice.Status = TaskSliceStatus.Failed;
+                slice.AppliedAt = null;
+            }
+
+            NotificationService.Notify(
+                result.Success ? NotificationSeverity.Success : result.RolledBack ? NotificationSeverity.Warning : NotificationSeverity.Error,
+                result.Success ? "Slice applied" : result.RolledBack ? "Rollback completed" : "Apply failed",
+                result.Message);
+
+            await LoadApplyHistoryAsync();
+            await LoadApprovalStatesAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            isApplyingSlice = false;
+        }
+    }
+
+    private async Task ApplyPlanAsync(TaskPlan plan)
+    {
+        if (taskPlanPreview is null || !string.Equals(taskPlanPreview.Id, plan.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ProjectPath))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Apply plan unavailable", "Select a project before applying the plan.");
+            return;
+        }
+
+        isApplyingPlan = true;
+        planApplyResult = null;
+
+        try
+        {
+            var result = await TaskPlanApplyService.ApplyAsync(
+                taskPlanPreview,
+                request.ProjectPath,
+                async snapshot =>
+                {
+                    planApplyResult = snapshot;
+                    await InvokeAsync(StateHasChanged);
+                },
+                CancellationToken.None);
+
+            planApplyResult = result;
+
+            if (result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Plan applied", result.Summary);
+            }
+            else if (result.RollbackPerformed)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Plan apply rolled back", result.Summary);
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Plan apply failed", result.Summary);
+            }
+
+            await LoadApplyHistoryAsync();
+            await LoadApprovalStatesAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception exception)
+        {
+            planApplyResult = new TaskPlanApplyResult
+            {
+                PlanId = plan.Id,
+                PlanTitle = plan.OriginalRequest,
+                Success = false,
+                StatusMessage = exception.Message,
+                Summary = exception.Message,
+                AuditTrail = [exception.Message]
+            };
+            NotificationService.Notify(NotificationSeverity.Error, "Plan apply failed", exception.Message);
+            await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            isApplyingPlan = false;
+        }
+    }
+
+    private async Task ApproveSliceAsync(TaskPlanSlice slice)
+    {
+        isApprovalBusy = true;
+        try
+        {
+            await TaskSliceApprovalService.ApproveAsync(slice, Environment.UserName);
+            sliceApprovals = await LoadApprovalStateMapAsync();
+            NotificationService.Notify(NotificationSeverity.Success, "Slice approved", slice.Title);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Approval failed", exception.Message);
+        }
+        finally
+        {
+            isApprovalBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RejectSliceAsync(TaskPlanSlice slice)
+    {
+        isApprovalBusy = true;
+        try
+        {
+            await TaskSliceApprovalService.RejectAsync(slice, Environment.UserName);
+            sliceApprovals = await LoadApprovalStateMapAsync();
+            NotificationService.Notify(NotificationSeverity.Warning, "Slice rejected", slice.Title);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Rejection failed", exception.Message);
+        }
+        finally
+        {
+            isApprovalBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
     private static bool IsDevPortalProjectRoot(string path)
     {
         return !string.IsNullOrWhiteSpace(path) &&
                File.Exists(Path.Combine(path, "AiBox.DevPortal.csproj"));
+    }
+
+    private string GetSliceTitle(string sliceId)
+    {
+        return taskPlanPreview?.Slices.FirstOrDefault(slice => string.Equals(slice.Id, sliceId, StringComparison.OrdinalIgnoreCase))?.Title
+               ?? sliceId;
+    }
+
+    private List<KeyValuePair<string, TaskSliceBuildVerificationResult>> GetCurrentSliceBuildVerificationResults()
+    {
+        if (taskPlanPreview is null || sliceBuildVerificationResults.Count == 0)
+        {
+            return [];
+        }
+
+        var currentSliceIds = taskPlanPreview.Slices
+            .Select(slice => slice.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return sliceBuildVerificationResults
+            .Where(entry => currentSliceIds.Contains(entry.Key))
+            .ToList();
+    }
+
+    private static string GetBuildOutputPreview(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return "No build output was captured.";
+        }
+
+        const int maxLength = 1200;
+        var trimmed = output.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength] + "...";
+    }
+
+    private static string GetBuildStatusText(bool success)
+    {
+        return success ? "Build succeeded" : "Build failed";
+    }
+
+    private static BadgeStyle GetBuildStatusStyle(bool success)
+    {
+        return success ? BadgeStyle.Success : BadgeStyle.Danger;
     }
 
     #endregion
@@ -649,12 +899,20 @@ private Task ApplySliceAsync(TaskPlanSlice slice)
         ClearPlanTasks();
         applyResult = null;
         rollbackResult = null;
+        sliceRiskAnalyses = new Dictionary<string, TaskSliceRiskAnalysis>(StringComparer.OrdinalIgnoreCase);
+        sliceVerificationLoopResults.Clear();
+        sliceBuildVerificationResults.Clear();
+        sliceStatusMessages.Clear();
         ClearPatchDebug();
     }
 
     private void DecomposeTask()
     {
         taskPlanPreview = TaskDecompositionService.BuildPlan(request.Task);
+        sliceRiskAnalyses = LoadSliceRiskAnalyses(taskPlanPreview);
+        sliceVerificationLoopResults.Clear();
+        sliceBuildVerificationResults.Clear();
+        sliceStatusMessages.Clear();
     }
 
     #endregion
@@ -827,24 +1085,52 @@ private Task ApplySliceAsync(TaskPlanSlice slice)
 
         try
         {
-            var verificationResult = await TaskSliceVerificationService.VerifySliceAsync(slice);
-            sliceStatusMessages[slice.Id] = verificationResult.Success
-                ? verificationResult.Summary
-                : verificationResult.Errors.FirstOrDefault() ?? verificationResult.Summary;
+            var loopResult = await TaskSliceVerificationLoopService.VerifyAsync(slice);
+            sliceVerificationLoopResults[slice.Id] = loopResult;
+            sliceStatusMessages[slice.Id] = loopResult.FinalMessage;
 
-            if (verificationResult.Success)
+            if (loopResult.VerificationResults.Count > 0)
+            {
+                var finalVerification = loopResult.VerificationResults.Last();
+                sliceBuildVerificationResults[slice.Id] = new TaskSliceBuildVerificationResult
+                {
+                    Success = finalVerification.Success,
+                    ExitCode = finalVerification.Success ? 0 : 1,
+                    Output = BuildVerificationOutputPreview(finalVerification),
+                    VerifiedAtUtc = finalVerification.ExecutedAt
+                };
+            }
+            else
+            {
+                sliceBuildVerificationResults.Remove(slice.Id);
+            }
+
+            if (loopResult.GeneratedFixSlice is not null && taskPlanPreview is not null)
+            {
+                if (!taskPlanPreview.Slices.Any(item => string.Equals(item.Id, loopResult.GeneratedFixSlice.Id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    taskPlanPreview.Slices.Add(loopResult.GeneratedFixSlice);
+                }
+
+                sliceRiskAnalyses = LoadSliceRiskAnalyses(taskPlanPreview);
+                sliceStatusMessages[loopResult.GeneratedFixSlice.Id] = loopResult.Success
+                    ? loopResult.FinalMessage
+                    : "Generated remediation slice added to plan for review.";
+            }
+
+            if (loopResult.Success)
             {
                 NotificationService.Notify(
                     NotificationSeverity.Success,
                     "Slice verified",
-                    verificationResult.Summary);
+                    loopResult.FinalMessage);
             }
             else
             {
                 NotificationService.Notify(
                     NotificationSeverity.Warning,
                     "Slice verification failed",
-                    verificationResult.Errors.FirstOrDefault() ?? verificationResult.Summary);
+                    loopResult.FinalMessage);
             }
         }
         finally
@@ -1993,6 +2279,52 @@ private Task ApplySliceAsync(TaskPlanSlice slice)
         {
             isLoadingHistory = false;
         }
+    }
+
+    private async Task LoadApplyHistoryAsync()
+    {
+        try
+        {
+            applyHistoryItems = await TaskSliceApplyHistoryService.GetHistoryAsync(10);
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+    }
+
+    private async Task LoadApprovalStatesAsync()
+    {
+        sliceApprovals = await LoadApprovalStateMapAsync();
+    }
+
+    private static string BuildVerificationOutputPreview(TaskSliceExecutionResult verificationResult)
+    {
+        var lines = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(verificationResult.Summary))
+        {
+            lines.Add(verificationResult.Summary);
+        }
+
+        lines.AddRange(verificationResult.Errors.Where(error => !string.IsNullOrWhiteSpace(error)));
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private IReadOnlyDictionary<string, TaskSliceRiskAnalysis> LoadSliceRiskAnalyses(TaskPlan? plan)
+    {
+        if (plan is null)
+        {
+            return new Dictionary<string, TaskSliceRiskAnalysis>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return TaskSliceRiskAnalysisService.AnalyzeBySliceId(plan);
+    }
+
+    private async Task<IReadOnlyDictionary<string, TaskSliceApproval>> LoadApprovalStateMapAsync()
+    {
+        var approvals = await TaskSliceApprovalService.GetAllAsync();
+        return approvals.ToDictionary(item => item.SliceId, StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task LoadAgentRunHistoryAsync()

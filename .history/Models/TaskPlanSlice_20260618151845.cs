@@ -12,7 +12,6 @@ public sealed class TaskPlanSlice
     public TaskSliceStatus Status { get; set; } = TaskSliceStatus.Pending;
     public DateTime? PatchPreviewCreatedAt { get; set; }
     public List<string> TargetFiles { get; set; } = [];
-public IReadOnlyList<string> DependsOnSliceIds { get; set; } = [];
     public List<string> InstructionFiles { get; set; } = [];
     public AllowedChangeType AllowedChangeType { get; set; } = AllowedChangeType.Any;
     public List<string> MustNotChange { get; set; } = [];

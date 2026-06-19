@@ -21,6 +21,15 @@
                 </RadzenStack>
             </RadzenCard>
 
+            @if (CanApplyPlan())
+            {
+                <RadzenButton Text="Apply Plan"
+                              Icon="playlist_add_check"
+                              ButtonStyle="ButtonStyle.Primary"
+                              Disabled="@(!OnApplyPlanRequested.HasDelegate || IsApplyingPlan)"
+                              Click="@(() => OnApplyPlanRequested.InvokeAsync(Plan))" />
+            }
+
             @foreach (var slice in Plan.Slices)
             {
                 <RadzenCard Style="margin: 0;">
@@ -34,9 +43,21 @@
                             <RadzenText Text="@slice.Title" TextStyle="TextStyle.Body1" />
                             <RadzenBadge Text="@slice.Status.ToString()" BadgeStyle="@GetStatusBadgeStyle(slice.Status)" />
                             <RadzenBadge Text="@slice.AllowedChangeType.ToString()" BadgeStyle="BadgeStyle.Secondary" />
+                            @if (GetSliceRiskAnalysis(slice) is not null)
+                            {
+                                <RadzenBadge Text="@($"Risk: {GetSliceRiskAnalysis(slice)!.RiskLevel}")"
+                                             BadgeStyle="@GetRiskBadgeStyle(GetSliceRiskAnalysis(slice)!.RiskLevel)" />
+                            }
                         </RadzenStack>
 
                         <RadzenText Text="@GetSliceBodyText(slice)" TextStyle="TextStyle.Body2" />
+
+                        @if (GetSliceRiskAnalysis(slice) is not null)
+                        {
+                            <TaskSliceRiskPanel Analysis="@GetSliceRiskAnalysis(slice)"
+                                                Compact="true"
+                                                ShowReasons="true" />
+                        }
 
                         <RadzenStack Gap="0.25rem">
                             <RadzenText Text="Related Files" TextStyle="TextStyle.Caption" />
@@ -86,10 +107,18 @@
                                           Disabled="@(!OnVerifyRequested.HasDelegate || IsVerifyingSlice)"
                                           Click="@(() => OnVerifyRequested.InvokeAsync(slice))" />
                         }
-                        @if (slice.Status == TaskSliceStatus.Verified)
-                        {
-                            <RadzenButton Text="Apply" Icon="done_all" ButtonStyle="ButtonStyle.Success"
-                                          Disabled="@(!OnApplyRequested.HasDelegate)" Click="@(() => OnApplyRequested.InvokeAsync(slice))" />
+                            @if (slice.Status == TaskSliceStatus.Verified)
+                            {
+                                <TaskSliceApprovalPanel Slice="@slice"
+                                                        Approval="@GetSliceApproval(slice)"
+                                                        RiskAnalysis="@GetSliceRiskAnalysis(slice)"
+                                                        IsBusy="@(IsApplyingSlice || IsApprovalBusy)"
+                                                        OnApproveRequested="@OnApproveRequested"
+                                                        OnRejectRequested="@OnRejectRequested" />
+
+                                <RadzenButton Text="Apply" Icon="done_all" ButtonStyle="ButtonStyle.Success"
+                                          Disabled="@(!CanApplySlice(slice))"
+                                          Click="@(() => OnApplyRequested.InvokeAsync(slice))" />
                         }
                         @if (slice.Status == TaskSliceStatus.Applied)
                         {
@@ -102,6 +131,127 @@
                              !string.IsNullOrWhiteSpace(sliceStatusMessage))
                         {
                             <RadzenText Text="@sliceStatusMessage" TextStyle="TextStyle.Caption" />
+                        }
+
+                        @if (GetSliceVerificationLoopResult(slice) is { } loopResult)
+                        {
+                            <RadzenCard Style="margin: 0;">
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal"
+                                                 AlignItems="AlignItems.Center"
+                                                 Gap="0.5rem"
+                                                 Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Verification Loop" TextStyle="TextStyle.Body1" />
+                                        <RadzenBadge Text="@($"{loopResult.Attempts}/{TaskSliceVerificationLoopService.MaxAttempts} attempts")"
+                                                     BadgeStyle="BadgeStyle.Info" />
+                                        <RadzenBadge Text="@GetLoopStatusText(loopResult.Success)"
+                                                     BadgeStyle="@(loopResult.Success ? BadgeStyle.Success : BadgeStyle.Warning)" />
+                                    </RadzenStack>
+
+                                    @foreach (var attempt in loopResult.VerificationResults.Select((value, index) => (Value: value, Index: index)))
+                                    {
+                                        <RadzenCard Style="margin: 0;">
+                                            <RadzenStack Gap="0.35rem">
+                                                <RadzenStack Orientation="Orientation.Horizontal"
+                                                             AlignItems="AlignItems.Center"
+                                                             Gap="0.5rem"
+                                                             Wrap="FlexWrap.Wrap">
+                                                    <RadzenText Text="@($"Attempt {attempt.Index + 1}/{TaskSliceVerificationLoopService.MaxAttempts}")"
+                                                                TextStyle="TextStyle.Body2" />
+                                                    <RadzenBadge Text="@GetAttemptStatusText(attempt.Value.Success)"
+                                                                 BadgeStyle="@(attempt.Value.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                                                </RadzenStack>
+
+                                                <RadzenText Text="@attempt.Value.Summary" TextStyle="TextStyle.Body2" />
+
+                                                @if (attempt.Value.Errors.Count > 0)
+                                                {
+                                                    @foreach (var error in attempt.Value.Errors)
+                                                    {
+                                                        <RadzenText Text="@error" TextStyle="TextStyle.Caption" />
+                                                    }
+                                                }
+                                            </RadzenStack>
+                                        </RadzenCard>
+                                    }
+
+                                    @if (loopResult.GeneratedFixSlice is not null)
+                                    {
+                                        <RadzenText Text="@($"Generated fix slice: {loopResult.GeneratedFixSlice.Title}")"
+                                                    TextStyle="TextStyle.Caption" />
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(loopResult.FinalMessage))
+                                    {
+                                        <RadzenText Text="@($"Final result: {loopResult.FinalMessage}")"
+                                                    TextStyle="TextStyle.Body2" />
+                                    }
+                                </RadzenStack>
+                            </RadzenCard>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
+
+            @if (PlanApplyResult is not null)
+            {
+                <RadzenCard Style="margin: 0;">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Plan Apply" TextStyle="TextStyle.H6" />
+
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenBadge Text="@($"{PlanApplyResult.AppliedSlices}/{PlanApplyResult.TotalSlices} applied")"
+                                         BadgeStyle="BadgeStyle.Info" />
+                            <RadzenBadge Text="@(PlanApplyResult.Success ? "Success" : "Failed")"
+                                         BadgeStyle="@(PlanApplyResult.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                            @if (PlanApplyResult.RollbackPerformed)
+                            {
+                                <RadzenBadge Text="Rollback performed" BadgeStyle="BadgeStyle.Warning" />
+                            }
+                        </RadzenStack>
+
+                        @if (IsApplyingPlan && !string.IsNullOrWhiteSpace(PlanApplyResult.CurrentSliceTitle))
+                        {
+                            <RadzenText Text="@($"Current slice: {PlanApplyResult.CurrentSliceTitle}")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@PlanApplyResult.StatusMessage" TextStyle="TextStyle.Body2" />
+                            <RadzenProgressBar Value="@GetPlanProgressPercent()" ShowValue="false" />
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(PlanApplyResult.Summary))
+                        {
+                            <RadzenText Text="@PlanApplyResult.Summary" TextStyle="TextStyle.Body2" />
+                        }
+
+                        @if (PlanApplyResult.CyclesDetected.Count > 0 || PlanApplyResult.ValidationErrors.Count > 0)
+                        {
+                            <RadzenStack Gap="0.35rem">
+                                <RadzenText Text="Dependency Validation" TextStyle="TextStyle.Caption" />
+
+                                @foreach (var cycle in PlanApplyResult.CyclesDetected)
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat">
+                                        @cycle
+                                    </RadzenAlert>
+                                }
+
+                                @foreach (var error in PlanApplyResult.ValidationErrors)
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat">
+                                        @error
+                                    </RadzenAlert>
+                                }
+                            </RadzenStack>
+                        }
+
+                        @if (PlanApplyResult.AuditTrail.Count > 0)
+                        {
+                            <RadzenStack Gap="0.25rem">
+                                <RadzenText Text="Audit Trail" TextStyle="TextStyle.Caption" />
+                                @foreach (var entry in PlanApplyResult.AuditTrail)
+                                {
+                                    <RadzenText Text="@entry" TextStyle="TextStyle.Body2" />
+                                }
+                            </RadzenStack>
                         }
                     </RadzenStack>
                 </RadzenCard>
@@ -116,9 +266,19 @@
     [Parameter] public EventCallback<TaskPlanSlice> OnVerifyRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnRollbackRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnApplyRequested { get; set; } 
+    [Parameter] public EventCallback<TaskPlan> OnApplyPlanRequested { get; set; }
+    [Parameter] public EventCallback<TaskPlanSlice> OnApproveRequested { get; set; }
+    [Parameter] public EventCallback<TaskPlanSlice> OnRejectRequested { get; set; }
     [Parameter] public bool IsGeneratingPatch { get; set; }
     [Parameter] public bool IsVerifyingSlice { get; set; }
     [Parameter] public bool IsRollingBack { get; set; }
+    [Parameter] public bool IsApplyingSlice { get; set; }
+    [Parameter] public bool IsApplyingPlan { get; set; }
+    [Parameter] public bool IsApprovalBusy { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, TaskSliceApproval> SliceApprovals { get; set; } = new Dictionary<string, TaskSliceApproval>();
+    [Parameter] public IReadOnlyDictionary<string, TaskSliceRiskAnalysis> SliceRiskAnalyses { get; set; } = new Dictionary<string, TaskSliceRiskAnalysis>(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public IReadOnlyDictionary<string, TaskSliceVerificationLoopResult> SliceVerificationLoopResults { get; set; } = new Dictionary<string, TaskSliceVerificationLoopResult>(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public TaskPlanApplyResult? PlanApplyResult { get; set; }
     [Parameter]
     public IReadOnlyDictionary<string, string> SliceStatusMessages { get; set; } = new Dictionary<string,string>();
 
@@ -150,5 +310,67 @@
     {
         var relatedFiles = slice.RelatedFiles.Count > 0 ? slice.RelatedFiles : slice.TargetFiles;
         return relatedFiles.Count == 0 ? [] : relatedFiles;
+    }
+
+    private TaskSliceApproval? GetSliceApproval(TaskPlanSlice slice)
+    {
+        return SliceApprovals.TryGetValue(slice.Id, out var approval) ? approval : null;
+    }
+
+    private TaskSliceRiskAnalysis? GetSliceRiskAnalysis(TaskPlanSlice slice)
+    {
+        return SliceRiskAnalyses.TryGetValue(slice.Id, out var analysis) ? analysis : null;
+    }
+
+    private TaskSliceVerificationLoopResult? GetSliceVerificationLoopResult(TaskPlanSlice slice)
+    {
+        return SliceVerificationLoopResults.TryGetValue(slice.Id, out var result) ? result : null;
+    }
+
+    private static string GetLoopStatusText(bool success)
+    {
+        return success ? "Success" : "Stopped";
+    }
+
+    private static string GetAttemptStatusText(bool success)
+    {
+        return success ? "Success" : "Failure";
+    }
+
+    private bool CanApplySlice(TaskPlanSlice slice)
+    {
+        return OnApplyRequested.HasDelegate &&
+               !IsApplyingSlice &&
+               GetSliceApproval(slice)?.Status == TaskSliceApprovalStatus.Approved;
+    }
+
+    private bool CanApplyPlan()
+    {
+        return Plan is not null &&
+               OnApplyPlanRequested.HasDelegate &&
+               !IsApplyingPlan &&
+               Plan.Slices.Any(slice => GetSliceApproval(slice)?.Status == TaskSliceApprovalStatus.Approved);
+    }
+
+    private static BadgeStyle GetRiskBadgeStyle(TaskSliceRiskLevel riskLevel)
+    {
+        return riskLevel switch
+        {
+            TaskSliceRiskLevel.Low => BadgeStyle.Success,
+            TaskSliceRiskLevel.Medium => BadgeStyle.Warning,
+            TaskSliceRiskLevel.High => BadgeStyle.Danger,
+            TaskSliceRiskLevel.Critical => BadgeStyle.Danger,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    private int GetPlanProgressPercent()
+    {
+        if (PlanApplyResult is null || PlanApplyResult.TotalSlices <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp((int)Math.Round(PlanApplyResult.AppliedSlices * 100d / PlanApplyResult.TotalSlices, MidpointRounding.AwayFromZero), 0, 100);
     }
 }

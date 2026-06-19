@@ -1,0 +1,55 @@
+@using AiBox.DevPortal.Models
+
+@if (Analysis is not null)
+{
+    <RadzenCard Style="margin: 0;">
+        <RadzenStack Gap="0.35rem">
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Gap="0.5rem"
+                         Wrap="FlexWrap.Wrap">
+                <RadzenText Text="Risk" TextStyle="TextStyle.Body1" />
+                <RadzenBadge Text="@Analysis.RiskLevel.ToString()"
+                             BadgeStyle="@GetRiskBadgeStyle(Analysis.RiskLevel)" />
+                <RadzenBadge Text="@($"Score {Analysis.RiskScore}")" BadgeStyle="BadgeStyle.Light" />
+            </RadzenStack>
+
+            @if (!Compact || ShowReasons)
+            {
+                @if (Analysis.Reasons.Count == 0)
+                {
+                    <RadzenText Text="No notable risk reasons were detected." TextStyle="TextStyle.Body2" />
+                }
+                else
+                {
+                    <RadzenStack Gap="0.15rem">
+                        @foreach (var reason in Analysis.Reasons)
+                        {
+                            <RadzenText Text="@reason" TextStyle="TextStyle.Body2" />
+                        }
+                    </RadzenStack>
+                }
+            }
+
+            <RadzenText Text="@($"Analyzed at UTC: {Analysis.AnalyzedAtUtc:O}")" TextStyle="TextStyle.Caption" />
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    [Parameter] public TaskSliceRiskAnalysis? Analysis { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool ShowReasons { get; set; } = true;
+
+    private static BadgeStyle GetRiskBadgeStyle(TaskSliceRiskLevel riskLevel)
+    {
+        return riskLevel switch
+        {
+            TaskSliceRiskLevel.Low => BadgeStyle.Success,
+            TaskSliceRiskLevel.Medium => BadgeStyle.Warning,
+            TaskSliceRiskLevel.High => BadgeStyle.Danger,
+            TaskSliceRiskLevel.Critical => BadgeStyle.Danger,
+            _ => BadgeStyle.Light
+        };
+    }
+}

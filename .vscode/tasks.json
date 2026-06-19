@@ -2,6 +2,24 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "rg",
+            "type": "shell",
+            "command": "rg -n \"class TaskPlanSlice|AppliedAt|AppliedAtUtc|CompletedAt\" .",
+            "problemMatcher": []
+        },
+        {
+            "label": "findslice",
+            "type": "shell",
+            "command": "python3 -c \"import pathlib,re;\npat=re.compile(r'class\\s+TaskPlanSlice|record\\s+TaskPlanSlice|struct\\s+TaskPlanSlice|AppliedAtUtc|AppliedAt|CompletedAt');\nroot=pathlib.Path('.');\nres=[str(p) for p in root.rglob('*') if p.is_file() and p.suffix in {'.cs','.razor'} and pat.search(p.read_text(errors='ignore'))];\nprint('\\n'.join(res))\"",
+            "problemMatcher": []
+        },
+        {
+            "label": "inspect",
+            "type": "shell",
+            "command": "python3 -c \"from pathlib import Path; p=Path('Models/TaskPlanSlice.cs'); print(p.read_text())\"",
+            "problemMatcher": []
+        },
+        {
             "label": "build",
             "command": "dotnet",
             "type": "process",

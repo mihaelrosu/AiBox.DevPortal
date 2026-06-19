@@ -1,0 +1,112 @@
+@using AiBox.DevPortal.Models
+
+<RadzenCard Style="margin: 0;">
+    <RadzenStack Gap="0.5rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.5rem"
+                     Wrap="FlexWrap.Wrap">
+            <RadzenText Text="Approval" TextStyle="TextStyle.Body1" />
+            <RadzenBadge Text="@GetStatusText()" BadgeStyle="@GetStatusStyle()" />
+        </RadzenStack>
+
+        @if (RiskAnalysis is not null)
+        {
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenBadge Text="@($"Risk: {RiskAnalysis.RiskLevel}")"
+                             BadgeStyle="@GetRiskBadgeStyle(RiskAnalysis.RiskLevel)" />
+                <RadzenText Text="@GetRiskSummaryText()" TextStyle="TextStyle.Caption" />
+            </RadzenStack>
+        }
+
+        @if (Approval is not null)
+        {
+            @if (!string.IsNullOrWhiteSpace(Approval.ApprovedBy))
+            {
+                <RadzenText Text="@($"Approved by {Approval.ApprovedBy} at {GetDateText(Approval.ApprovedAtUtc)}")"
+                            TextStyle="TextStyle.Caption" />
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Approval.RejectedBy))
+            {
+                <RadzenText Text="@($"Rejected by {Approval.RejectedBy} at {GetDateText(Approval.RejectedAtUtc)}")"
+                            TextStyle="TextStyle.Caption" />
+            }
+        }
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Text="Approve"
+                          Icon="check"
+                          ButtonStyle="ButtonStyle.Success"
+                          Click="@OnApproveClicked"
+                          Disabled="@IsBusy" />
+            <RadzenButton Text="Reject"
+                          Icon="close"
+                          ButtonStyle="ButtonStyle.Danger"
+                          Click="@OnRejectClicked"
+                          Disabled="@IsBusy" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public TaskPlanSlice Slice { get; set; } = default!;
+    [Parameter] public TaskSliceApproval? Approval { get; set; }
+    [Parameter] public TaskSliceRiskAnalysis? RiskAnalysis { get; set; }
+    [Parameter] public bool IsBusy { get; set; }
+    [Parameter] public EventCallback<TaskPlanSlice> OnApproveRequested { get; set; }
+    [Parameter] public EventCallback<TaskPlanSlice> OnRejectRequested { get; set; }
+
+    private Task OnApproveClicked()
+    {
+        return OnApproveRequested.HasDelegate ? OnApproveRequested.InvokeAsync(Slice) : Task.CompletedTask;
+    }
+
+    private Task OnRejectClicked()
+    {
+        return OnRejectRequested.HasDelegate ? OnRejectRequested.InvokeAsync(Slice) : Task.CompletedTask;
+    }
+
+    private string GetStatusText()
+    {
+        return Approval?.Status.ToString() ?? TaskSliceApprovalStatus.PendingApproval.ToString();
+    }
+
+    private BadgeStyle GetStatusStyle()
+    {
+        return Approval?.Status switch
+        {
+            TaskSliceApprovalStatus.Approved => BadgeStyle.Success,
+            TaskSliceApprovalStatus.Rejected => BadgeStyle.Danger,
+            _ => BadgeStyle.Warning
+        };
+    }
+
+    private static BadgeStyle GetRiskBadgeStyle(TaskSliceRiskLevel riskLevel)
+    {
+        return riskLevel switch
+        {
+            TaskSliceRiskLevel.Low => BadgeStyle.Success,
+            TaskSliceRiskLevel.Medium => BadgeStyle.Warning,
+            TaskSliceRiskLevel.High => BadgeStyle.Danger,
+            TaskSliceRiskLevel.Critical => BadgeStyle.Danger,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    private string GetRiskSummaryText()
+    {
+        if (RiskAnalysis is null || RiskAnalysis.Reasons.Count == 0)
+        {
+            return "No notable risk reasons were detected.";
+        }
+
+        return string.Join(" ", RiskAnalysis.Reasons);
+    }
+
+    private static string GetDateText(DateTime? value)
+    {
+        return value.HasValue ? value.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A";
+    }
+}

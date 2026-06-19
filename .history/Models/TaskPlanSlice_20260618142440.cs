@@ -6,13 +6,13 @@ public sealed class TaskPlanSlice
     public string PlanId { get; set; } = string.Empty;
     public string PatchPackageId { get; set; } = string.Empty;
     public DateTime? RolledBackAt { get; set; }
+    public DateTime? AppliedAt { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Goal { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public TaskSliceStatus Status { get; set; } = TaskSliceStatus.Pending;
     public DateTime? PatchPreviewCreatedAt { get; set; }
     public List<string> TargetFiles { get; set; } = [];
-public IReadOnlyList<string> DependsOnSliceIds { get; set; } = [];
     public List<string> InstructionFiles { get; set; } = [];
     public AllowedChangeType AllowedChangeType { get; set; } = AllowedChangeType.Any;
     public List<string> MustNotChange { get; set; } = [];
@@ -20,7 +20,6 @@ public IReadOnlyList<string> DependsOnSliceIds { get; set; } = [];
     public List<string> RelatedFiles { get; set; } = [];
     public string Notes { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? AppliedAt { get; set; } 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public static implicit operator TaskPlanSlice(TaskSlice slice)
@@ -32,6 +31,7 @@ public IReadOnlyList<string> DependsOnSliceIds { get; set; } = [];
             PlanId = string.Empty,
             PatchPackageId = string.Empty,
             RolledBackAt = null,
+            AppliedAt = null,
             Title = slice.Title,
             Goal = slice.Goal,
             Description = slice.Goal,

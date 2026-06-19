@@ -16,6 +16,12 @@ public sealed class TaskSliceVerificationService(IWebHostEnvironment environment
 
     private static readonly SemaphoreSlim FileLock = new(1, 1);
 
+    public static bool CanVerify(TaskPlanSlice slice)
+    {
+        ArgumentNullException.ThrowIfNull(slice);
+        return slice.Status == TaskSliceStatus.Previewed;
+    }
+
     public async Task<TaskSliceExecutionResult> VerifySliceAsync(
         TaskPlanSlice slice,
         CancellationToken cancellationToken = default)
@@ -27,7 +33,7 @@ public sealed class TaskSliceVerificationService(IWebHostEnvironment environment
         {
             var verifiedAt = DateTime.UtcNow;
             var beforeStatus = slice.Status;
-            if (beforeStatus != TaskSliceStatus.Previewed)
+            if (!CanVerify(slice))
             {
                 var failureProcessResult = new ProcessResult(
                     -1,

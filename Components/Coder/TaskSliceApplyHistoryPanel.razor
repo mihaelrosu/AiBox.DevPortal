@@ -1,0 +1,58 @@
+@using AiBox.DevPortal.Models
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.5rem"
+                     Wrap="FlexWrap.Wrap">
+            <RadzenText Text="Apply Audit Trail" TextStyle="TextStyle.H6" />
+            <RadzenBadge Text="@($"{Items.Count} recent")" BadgeStyle="BadgeStyle.Info" />
+        </RadzenStack>
+
+        @if (Items.Count == 0)
+        {
+            <RadzenText Text="No apply history available yet." TextStyle="TextStyle.Body2" />
+        }
+        else
+        {
+            <RadzenDataGrid Data="@Items"
+                            TItem="TaskSliceApplyHistoryItem"
+                            AllowPaging="false"
+                            AllowSorting="false"
+                            AllowFiltering="false"
+                            Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyHistoryItem" Property="AppliedAtUtc" Title="Applied At UTC" Width="180px">
+                        <Template Context="item">
+                            @item.AppliedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyHistoryItem" Property="SliceTitle" Title="Slice Title" />
+                    <RadzenDataGridColumn TItem="TaskSliceApplyHistoryItem" Title="Build" Width="110px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@(item.BuildSucceeded ? "Succeeded" : "Failed")"
+                                         BadgeStyle="@(item.BuildSucceeded ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyHistoryItem" Title="Rollback" Width="120px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@(item.RolledBack ? (item.RollbackSucceeded ? "RolledBack" : "Failed") : "No")"
+                                         BadgeStyle="@(item.RolledBack ? (item.RollbackSucceeded ? BadgeStyle.Warning : BadgeStyle.Danger) : BadgeStyle.Light)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyHistoryItem" Title="Result">
+                        <Template Context="item">
+                            <RadzenText Text="@item.ResultMessage" TextStyle="TextStyle.Body2" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public IReadOnlyList<TaskSliceApplyHistoryItem> Items { get; set; } = [];
+}

@@ -1,0 +1,46 @@
+@using AiBox.DevPortal.Models
+@inject IJSRuntime JS
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenText Text="Slice Dependency Graph" TextStyle="TextStyle.H5" />
+        
+        @if (Graph == null || !Graph.IsValid)
+        {
+            @if (Graph != null && !Graph.IsValid)
+            {
+                @if (Graph.CyclesDetected.Any())
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat">
+                        Cycle Detected: @string.Join(", ", Graph.CyclesDetected)
+                    </RadzenAlert>
+                }
+
+                @foreach (var error in Graph.ValidationErrors)
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat">
+                        @error
+                    </RadzenAlert>
+                }
+            }
+            else
+            {
+                <RadzenText Text="No dependency data available." TextStyle="TextStyle.Body2" />
+            }
+        }
+        else
+        {
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Execution Order:" TextStyle="TextStyle.Caption" />
+                @foreach (var id in Graph.OrderedSliceIds)
+                {
+                    <RadzenBadge Text="@id" BadgeStyle="BadgeStyle.Info" />
+                }
+            </RadzenStack>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public TaskPlanExecutionGraph? Graph { get; set; }
+}

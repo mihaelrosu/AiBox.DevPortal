@@ -11,6 +11,8 @@
     <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Primary" Click="@LoadAsync" Disabled="@isBusy" />
 </div>
 
+<AgentDashboardMetricsPanel />
+
 @if (isLoading)
 {
     <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
