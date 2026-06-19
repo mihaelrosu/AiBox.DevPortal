@@ -14,6 +14,11 @@ public sealed class TaskDecompositionService
     public TaskPlan BuildPlan(string originalRequest)
     {
         var request = originalRequest?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(request))
+        {
+            throw new ArgumentException("Task request is required.", nameof(originalRequest));
+        }
+
         var planId = Guid.NewGuid().ToString("N");
         var slice = new TaskPlanSlice
         {

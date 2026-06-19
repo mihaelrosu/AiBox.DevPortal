@@ -1,0 +1,139 @@
+@using AiBox.DevPortal.Models
+@inject AgentOrchestrationTimelineService AgentOrchestrationTimelineService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Orchestration Timeline" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Review the latest audit timeline events for the selected orchestration run."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@LoadAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+                @statusMessage
+            </RadzenAlert>
+        }
+
+        @if (string.IsNullOrWhiteSpace(RunId))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Lighter">
+                Select an orchestration run to view its timeline.
+            </RadzenAlert>
+        }
+        else if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else if (latestEvents.Count == 0)
+        {
+            <RadzenText Text="No timeline events recorded for this run yet." TextStyle="TextStyle.Body2" />
+        }
+        else
+        {
+            <RadzenDataGrid Data="@latestEvents"
+                            TItem="AgentOrchestrationTimelineEvent"
+                            AllowPaging="false"
+                            AllowSorting="false"
+                            AllowFiltering="false"
+                            Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="AgentOrchestrationTimelineEvent" Title="UTC" Width="180px">
+                        <Template Context="item">
+                            @item.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentOrchestrationTimelineEvent" Title="Severity" Width="100px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@item.Severity.ToString()"
+                                         BadgeStyle="@GetSeverityStyle(item.Severity)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentOrchestrationTimelineEvent" Property="EventType" Title="Event" Width="180px" />
+                    <RadzenDataGridColumn TItem="AgentOrchestrationTimelineEvent" Property="StepName" Title="Step" Width="160px" />
+                    <RadzenDataGridColumn TItem="AgentOrchestrationTimelineEvent" Property="Message" Title="Message" />
+                    <RadzenDataGridColumn TItem="AgentOrchestrationTimelineEvent" Property="RelatedEntityId" Title="Related Id" Width="200px" />
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public string? RunId { get; set; }
+
+    private IReadOnlyList<AgentOrchestrationTimelineEvent> latestEvents = [];
+    private bool isBusy;
+    private bool isLoading = true;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private string? loadedRunId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.Equals(loadedRunId, RunId, StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        isBusy = true;
+        isLoading = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            loadedRunId = RunId;
+            latestEvents = string.IsNullOrWhiteSpace(RunId)
+                ? []
+                : await AgentOrchestrationTimelineService.GetByRunAsync(RunId);
+            statusMessage = string.IsNullOrWhiteSpace(RunId)
+                ? string.Empty
+                : $"Loaded {latestEvents.Count} timeline event(s).";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to load orchestration timeline: {exception.Message}";
+            latestEvents = [];
+        }
+        finally
+        {
+            isBusy = false;
+            isLoading = false;
+        }
+    }
+
+    private static BadgeStyle GetSeverityStyle(AgentOrchestrationTimelineSeverity severity)
+    {
+        return severity switch
+        {
+            AgentOrchestrationTimelineSeverity.Warning => BadgeStyle.Warning,
+            AgentOrchestrationTimelineSeverity.Error => BadgeStyle.Danger,
+            _ => BadgeStyle.Info
+        };
+    }
+}

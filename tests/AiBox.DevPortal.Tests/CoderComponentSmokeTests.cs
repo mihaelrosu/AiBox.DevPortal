@@ -7,6 +7,7 @@ using AiBox.DevPortal.Services.Agents;
 using AiBox.DevPortal.Services.Browser;
 using Bunit;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Radzen;
@@ -219,10 +220,10 @@ public sealed class CoderComponentSmokeTests : TestContext
                 Operation = "insert_before",
                 FilePath = "Example.cs",
                 TargetText = "public void AlphaBeta()",
-                NewText = "public void AlphaBeto()",
-                MatchLineNumber = 3,
-                MatchConfidence = 91.2,
-                Description = "Use insert_before on the class declaration."
+                SurroundingContext = "public class Example",
+                LineNumber = 3,
+                MatchCount = 1,
+                ErrorMessage = "Use insert_before on the class declaration."
             }));
 
         Assert.Contains("Patch Guidance", cut.Markup, StringComparison.Ordinal);
@@ -234,5 +235,86 @@ public sealed class CoderComponentSmokeTests : TestContext
         Assert.Contains("Prompt Target Resolution", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("insert_before", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Use insert_before on the class declaration.", cut.Markup, StringComparison.Ordinal);
+    }
+
+    private void RegisterPageServices()
+    {
+        var contentRootPath = Path.Combine(Path.GetTempPath(), $"coder-smoke-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(contentRootPath);
+        Directory.CreateDirectory(Path.Combine(contentRootPath, "Data"));
+
+        var environment = Substitute.For<IWebHostEnvironment>();
+        environment.ContentRootPath.Returns(contentRootPath);
+        environment.ApplicationName.Returns("AiBox.DevPortal.Tests");
+        environment.EnvironmentName.Returns("Development");
+
+        Services.AddLogging();
+        Services.AddSingleton(environment);
+        Services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+
+        Services.AddScoped<IAgentModeProfileService, AgentModeProfileService>();
+        Services.AddScoped<AgentModelRoutingService>();
+        Services.AddScoped<AgentModelRecommendationService>();
+        Services.AddScoped<AgentModelBenchmarkService>();
+        Services.AddScoped<AgentModelComparisonService>();
+        Services.AddScoped<AgentDashboardService>();
+        Services.AddScoped<AgentOrchestrationService>();
+        Services.AddScoped<AgentInstructionService>();
+        Services.AddScoped<PlannerContextSelectionService>();
+        Services.AddScoped<TaskSlicePatchPreviewPreparationService>();
+        Services.AddScoped<TaskSliceVerificationService>();
+        Services.AddScoped<TaskSliceRiskAnalysisService>();
+        Services.AddScoped<TaskSliceVerificationLoopService>();
+        Services.AddScoped<TaskSliceApplyHistoryService>();
+        Services.AddScoped<TaskSliceApplyAuditService>();
+        Services.AddScoped<TaskSliceApprovalService>();
+        Services.AddScoped<TaskSliceApplyService>();
+        Services.AddScoped<TaskSliceRollbackService>();
+        Services.AddScoped<TaskPlanDependencyGraphService>();
+        Services.AddScoped<TaskPlanApplyService>();
+        Services.AddScoped<TaskDecompositionService>();
+        Services.AddScoped<TaskSliceExecutionService>();
+        Services.AddScoped<ProjectHistoryIndexService>();
+        Services.AddScoped<RiskAnalysisService>();
+
+        Services.AddScoped<IClipboardService, ClipboardService>();
+        Services.AddScoped<IAgentRegistryService, AgentRegistryService>();
+        Services.AddScoped<IAgentRunHistoryService, AgentRunHistoryService>();
+        Services.AddSingleton(Substitute.For<IAgentModeRunner>());
+        Services.AddScoped<IPatchPackageService, PatchPackageService>();
+        Services.AddScoped<IPatchApplyService, PatchApplyService>();
+        Services.AddScoped<IPatchRollbackService, PatchRollbackService>();
+        Services.AddScoped<IPatchBackupService, PatchBackupService>();
+        Services.AddScoped<IPatchApprovalGateService, PatchApprovalGateService>();
+        Services.AddScoped<ILocalCoderContextService, LocalCoderContextService>();
+        Services.AddScoped<ILocalCoderVerificationProfileService, LocalCoderVerificationProfileService>();
+        Services.AddScoped<AiBox.DevPortal.Services.ILocalCoderHistoryService, AiBox.DevPortal.Services.LocalCoderHistoryService>();
+        Services.AddScoped<IProjectKnowledgeIndexService, ProjectKnowledgeIndexService>();
+        Services.AddSingleton(Substitute.For<ILocalCoderPatchService>());
+        Services.AddSingleton(Substitute.For<ILocalCoderReviewService>());
+        Services.AddSingleton(Substitute.For<IOllamaService>());
+        Services.AddSingleton(Substitute.For<ILocalLlmService>());
+        Services.AddSingleton(Substitute.For<IPromptEnhancerService>());
+        Services.AddScoped<PatchVerificationService>();
+        Services.AddScoped<SelectedContextValidator>();
+        Services.AddScoped<PatchPreviewRepairService>();
+
+        Services.AddSingleton(Substitute.For<ICoderConsoleService>());
+        Services.AddSingleton(Substitute.For<IFileOperationService>());
+        Services.AddSingleton(Substitute.For<IFileSearchService>());
+        Services.AddSingleton(Substitute.For<IGitOperationService>());
+        Services.AddSingleton(Substitute.For<IDockerOperationService>());
+        Services.AddSingleton(Substitute.For<IComfyUiOperationService>());
+        Services.AddSingleton(Substitute.For<IExecutionPermissionProfileService>());
+        Services.AddSingleton(Substitute.For<IExecutionEngineService>());
+        Services.AddSingleton(Substitute.For<IWorkflowRegistryService>());
+        Services.AddSingleton(Substitute.For<IWorkflowTemplateService>());
+        Services.AddSingleton(Substitute.For<IWorkflowRunPreviewService>());
+        Services.AddSingleton(Substitute.For<IWorkflowRunHistoryService>());
+        Services.AddSingleton(Substitute.For<IDockerService>());
+        Services.AddSingleton(Substitute.For<IGeneratedImageHistoryService>());
+        Services.AddSingleton(Substitute.For<IImageToolService>());
+        Services.AddSingleton(Substitute.For<IComfyUiService>());
+        Services.AddSingleton(Substitute.For<ISdxlTextToImageService>());
     }
 }

@@ -1,0 +1,828 @@
+@using AiBox.DevPortal.Models.Agents
+@inject AgentOrchestrationService AgentOrchestrationService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Agent Orchestration" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Create a simulated workflow run, add steps, and mark step outcomes manually."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@LoadAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+                @statusMessage
+            </RadzenAlert>
+        }
+
+        <RadzenRow Gap="0.75rem">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenFormField Text="Task name" Style="width: 100%;">
+                    <RadzenTextBox @bind-Value="@taskName"
+                                   Style="width: 100%;"
+                                   Placeholder="Implement agent orchestration foundation" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenFormField Text="User request" Style="width: 100%;">
+                    <RadzenTextArea @bind-Value="@userRequest"
+                                    Rows="3"
+                                    Style="width: 100%;"
+                                    Placeholder="Describe the workflow request" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="2">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="CommitAndSync" TextStyle="TextStyle.Caption" />
+                    <RadzenCheckBox @bind-Value="@commitAndSync" />
+                </RadzenStack>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="2">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="ApproveHighRiskApply" TextStyle="TextStyle.Caption" />
+                    <RadzenCheckBox @bind-Value="@approveHighRiskApply" />
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Text="Create orchestration run"
+                          Icon="play_arrow"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="@CreateRunAsync"
+                          Disabled="@isBusy" />
+            <RadzenButton Text="Run orchestration"
+                          Icon="rocket_launch"
+                          ButtonStyle="ButtonStyle.Success"
+                          Click="@RunOrchestrationAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else
+        {
+            <RadzenCard Style="margin: 0;">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="Latest Orchestration Runs" TextStyle="TextStyle.H6" />
+                    @if (latestRuns.Count == 0)
+                    {
+                        <RadzenText Text="No orchestration runs recorded yet." TextStyle="TextStyle.Body2" />
+                    }
+                    else
+                    {
+                                <RadzenDataGrid Data="@latestRuns"
+                                        TItem="AgentOrchestrationRun"
+                                        AllowPaging="false"
+                                        AllowSorting="false"
+                                        AllowFiltering="false"
+                                        Density="Density.Compact">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Title="UTC">
+                                    <Template Context="item">
+                                        @item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Property="TaskName" Title="Task" />
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Title="Status">
+                                    <Template Context="item">
+                                        <RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@GetStatusStyle(item.Status)" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Property="CommitAndSync" Title="CommitAndSync" />
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Title="Apply">
+                                    <Template Context="item">
+                                        <RadzenBadge Text="@GetApplyStatusText(item)"
+                                                     BadgeStyle="@GetApplyStatusStyle(item)" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Title="Safety">
+                                    <Template Context="item">
+                                        <RadzenBadge Text="@GetSafetyStatusText(item)"
+                                                     BadgeStyle="@GetSafetyStatusStyle(item)" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Title="Git Sync">
+                                    <Template Context="item">
+                                        <RadzenBadge Text="@GetGitStatusText(item)"
+                                                     BadgeStyle="@GetGitStatusStyle(item)" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Title="Steps">
+                                    <Template Context="item">
+                                        @item.Steps.Count
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="AgentOrchestrationRun" Title="Actions" Sortable="false" Filterable="false">
+                                    <Template Context="item">
+                                        <RadzenButton Text="Select"
+                                                      Icon="visibility"
+                                                      Size="ButtonSize.Small"
+                                                      ButtonStyle="ButtonStyle.Light"
+                                                      Click="@(() => SelectRun(item.Id))" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+            @if (selectedRun is not null)
+            {
+                <RadzenCard Style="margin: 0;">
+                    <RadzenStack Gap="0.75rem">
+                        <RadzenStack Orientation="Orientation.Horizontal"
+                                     AlignItems="AlignItems.Center"
+                                     JustifyContent="JustifyContent.SpaceBetween"
+                                     Gap="0.75rem"
+                                     Wrap="FlexWrap.Wrap">
+                            <div>
+                                <RadzenText Text="@($"Selected Run: {selectedRun.TaskName}")" TextStyle="TextStyle.H6" />
+                                <RadzenText Text="@selectedRun.UserRequest" TextStyle="TextStyle.Body2" />
+                            </div>
+                            <RadzenBadge Text="@selectedRun.Status.ToString()" BadgeStyle="@GetStatusStyle(selectedRun.Status)" />
+                        </RadzenStack>
+
+                        <RadzenCard Style="margin: 0;">
+                            <RadzenStack Gap="0.35rem">
+                                <RadzenText Text="Safety Report" TextStyle="TextStyle.H6" />
+                                <RadzenText Text="@GetSafetySummary(selectedRun)" TextStyle="TextStyle.Body2" />
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                    <RadzenBadge Text="@GetSafetyStatusText(selectedRun)"
+                                                 BadgeStyle="@GetSafetyStatusStyle(selectedRun)" />
+                                    <RadzenText Text="@($"Highest risk: {selectedRun.SafetyHighestRiskLevel}")" TextStyle="TextStyle.Caption" />
+                                    <RadzenText Text="@($"Changed files: {selectedRun.SafetyTotalChangedFiles}")" TextStyle="TextStyle.Caption" />
+                                </RadzenStack>
+                                @if (selectedRun.SafetyReasons.Count > 0)
+                                {
+                                    <RadzenText Text="@($"Reasons: {string.Join(" | ", selectedRun.SafetyReasons)}")" TextStyle="TextStyle.Caption" />
+                                }
+                                @if (selectedRun.SafetyReportCreatedAtUtc is not null)
+                                {
+                                    <RadzenText Text="@($"Created: {selectedRun.SafetyReportCreatedAtUtc:yyyy-MM-dd HH:mm:ss}")" TextStyle="TextStyle.Caption" />
+                                }
+                            </RadzenStack>
+                        </RadzenCard>
+
+                        @if (selectedRun.HumanApprovalPending || selectedRun.Status == AgentOrchestrationStatus.Paused)
+                        {
+                            <RadzenCard Style="margin: 0;">
+                                <RadzenStack Gap="0.35rem">
+                                    <RadzenText Text="Human Approval" TextStyle="TextStyle.H6" />
+                                    <RadzenBadge Text="@GetApprovalStatusText(selectedRun)"
+                                                 BadgeStyle="@GetApprovalStatusStyle(selectedRun)" />
+                                    <RadzenText Text="@GetApprovalSummary(selectedRun)" TextStyle="TextStyle.Body2" />
+                                    @if (!string.IsNullOrWhiteSpace(selectedRun.HumanApprovalRequestId))
+                                    {
+                                        <RadzenText Text="@($"Request id: {selectedRun.HumanApprovalRequestId}")" TextStyle="TextStyle.Caption" />
+                                    }
+                                    @if (selectedRun.PausedAtUtc is not null)
+                                    {
+                                        <RadzenText Text="@($"Paused at: {selectedRun.PausedAtUtc:yyyy-MM-dd HH:mm:ss}")" TextStyle="TextStyle.Caption" />
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(selectedRun.PausedReason))
+                                    {
+                                        <RadzenText Text="@selectedRun.PausedReason" TextStyle="TextStyle.Caption" />
+                                    }
+                                </RadzenStack>
+                            </RadzenCard>
+                        }
+
+                        <RadzenCard Style="margin: 0;">
+                            <RadzenStack Gap="0.35rem">
+                                <RadzenText Text="Apply Result" TextStyle="TextStyle.H6" />
+                                <RadzenText Text="@GetApplySummary(selectedRun)" TextStyle="TextStyle.Body2" />
+                                @if (selectedRun.AppliedSliceIds.Count > 0)
+                                {
+                                    <RadzenText Text="@($"Applied slice ids: {string.Join(", ", selectedRun.AppliedSliceIds)}")" TextStyle="TextStyle.Caption" />
+                                }
+                                @if (selectedRun.AppliedFiles.Count > 0)
+                                {
+                                    <RadzenText Text="@($"Changed files: {string.Join(", ", selectedRun.AppliedFiles)}")" TextStyle="TextStyle.Caption" />
+                                }
+                                @if (selectedRun.ApplyAuditIds.Count > 0)
+                                {
+                                    <RadzenText Text="@($"Audit ids: {string.Join(", ", selectedRun.ApplyAuditIds)}")" TextStyle="TextStyle.Caption" />
+                                }
+                            </RadzenStack>
+                        </RadzenCard>
+
+                        <RadzenCard Style="margin: 0;">
+                            <RadzenStack Gap="0.35rem">
+                                <RadzenText Text="Git Sync Result" TextStyle="TextStyle.H6" />
+                                <RadzenText Text="@GetGitSummary(selectedRun)" TextStyle="TextStyle.Body2" />
+                                @if (!string.IsNullOrWhiteSpace(selectedRun.CommitHash))
+                                {
+                                    <RadzenText Text="@($"Commit hash: {selectedRun.CommitHash}")" TextStyle="TextStyle.Caption" />
+                                }
+                                @if (!string.IsNullOrWhiteSpace(selectedRun.GitMessage))
+                                {
+                                    <RadzenText Text="@selectedRun.GitMessage" TextStyle="TextStyle.Caption" />
+                                }
+                                <RadzenText Text="@($"Commit attempted: {selectedRun.CommitAttempted}")" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@($"Commit succeeded: {selectedRun.CommitSucceeded}")" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@($"Push attempted: {selectedRun.PushAttempted}")" TextStyle="TextStyle.Caption" />
+                                <RadzenText Text="@($"Push succeeded: {selectedRun.PushSucceeded}")" TextStyle="TextStyle.Caption" />
+                            </RadzenStack>
+                        </RadzenCard>
+
+                        <AgentOrchestrationTimelinePanel RunId="@selectedRun.Id" />
+
+                        <RadzenRow Gap="0.75rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Step name" Style="width: 100%;">
+                                    <RadzenTextBox @bind-Value="@newStepName"
+                                                   Style="width: 100%;"
+                                                   Placeholder="Planner" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Agent role" Style="width: 100%;">
+                                    <RadzenDropDown TValue="AgentMode"
+                                                    Data="@agentRoles"
+                                                    @bind-Value="@newStepRole"
+                                                    Style="width: 100%;" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenText Text="Related run id" TextStyle="TextStyle.Caption" />
+                                    <RadzenText Text="@selectedRun.Id" TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenButton Text="Add step"
+                                          Icon="add"
+                                          ButtonStyle="ButtonStyle.Primary"
+                                          Click="@AddStepAsync"
+                                          Disabled="@isBusy" />
+                        </RadzenStack>
+
+                        @if (selectedRun.Steps.Count == 0)
+                        {
+                            <RadzenText Text="No steps added to this run yet." TextStyle="TextStyle.Body2" />
+                        }
+                        else
+                        {
+                            <RadzenDataGrid Data="@selectedRun.Steps"
+                                            TItem="AgentOrchestrationStep"
+                                            AllowPaging="false"
+                                            AllowSorting="false"
+                                            AllowFiltering="false"
+                                            Density="Density.Compact">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Property="StepName" Title="Step" />
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Title="Role">
+                                        <Template Context="item">
+                                            @GetRoleLabel(item.AgentRole)
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Title="Status">
+                                        <Template Context="item">
+                                            <RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@GetStatusStyle(item.Status)" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Title="Duration">
+                                        <Template Context="item">
+                                            @FormatDuration(item.DurationMs)
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Title="Started">
+                                        <Template Context="item">
+                                            @(item.StartedAtUtc == default ? "-" : item.StartedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"))
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Title="Completed">
+                                        <Template Context="item">
+                                            @(item.CompletedAtUtc is null ? "-" : item.CompletedAtUtc.Value.ToString("yyyy-MM-dd HH:mm:ss"))
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Property="Message" Title="Message" />
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Property="ErrorMessage" Title="Error" />
+                                    <RadzenDataGridColumn TItem="AgentOrchestrationStep" Title="Actions" Sortable="false" Filterable="false">
+                                        <Template Context="item">
+                                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                                <RadzenButton Text="Start"
+                                                              Size="ButtonSize.Small"
+                                                              ButtonStyle="ButtonStyle.Light"
+                                                              Click="@(() => StartStepAsync(item))"
+                                                              Disabled="@isBusy" />
+                                                <RadzenButton Text="Complete"
+                                                              Size="ButtonSize.Small"
+                                                              ButtonStyle="ButtonStyle.Success"
+                                                              Click="@(() => CompleteStepAsync(item))"
+                                                              Disabled="@isBusy" />
+                                                <RadzenButton Text="Fail"
+                                                              Size="ButtonSize.Small"
+                                                              ButtonStyle="ButtonStyle.Danger"
+                                                              Click="@(() => FailStepAsync(item))"
+                                                              Disabled="@isBusy" />
+                                            </RadzenStack>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private readonly AgentMode[] agentRoles = Enum.GetValues<AgentMode>();
+    private IReadOnlyList<AgentOrchestrationRun> latestRuns = [];
+    private AgentOrchestrationRun? selectedRun;
+    private string selectedRunId = string.Empty;
+    private string taskName = "Agent orchestration run";
+    private string userRequest = "Simulate planner, patch builder, verifier, reviewer, and apply steps.";
+    private bool commitAndSync;
+    private bool approveHighRiskApply;
+    private string newStepName = "Planner";
+    private AgentMode newStepRole = AgentMode.Planner;
+    private bool isBusy;
+    private bool isLoading = true;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            latestRuns = await AgentOrchestrationService.GetLatestAsync(20);
+            selectedRun = ResolveSelectedRun();
+            selectedRunId = selectedRun?.Id ?? string.Empty;
+            statusMessage = $"Loaded {latestRuns.Count} orchestration run(s).";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to load orchestration runs: {exception.Message}";
+            latestRuns = [];
+            selectedRun = null;
+            selectedRunId = string.Empty;
+            statusMessage = string.Empty;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CreateRunAsync()
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            var run = await AgentOrchestrationService.CreateRunAsync(taskName, userRequest, commitAndSync, approveHighRiskApply);
+            selectedRunId = run.Id;
+            await LoadAsync();
+            statusMessage = $"Created orchestration run for {taskName.Trim()}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to create orchestration run: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task RunOrchestrationAsync()
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            var run = await AgentOrchestrationService.RunOrchestrationAsync(taskName, userRequest, commitAndSync, approveHighRiskApply);
+            selectedRunId = run.Id;
+            selectedRun = run;
+            await LoadAsync();
+            statusMessage = $"Orchestration {GetStatusText(run.Status)} for {taskName.Trim()}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to run orchestration: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task AddStepAsync()
+    {
+        if (string.IsNullOrWhiteSpace(selectedRunId))
+        {
+            return;
+        }
+
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            await AgentOrchestrationService.AddStepAsync(selectedRunId, newStepName, newStepRole, selectedRunId);
+            await LoadAsync();
+            statusMessage = $"Added step '{newStepName.Trim()}' to the selected run.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to add orchestration step: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task StartStepAsync(AgentOrchestrationStep step)
+    {
+        if (selectedRun is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            await AgentOrchestrationService.StartStepAsync(selectedRun.Id, step.Id, $"Started {step.StepName}.");
+            await LoadAsync();
+            statusMessage = $"Started step {step.StepName}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to start step: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task CompleteStepAsync(AgentOrchestrationStep step)
+    {
+        if (selectedRun is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            await AgentOrchestrationService.CompleteStepAsync(selectedRun.Id, step.Id, $"Completed {step.StepName}.");
+            await LoadAsync();
+            statusMessage = $"Completed step {step.StepName}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to complete step: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task FailStepAsync(AgentOrchestrationStep step)
+    {
+        if (selectedRun is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            await AgentOrchestrationService.FailStepAsync(selectedRun.Id, step.Id, $"Marked {step.StepName} as failed.");
+            await LoadAsync();
+            statusMessage = $"Marked step {step.StepName} as failed.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to fail step: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void SelectRun(string runId)
+    {
+        selectedRunId = runId;
+        selectedRun = ResolveSelectedRun();
+    }
+
+    private AgentOrchestrationRun? ResolveSelectedRun()
+    {
+        if (!string.IsNullOrWhiteSpace(selectedRunId))
+        {
+            var selected = latestRuns.FirstOrDefault(item => item.Id.Equals(selectedRunId, StringComparison.OrdinalIgnoreCase));
+            if (selected is not null)
+            {
+                return selected;
+            }
+        }
+
+        return latestRuns.FirstOrDefault();
+    }
+
+    private static string GetRoleLabel(AgentMode role)
+    {
+        return role switch
+        {
+            AgentMode.Planner => "Planner",
+            AgentMode.PatchBuilder => "Patch Builder",
+            AgentMode.Verifier => "Verifier",
+            AgentMode.Reviewer => "Reviewer",
+            AgentMode.ToolRunner => "Tool Runner",
+            _ => role.ToString()
+        };
+    }
+
+    private static BadgeStyle GetStatusStyle(AgentOrchestrationStatus status)
+    {
+        return status switch
+        {
+            AgentOrchestrationStatus.Completed => BadgeStyle.Success,
+            AgentOrchestrationStatus.InProgress => BadgeStyle.Info,
+            AgentOrchestrationStatus.Paused => BadgeStyle.Warning,
+            AgentOrchestrationStatus.Failed => BadgeStyle.Danger,
+            AgentOrchestrationStatus.Skipped => BadgeStyle.Light,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    private static string GetStatusText(AgentOrchestrationStatus status)
+    {
+        return status switch
+        {
+            AgentOrchestrationStatus.InProgress => "is running",
+            AgentOrchestrationStatus.Paused => "paused",
+            AgentOrchestrationStatus.Completed => "completed",
+            AgentOrchestrationStatus.Failed => "failed",
+            AgentOrchestrationStatus.Skipped => "skipped",
+            _ => status.ToString().ToLowerInvariant()
+        };
+    }
+
+    private static string FormatDuration(long durationMs)
+    {
+        return durationMs <= 0 ? "-" : $"{durationMs} ms";
+    }
+
+    private static string GetApplySummary(AgentOrchestrationRun run)
+    {
+        if (run.Status == AgentOrchestrationStatus.Paused || run.HumanApprovalPending)
+        {
+            return string.IsNullOrWhiteSpace(run.PausedReason)
+                ? "Apply is waiting for human approval."
+                : $"Apply is waiting for human approval: {run.PausedReason}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(run.ApplyMessage))
+        {
+            return run.ApplyMessage;
+        }
+
+        return run.ApplySucceeded ? "Apply completed successfully." : "Apply has not run yet.";
+    }
+
+    private static string GetApplyStatusText(AgentOrchestrationRun run)
+    {
+        if (run.ApplySucceeded)
+        {
+            return "Applied";
+        }
+
+        if (run.Status == AgentOrchestrationStatus.Paused || run.HumanApprovalPending)
+        {
+            return "Awaiting approval";
+        }
+
+        if (string.IsNullOrWhiteSpace(run.ApplyMessage))
+        {
+            return "Pending";
+        }
+
+        return "Blocked";
+    }
+
+    private static BadgeStyle GetApplyStatusStyle(AgentOrchestrationRun run)
+    {
+        if (run.ApplySucceeded)
+        {
+            return BadgeStyle.Success;
+        }
+
+        if (run.Status == AgentOrchestrationStatus.Paused || run.HumanApprovalPending)
+        {
+            return BadgeStyle.Warning;
+        }
+
+        if (string.IsNullOrWhiteSpace(run.ApplyMessage))
+        {
+            return BadgeStyle.Light;
+        }
+
+        return BadgeStyle.Danger;
+    }
+
+    private static string GetSafetySummary(AgentOrchestrationRun run)
+    {
+        if (string.IsNullOrWhiteSpace(run.SafetyReportId))
+        {
+            return "Safety report has not been generated yet.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(run.SafetySummary))
+        {
+            return run.SafetySummary;
+        }
+
+        return GetSafetyStatusText(run);
+    }
+
+    private static string GetSafetyStatusText(AgentOrchestrationRun run)
+    {
+        if (string.IsNullOrWhiteSpace(run.SafetyReportId))
+        {
+            return "Pending";
+        }
+
+        if (run.SafetyBlocksAutoApply)
+        {
+            return "Blocked";
+        }
+
+        if (run.SafetyRequiresManualApproval && !run.ApproveHighRiskApply)
+        {
+            return "Approval required";
+        }
+
+        return "Allowed";
+    }
+
+    private static string GetApprovalSummary(AgentOrchestrationRun run)
+    {
+        if (!run.HumanApprovalPending && run.Status != AgentOrchestrationStatus.Paused)
+        {
+            return "No human approval request is currently pending for this run.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(run.PausedReason))
+        {
+            return run.PausedReason;
+        }
+
+        return "Human approval is required before apply can continue.";
+    }
+
+    private static string GetApprovalStatusText(AgentOrchestrationRun run)
+    {
+        return run.HumanApprovalPending || run.Status == AgentOrchestrationStatus.Paused
+            ? "Approval pending"
+            : "No approval pending";
+    }
+
+    private static BadgeStyle GetApprovalStatusStyle(AgentOrchestrationRun run)
+    {
+        return run.HumanApprovalPending || run.Status == AgentOrchestrationStatus.Paused
+            ? BadgeStyle.Warning
+            : BadgeStyle.Light;
+    }
+
+    private static BadgeStyle GetSafetyStatusStyle(AgentOrchestrationRun run)
+    {
+        if (string.IsNullOrWhiteSpace(run.SafetyReportId))
+        {
+            return BadgeStyle.Light;
+        }
+
+        if (run.SafetyBlocksAutoApply)
+        {
+            return BadgeStyle.Danger;
+        }
+
+        if (run.SafetyRequiresManualApproval && !run.ApproveHighRiskApply)
+        {
+            return BadgeStyle.Warning;
+        }
+
+        return BadgeStyle.Success;
+    }
+
+    private static string GetGitSummary(AgentOrchestrationRun run)
+    {
+        if (!run.CommitAndSync)
+        {
+            return "Git sync was skipped.";
+        }
+
+        if (run.CommitSucceeded && run.PushSucceeded)
+        {
+            return string.IsNullOrWhiteSpace(run.GitMessage)
+                ? "Git sync completed successfully."
+                : run.GitMessage;
+        }
+
+        if (!string.IsNullOrWhiteSpace(run.GitMessage))
+        {
+            return run.GitMessage;
+        }
+
+        return run.CommitAttempted
+            ? "Git sync failed."
+            : "Git sync has not run yet.";
+    }
+
+    private static string GetGitStatusText(AgentOrchestrationRun run)
+    {
+        if (!run.CommitAndSync)
+        {
+            return "Skipped";
+        }
+
+        if (run.CommitSucceeded && run.PushSucceeded)
+        {
+            return "Synced";
+        }
+
+        if (!run.CommitAttempted)
+        {
+            return "Pending";
+        }
+
+        return "Failed";
+    }
+
+    private static BadgeStyle GetGitStatusStyle(AgentOrchestrationRun run)
+    {
+        if (!run.CommitAndSync)
+        {
+            return BadgeStyle.Light;
+        }
+
+        if (run.CommitSucceeded && run.PushSucceeded)
+        {
+            return BadgeStyle.Success;
+        }
+
+        if (!run.CommitAttempted)
+        {
+            return BadgeStyle.Info;
+        }
+
+        return BadgeStyle.Danger;
+    }
+}

@@ -34,10 +34,15 @@ Completed:
 * Patch Rollback Service
 * Agent Dashboard
 * Agent Model Routing
+* Model Benchmark Runs
+* Model Comparison Runs
+* Automatic Model Recommendation
+* Recommendation-Based Routing
+* Canonical AgentProfilesPanel cleanup
 
 Current:
 
-* Multi-Model Intelligence
+* V2.9 Autonomous Execution Controls
 
 ## Related Files
 
@@ -163,7 +168,7 @@ Implementation notes:
 ## V2.7 Multi-Model Intelligence
 
 * Id: v2-7-multi-model-intelligence
-* Status: In Progress
+* Status: Completed
 * Priority: Medium
 * SourceType: Roadmap
 * Tags: models, planner, reviewer
@@ -174,63 +179,56 @@ Dependencies:
 * Patch Builder
 * Reviewer
 
-Current milestones:
+Completed milestones:
 
-* Agent Model Routing
-* Model Benchmark Runs
-* Model Comparison Runs
-* Automatic Model Recommendation
 * Agent Orchestration
 * Autonomous Execution Safeguards
 
 Implementation notes:
 
-* Routing has started with preferred and fallback model assignments per profile.
-* The next step is to make routing data-driven rather than purely rule-based.
+* Routing now supports preferred, recommendation-driven, and fallback model selection.
+* Benchmarks, comparisons, and recommendations are persisted and surfaced in the dashboard.
+* The recommendation flow is now wired into the routing UI.
 
-## V2.8 Project History Index
+## V2.8 Agent Orchestration
 
-* Id: v2-8-project-history-index
+* Id: v2-8-agent-orchestration
 * Status: Completed
-* Priority: High
+* Priority: Medium
 * SourceType: Roadmap
-* Tags: project-history-index, memory, indexing
+* Tags: orchestration, workflow, coordination
 
 Dependencies:
 
-* Project Knowledge Index
+* Agent Model Routing
+* Automatic Model Recommendation
 * Run History
-* Patch History
-* Verification History
+* Apply Audit Log
 
 Implementation notes:
 
-* The index is rebuilt from docs and runtime data.
-* Summary output now reflects completed safe apply work, completed dashboard work, and in-progress multi-model work.
+* Orchestration now executes the existing planner, patch builder, verifier, reviewer, apply, and git sync services.
+* Safety reviews are generated before apply and recorded in the timeline and audit log.
+* The orchestration panel now shows run state, apply decisions, git sync results, and audit timeline events.
 
-Acceptance Criteria:
+## V2.9 Autonomous Execution Controls
 
-* Items can be rebuilt from docs and runtime data.
-* Summary output shows completed, pending, failed, and recommended work.
-* Items retain relative file paths and stable IDs.
+* Id: v2-9-autonomous-execution-controls
+* Status: Planned
+* Priority: High
+* SourceType: Roadmap
+* Tags: autonomy, orchestration, safeguards
 
-Data Sources:
+Dependencies:
 
-* Agent Runs
-* Task Plans
-* Patch History
-* Verification History
-* Docs/Roadmap.md
-* Docs/CompletedWork.md
-* Docs/Architecture.md
-* AGENTS.md
-* Project Knowledge Index
+* Agent Orchestration
+* Apply Audit Log
+* Orchestration Safety Review
 
-Future:
+Implementation notes:
 
-* Git log indexing
-* Commit clustering
-* Automatic changelog generation
+* This phase will add human approval queues, pause/resume controls, retry controls, and scheduled runs.
+* Execution policy profiles will define when orchestration can run automatically.
 
 ## V3 Vision
 

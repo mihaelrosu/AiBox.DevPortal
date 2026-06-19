@@ -1,6 +1,6 @@
 {
   "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
-  "rebuiltAtUtc": "2026-06-14T11:38:05.2962375Z",
+  "rebuiltAtUtc": "2026-06-19T16:22:49.5687824Z",
   "items": [
     {
       "relativePath": ".history/appsettings_20260609152230.json",
@@ -82,6 +82,33 @@
       "kind": "RazorComponent",
       "summary": "",
       "lastModifiedUtc": "2026-06-11T18:59:44.9578968Z"
+    },
+    {
+      "relativePath": ".history/Components/Coder/TaskPlanPreviewPanel_20260616092702.razor",
+      "fileType": "Razor",
+      "name": "TaskPlanPreviewPanel_20260616092702",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-17T11:21:19.7368273Z"
+    },
+    {
+      "relativePath": ".history/Components/Coder/TaskPlanPreviewPanel_20260617112119.razor",
+      "fileType": "Razor",
+      "name": "TaskPlanPreviewPanel_20260617112119",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-17T11:21:19.8528281Z"
+    },
+    {
+      "relativePath": ".history/Components/Coder/TaskPlanPreviewPanel_20260618130433.razor",
+      "fileType": "Razor",
+      "name": "TaskPlanPreviewPanel_20260618130433",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T13:04:33.4207793Z"
     },
     {
       "relativePath": ".history/Components/Common/AppDataGrid_20260611112109.razor",
@@ -498,6 +525,15 @@
       "lastModifiedUtc": "2026-06-11T18:59:44.8908968Z"
     },
     {
+      "relativePath": ".history/Components/Pages/Coder_20260618130433.razor",
+      "fileType": "Razor",
+      "name": "Coder_20260618130433",
+      "namespace": "",
+      "kind": "RazorPage",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T13:04:33.3997793Z"
+    },
+    {
       "relativePath": ".history/Components/Pages/FileFinder_20260609153633.razor",
       "fileType": "Razor",
       "name": "FileFinder_20260609153633",
@@ -514,6 +550,213 @@
       "kind": "RazorPage",
       "summary": "",
       "lastModifiedUtc": "2026-06-09T15:44:52.5187361Z"
+    },
+    {
+      "relativePath": ".history/Components/TaskSliceExecutionPanel_20260616143204.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceExecutionPanel_20260616143204",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:33:56.404191Z"
+    },
+    {
+      "relativePath": ".history/Components/TaskSliceExecutionPanel_20260616143356.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceExecutionPanel_20260616143356",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:33:56.430191Z"
+    },
+    {
+      "relativePath": ".history/Components/TaskSliceExecutionPanel_20260616143608.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceExecutionPanel_20260616143608",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:36:08.4040949Z"
+    },
+    {
+      "relativePath": ".history/Components/TaskSliceExecutionPanel_20260616144133.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceExecutionPanel_20260616144133",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:41:33.2418154Z"
+    },
+    {
+      "relativePath": ".history/Components/TaskSliceExecutionPanel_20260617112119.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceExecutionPanel_20260617112119",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-17T11:21:19.8388189Z"
+    },
+    {
+      "relativePath": ".history/Models/AllowedChangeType_20260614151344.cs",
+      "fileType": "CSharp",
+      "name": "AllowedChangeType_20260614151344",
+      "namespace": "",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:14:01.3865938Z"
+    },
+    {
+      "relativePath": ".history/Models/AllowedChangeType_20260614151401.cs",
+      "fileType": "CSharp",
+      "name": "AllowedChangeType_20260614151401",
+      "namespace": "",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:14:01.4437419Z"
+    },
+    {
+      "relativePath": ".history/Models/PatchBackupResult_20260616140932.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupResult_20260616140932",
+      "namespace": "",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:11:21.0665602Z"
+    },
+    {
+      "relativePath": ".history/Models/PatchBackupResult_20260616141121.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupResult_20260616141121",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:11:21.1085602Z"
+    },
+    {
+      "relativePath": ".history/Models/PatchBackupResult_20260616141234.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupResult_20260616141234",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:12:34.6714858Z"
+    },
+    {
+      "relativePath": ".history/Models/PatchBackupResult_20260618125512.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupResult_20260618125512",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T12:55:12.6101759Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskPlanSlice_20260618142440.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanSlice_20260618142440",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T15:18:42.9452612Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskPlanSlice_20260618151845.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanSlice_20260618151845",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T15:18:45.9282592Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskPlan_20260614150714.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlan_20260614150714",
+      "namespace": "",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:14:01.3915938Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskPlan_20260614151401.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlan_20260614151401",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:14:01.4745937Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskPlan_20260614151905.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlan_20260614151905",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:19:05.3073508Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskPlan_20260614152600.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlan_20260614152600",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:26:00.0330278Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskSliceExecutionRequest_20260614185914.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceExecutionRequest_20260614185914",
+      "namespace": "",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:59:33.2950244Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskSliceExecutionRequest_20260614185933.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceExecutionRequest_20260614185933",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:59:33.3354034Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskSlice_20260614150714.cs",
+      "fileType": "CSharp",
+      "name": "TaskSlice_20260614150714",
+      "namespace": "",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:14:01.3895938Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskSlice_20260614151401.cs",
+      "fileType": "CSharp",
+      "name": "TaskSlice_20260614151401",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:14:01.4560517Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskSlice_20260614151905.cs",
+      "fileType": "CSharp",
+      "name": "TaskSlice_20260614151905",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:19:05.2844724Z"
+    },
+    {
+      "relativePath": ".history/Models/TaskSlice_20260614152555.cs",
+      "fileType": "CSharp",
+      "name": "TaskSlice_20260614152555",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:25:55.4890664Z"
     },
     {
       "relativePath": ".history/Pages/Agents/LocalCoderHistory_20260611193022.razor",
@@ -561,6 +804,87 @@
       "lastModifiedUtc": "2026-06-10T14:20:51.1622637Z"
     },
     {
+      "relativePath": ".history/Program_20260614153522.cs",
+      "fileType": "CSharp",
+      "name": "Program_20260614153522",
+      "namespace": "",
+      "kind": "Unknown",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:35:22.7016434Z"
+    },
+    {
+      "relativePath": ".history/Program_20260616140526.cs",
+      "fileType": "CSharp",
+      "name": "Program_20260616140526",
+      "namespace": "",
+      "kind": "Unknown",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:05:26.6159048Z"
+    },
+    {
+      "relativePath": ".history/Program_20260616141125.cs",
+      "fileType": "CSharp",
+      "name": "Program_20260616141125",
+      "namespace": "",
+      "kind": "Unknown",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:11:25.0705563Z"
+    },
+    {
+      "relativePath": ".history/Program_20260616141300.cs",
+      "fileType": "CSharp",
+      "name": "Program_20260616141300",
+      "namespace": "",
+      "kind": "Unknown",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:13:00.4041183Z"
+    },
+    {
+      "relativePath": ".history/Program_20260616141806.cs",
+      "fileType": "CSharp",
+      "name": "Program_20260616141806",
+      "namespace": "",
+      "kind": "Unknown",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:18:06.9840005Z"
+    },
+    {
+      "relativePath": ".history/Program_20260616141914.cs",
+      "fileType": "CSharp",
+      "name": "Program_20260616141914",
+      "namespace": "",
+      "kind": "Unknown",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:19:14.5779053Z"
+    },
+    {
+      "relativePath": ".history/Program_20260616141957.cs",
+      "fileType": "CSharp",
+      "name": "Program_20260616141957",
+      "namespace": "",
+      "kind": "Unknown",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:19:57.6308706Z"
+    },
+    {
+      "relativePath": ".history/Services/Agents/AgentActionProfiles_20260614163552.cs",
+      "fileType": "CSharp",
+      "name": "AgentActionProfiles_20260614163552",
+      "namespace": "AiBox.DevPortal.Services.Agents",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T16:37:00.5350343Z"
+    },
+    {
+      "relativePath": ".history/Services/Agents/AgentActionProfiles_20260614163700.cs",
+      "fileType": "CSharp",
+      "name": "AgentActionProfiles_20260614163700",
+      "namespace": "AiBox.DevPortal.Services.Agents",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T16:37:00.6193524Z"
+    },
+    {
       "relativePath": ".history/Services/ExecutionPermissionProfileService_20260606160023.cs",
       "fileType": "CSharp",
       "name": "ExecutionPermissionProfileService_20260606160023",
@@ -577,6 +901,204 @@
       "kind": "Service",
       "summary": "",
       "lastModifiedUtc": "2026-06-11T10:50:59.3106448Z"
+    },
+    {
+      "relativePath": ".history/Services/IPatchBackupService_20260616142106.cs",
+      "fileType": "CSharp",
+      "name": "IPatchBackupService_20260616142106",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:22:18.4936856Z"
+    },
+    {
+      "relativePath": ".history/Services/IPatchBackupService_20260616142218.cs",
+      "fileType": "CSharp",
+      "name": "IPatchBackupService_20260616142218",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:22:18.5242541Z"
+    },
+    {
+      "relativePath": ".history/Services/IPatchBackupService_20260616142347.cs",
+      "fileType": "CSharp",
+      "name": "IPatchBackupService_20260616142347",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:23:47.0135893Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616135504.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616135504",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:58:26.4324262Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616135826.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616135826",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:58:26.462965Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616135921.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616135921",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:59:21.243498Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616141232.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616141232",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:12:32.5654889Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616141450.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616141450",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:14:50.7262872Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616141801.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616141801",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:18:01.0770091Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616141914.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616141914",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:19:14.5860694Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616142219.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616142219",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:22:19.7887563Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616142343.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616142343",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:23:43.0056893Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260616142620.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260616142620",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:26:20.5804776Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchBackupService_20260618125512.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService_20260618125512",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T12:55:12.5921759Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchIntentService_20260616115429.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService_20260616115429",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:10:04.4692548Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchIntentService_20260616131004.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService_20260616131004",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:10:04.6102547Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchIntentService_20260616132748.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService_20260616132748",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:27:48.572174Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchIntentService_20260616133302.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService_20260616133302",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:33:02.2906869Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchIntentService_20260616133612.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService_20260616133612",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:36:12.54369Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchIntentService_20260616134225.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService_20260616134225",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:42:25.1493806Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchIntentService_20260616134233.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService_20260616134233",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:42:33.0953743Z"
+    },
+    {
+      "relativePath": ".history/Services/PatchIntentService_20260616134941.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService_20260616134941",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T13:49:41.5470312Z"
     },
     {
       "relativePath": ".history/Services/ProjectRegistryService_20260606154738.cs",
@@ -606,6 +1128,42 @@
       "lastModifiedUtc": "2026-06-11T10:49:34.7877032Z"
     },
     {
+      "relativePath": ".history/Services/TaskDecompositionService_20260614150714.cs",
+      "fileType": "CSharp",
+      "name": "TaskDecompositionService_20260614150714",
+      "namespace": "",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:16:16.9994815Z"
+    },
+    {
+      "relativePath": ".history/Services/TaskDecompositionService_20260614151617.cs",
+      "fileType": "CSharp",
+      "name": "TaskDecompositionService_20260614151617",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:16:17.0714814Z"
+    },
+    {
+      "relativePath": ".history/Services/TaskDecompositionService_20260614151905.cs",
+      "fileType": "CSharp",
+      "name": "TaskDecompositionService_20260614151905",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:19:05.300342Z"
+    },
+    {
+      "relativePath": ".history/Services/TaskDecompositionService_20260614152322.cs",
+      "fileType": "CSharp",
+      "name": "TaskDecompositionService_20260614152322",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:23:22.4881354Z"
+    },
+    {
       "relativePath": ".history/tests/AiBox.DevPortal.Tests/PatchAnchorMatcherTests_20260611160216.cs",
       "fileType": "CSharp",
       "name": "PatchAnchorMatcherTests_20260611160216",
@@ -631,6 +1189,51 @@
       "kind": "Test",
       "summary": "",
       "lastModifiedUtc": "2026-06-11T16:44:08.4038194Z"
+    },
+    {
+      "relativePath": ".history/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests_20260614115005.cs",
+      "fileType": "CSharp",
+      "name": "SelectedContextValidatorTests_20260614115005",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T12:04:19.3760154Z"
+    },
+    {
+      "relativePath": ".history/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests_20260614120419.cs",
+      "fileType": "CSharp",
+      "name": "SelectedContextValidatorTests_20260614120419",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T12:04:19.4633099Z"
+    },
+    {
+      "relativePath": ".history/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests_20260614120558.cs",
+      "fileType": "CSharp",
+      "name": "SelectedContextValidatorTests_20260614120558",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T12:05:58.0179537Z"
+    },
+    {
+      "relativePath": ".history/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests_20260614121331.cs",
+      "fileType": "CSharp",
+      "name": "SelectedContextValidatorTests_20260614121331",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T12:13:31.2796722Z"
+    },
+    {
+      "relativePath": ".history/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests_20260614132711.cs",
+      "fileType": "CSharp",
+      "name": "SelectedContextValidatorTests_20260614132711",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T13:27:11.3371037Z"
     },
     {
       "relativePath": ".vscode/extensions.json",
@@ -666,7 +1269,7 @@
       "namespace": "",
       "kind": "Config",
       "summary": "",
-      "lastModifiedUtc": "2026-06-06T14:21:48.2865528Z"
+      "lastModifiedUtc": "2026-06-18T14:22:00.7169342Z"
     },
     {
       "relativePath": "AiBox.DevPortal.csproj",
@@ -822,13 +1425,67 @@
       "lastModifiedUtc": "2026-06-11T12:53:48.9339322Z"
     },
     {
-      "relativePath": "Components/Coder/CoderAgentProfilesPanel.razor",
+      "relativePath": "Components/Coder/AgentDashboardMetricsPanel.razor",
       "fileType": "Razor",
-      "name": "CoderAgentProfilesPanel",
+      "name": "AgentDashboardMetricsPanel",
       "namespace": "",
       "kind": "RazorComponent",
       "summary": "",
-      "lastModifiedUtc": "2026-06-11T18:56:36.7560693Z"
+      "lastModifiedUtc": "2026-06-18T16:34:59.8190362Z"
+    },
+    {
+      "relativePath": "Components/Coder/AgentDashboardPanel.razor",
+      "fileType": "Razor",
+      "name": "AgentDashboardPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:41:52.4425226Z"
+    },
+    {
+      "relativePath": "Components/Coder/AgentModelBenchmarkPanel.razor",
+      "fileType": "Razor",
+      "name": "AgentModelBenchmarkPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:02:36.6182214Z"
+    },
+    {
+      "relativePath": "Components/Coder/AgentModelComparisonPanel.razor",
+      "fileType": "Razor",
+      "name": "AgentModelComparisonPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:12:37.0840725Z"
+    },
+    {
+      "relativePath": "Components/Coder/AgentModelRecommendationPanel.razor",
+      "fileType": "Razor",
+      "name": "AgentModelRecommendationPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:29:39.918833Z"
+    },
+    {
+      "relativePath": "Components/Coder/AgentOrchestrationPanel.razor",
+      "fileType": "Razor",
+      "name": "AgentOrchestrationPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T16:21:02.0890983Z"
+    },
+    {
+      "relativePath": "Components/Coder/AgentProfilesPanel.razor",
+      "fileType": "Razor",
+      "name": "AgentProfilesPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:27:44.2448614Z"
     },
     {
       "relativePath": "Components/Coder/CoderDiffViewer.razor",
@@ -837,7 +1494,7 @@
       "namespace": "",
       "kind": "RazorComponent",
       "summary": "",
-      "lastModifiedUtc": "2026-06-13T15:52:33.363603Z"
+      "lastModifiedUtc": "2026-06-16T09:53:59.3239883Z"
     },
     {
       "relativePath": "Components/Coder/CoderExecutionPanel.razor",
@@ -912,6 +1569,78 @@
       "lastModifiedUtc": "2026-06-12T20:31:05.9210938Z"
     },
     {
+      "relativePath": "Components/Coder/ProjectHistoryPanel.razor",
+      "fileType": "Razor",
+      "name": "ProjectHistoryPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T11:23:02.0174093Z"
+    },
+    {
+      "relativePath": "Components/Coder/TaskPlanDependencyPanel.razor",
+      "fileType": "Razor",
+      "name": "TaskPlanDependencyPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T09:42:29.6746445Z"
+    },
+    {
+      "relativePath": "Components/Coder/TaskPlanPreviewPanel.razor",
+      "fileType": "Razor",
+      "name": "TaskPlanPreviewPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:54:17.7663415Z"
+    },
+    {
+      "relativePath": "Components/Coder/TaskSliceApplyAuditPanel.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceApplyAuditPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:26:25.7147979Z"
+    },
+    {
+      "relativePath": "Components/Coder/TaskSliceApplyHistoryPanel.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceApplyHistoryPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T16:21:41.8398191Z"
+    },
+    {
+      "relativePath": "Components/Coder/TaskSliceApprovalPanel.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceApprovalPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T18:04:34.3063353Z"
+    },
+    {
+      "relativePath": "Components/Coder/TaskSliceHistoryPanel.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceHistoryPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T15:38:46.6689159Z"
+    },
+    {
+      "relativePath": "Components/Coder/TaskSliceRiskPanel.razor",
+      "fileType": "Razor",
+      "name": "TaskSliceRiskPanel",
+      "namespace": "",
+      "kind": "RazorComponent",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T18:04:25.1063427Z"
+    },
+    {
       "relativePath": "Components/CodexTaskExportDialog.razor",
       "fileType": "Razor",
       "name": "CodexTaskExportDialog",
@@ -981,7 +1710,7 @@
       "namespace": "",
       "kind": "RazorPage",
       "summary": "",
-      "lastModifiedUtc": "2026-06-11T11:37:43.6743666Z"
+      "lastModifiedUtc": "2026-06-18T16:35:10.8130219Z"
     },
     {
       "relativePath": "Components/Pages/Agents/LocalCoder.razor",
@@ -1017,7 +1746,7 @@
       "namespace": "",
       "kind": "RazorPage",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T10:53:25.0757059Z"
+      "lastModifiedUtc": "2026-06-19T16:21:15.4600949Z"
     },
     {
       "relativePath": "Components/Pages/ComfyUi.razor",
@@ -1323,7 +2052,7 @@
       "namespace": "",
       "kind": "Config",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T11:35:43.7709242Z"
+      "lastModifiedUtc": "2026-06-16T11:04:00.7795196Z"
     },
     {
       "relativePath": "Data/agents.json",
@@ -1341,7 +2070,7 @@
       "namespace": "",
       "kind": "Config",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T11:35:43.8175769Z"
+      "lastModifiedUtc": "2026-06-16T11:04:00.8281575Z"
     },
     {
       "relativePath": "Data/coder-tasks.json",
@@ -1350,7 +2079,7 @@
       "namespace": "",
       "kind": "Config",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T11:35:40.9296454Z"
+      "lastModifiedUtc": "2026-06-16T11:03:25.2578366Z"
     },
     {
       "relativePath": "Data/execution-permission-profiles.json",
@@ -1686,6 +2415,114 @@
       "lastModifiedUtc": "2026-06-14T10:27:11.2784908Z"
     },
     {
+      "relativePath": "Data/patch-backups/20260614115006/Services/SelectedContextValidator.cs",
+      "fileType": "CSharp",
+      "name": "SelectedContextValidator",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T11:50:06.215836Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614115006/tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs",
+      "fileType": "CSharp",
+      "name": "SelectedContextValidatorTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T11:50:06.2169869Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614155406/Services/AgentInstructionService.cs",
+      "fileType": "CSharp",
+      "name": "AgentInstructionService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:54:06.1522142Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614161436/Services/AgentInstructionService.cs",
+      "fileType": "CSharp",
+      "name": "AgentInstructionService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T16:14:36.7810556Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614163523/Services/Agents/AgentActionProfiles.cs",
+      "fileType": "CSharp",
+      "name": "AgentActionProfiles",
+      "namespace": "AiBox.DevPortal.Services.Agents",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T16:35:23.3144269Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614180212/Services/Agents/AgentModeProfileService.cs",
+      "fileType": "CSharp",
+      "name": "AgentModeProfileService",
+      "namespace": "AiBox.DevPortal.Services.Agents",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:02:12.8755032Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614181636/Services/Agents/AgentModeProfileService.cs",
+      "fileType": "CSharp",
+      "name": "AgentModeProfileService",
+      "namespace": "AiBox.DevPortal.Services.Agents",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:16:36.9038844Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614182556/Services/Agents/AgentModeProfileService.cs",
+      "fileType": "CSharp",
+      "name": "AgentModeProfileService",
+      "namespace": "AiBox.DevPortal.Services.Agents",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:25:56.5131758Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614182927/Services/Agents/AgentActionProfiles.cs",
+      "fileType": "CSharp",
+      "name": "AgentActionProfiles",
+      "namespace": "AiBox.DevPortal.Services.Agents",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:29:27.8034195Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260614182927/Services/Agents/AgentModeRunner.cs",
+      "fileType": "CSharp",
+      "name": "AgentModeRunner",
+      "namespace": "AiBox.DevPortal.Services.Agents",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:29:27.8041835Z"
+    },
+    {
+      "relativePath": "Data/patch-backups/20260616110003/Services/PatchIntentService.cs",
+      "fileType": "CSharp",
+      "name": "PatchIntentService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T11:00:03.9602322Z"
+    },
+    {
+      "relativePath": "Data/patches/016aceb78a9d4a19bee0093ae23736cc.json",
+      "fileType": "Config",
+      "name": "016aceb78a9d4a19bee0093ae23736cc",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:05:07.2273779Z"
+    },
+    {
       "relativePath": "Data/patches/05b1ed84ad1846409d6f51bc6e6c3301.json",
       "fileType": "Config",
       "name": "05b1ed84ad1846409d6f51bc6e6c3301",
@@ -1722,6 +2559,15 @@
       "lastModifiedUtc": "2026-06-12T15:18:33.3685088Z"
     },
     {
+      "relativePath": "Data/patches/12094010aa924e3f9e40042435d2f2aa.json",
+      "fileType": "Config",
+      "name": "12094010aa924e3f9e40042435d2f2aa",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T16:53:29.550912Z"
+    },
+    {
       "relativePath": "Data/patches/16b9d91fa38b40a49f36e2145a06aae8.json",
       "fileType": "Config",
       "name": "16b9d91fa38b40a49f36e2145a06aae8",
@@ -1749,6 +2595,15 @@
       "lastModifiedUtc": "2026-06-12T15:04:36.261049Z"
     },
     {
+      "relativePath": "Data/patches/25190c508a1d484e831ebd30065dbdb7.json",
+      "fileType": "Config",
+      "name": "25190c508a1d484e831ebd30065dbdb7",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T11:50:06.2197619Z"
+    },
+    {
       "relativePath": "Data/patches/27e7e5be273341f38869c581fb1bf7b0.json",
       "fileType": "Config",
       "name": "27e7e5be273341f38869c581fb1bf7b0",
@@ -1765,6 +2620,15 @@
       "kind": "Config",
       "summary": "",
       "lastModifiedUtc": "2026-06-11T19:45:06.3207704Z"
+    },
+    {
+      "relativePath": "Data/patches/2d3af647cf6b4544949dca5330802f66.json",
+      "fileType": "Config",
+      "name": "2d3af647cf6b4544949dca5330802f66",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:25:56.5153429Z"
     },
     {
       "relativePath": "Data/patches/352b579dbc8447c3bf5f7a89fc82e563.json",
@@ -1812,6 +2676,24 @@
       "lastModifiedUtc": "2026-06-12T19:20:01.7981842Z"
     },
     {
+      "relativePath": "Data/patches/62ce543c4b4242b291f103a262cdbb15.json",
+      "fileType": "Config",
+      "name": "62ce543c4b4242b291f103a262cdbb15",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T10:52:50.2507764Z"
+    },
+    {
+      "relativePath": "Data/patches/66b3a19ce14a451ba6103ad56db693d0.json",
+      "fileType": "Config",
+      "name": "66b3a19ce14a451ba6103ad56db693d0",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:31:10.5507445Z"
+    },
+    {
       "relativePath": "Data/patches/6d5e5d2537d448caa95ce5d6f2ed8467.json",
       "fileType": "Config",
       "name": "6d5e5d2537d448caa95ce5d6f2ed8467",
@@ -1819,6 +2701,15 @@
       "kind": "Config",
       "summary": "",
       "lastModifiedUtc": "2026-06-11T19:34:39.4766119Z"
+    },
+    {
+      "relativePath": "Data/patches/6dbe5838524c4447a49fcb670820d22a.json",
+      "fileType": "Config",
+      "name": "6dbe5838524c4447a49fcb670820d22a",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:29:27.8044767Z"
     },
     {
       "relativePath": "Data/patches/7043d4b1b0604d98a79b39153729cac9.json",
@@ -1848,6 +2739,15 @@
       "lastModifiedUtc": "2026-06-12T13:51:08.2973637Z"
     },
     {
+      "relativePath": "Data/patches/a4094b7155dc4fb880e4d57530966a0b.json",
+      "fileType": "Config",
+      "name": "a4094b7155dc4fb880e4d57530966a0b",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T16:35:53.4689608Z"
+    },
+    {
       "relativePath": "Data/patches/aacd232f3c994c81b28e2e11adeb423c.json",
       "fileType": "Config",
       "name": "aacd232f3c994c81b28e2e11adeb423c",
@@ -1864,6 +2764,24 @@
       "kind": "Config",
       "summary": "",
       "lastModifiedUtc": "2026-06-13T17:33:08.318467Z"
+    },
+    {
+      "relativePath": "Data/patches/bc6090b7fa9741cfb76767e8dd6aa05c.json",
+      "fileType": "Config",
+      "name": "bc6090b7fa9741cfb76767e8dd6aa05c",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T16:14:36.7840577Z"
+    },
+    {
+      "relativePath": "Data/patches/be54eedf768c46c4a7aa946c3713c343.json",
+      "fileType": "Config",
+      "name": "be54eedf768c46c4a7aa946c3713c343",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T17:57:13.6987182Z"
     },
     {
       "relativePath": "Data/patches/c0b5d46ba1244df99f5983760fd7d46f.json",
@@ -1893,6 +2811,24 @@
       "lastModifiedUtc": "2026-06-12T19:59:06.0139974Z"
     },
     {
+      "relativePath": "Data/patches/c7d1f026b6f84a468d4ac450ff4f668c.json",
+      "fileType": "Config",
+      "name": "c7d1f026b6f84a468d4ac450ff4f668c",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T11:00:03.962122Z"
+    },
+    {
+      "relativePath": "Data/patches/c880ba25dc10460b87a07427cd71e165.json",
+      "fileType": "Config",
+      "name": "c880ba25dc10460b87a07427cd71e165",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:07:15.6117349Z"
+    },
+    {
       "relativePath": "Data/patches/cd83ebda377d47ff8eefae595a0165f5.json",
       "fileType": "Config",
       "name": "cd83ebda377d47ff8eefae595a0165f5",
@@ -1920,6 +2856,15 @@
       "lastModifiedUtc": "2026-06-12T16:02:02.3259106Z"
     },
     {
+      "relativePath": "Data/patches/d3b057053d5c4ba58cae3b88c3ae93a4.json",
+      "fileType": "Config",
+      "name": "d3b057053d5c4ba58cae3b88c3ae93a4",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T18:17:27.5648487Z"
+    },
+    {
       "relativePath": "Data/patches/d3cec9d2ed4e441781c0c871e676d499.json",
       "fileType": "Config",
       "name": "d3cec9d2ed4e441781c0c871e676d499",
@@ -1927,6 +2872,15 @@
       "kind": "Config",
       "summary": "",
       "lastModifiedUtc": "2026-06-13T20:30:35.2351716Z"
+    },
+    {
+      "relativePath": "Data/patches/e89327f29b574c78abf934b8cd337b07.json",
+      "fileType": "Config",
+      "name": "e89327f29b574c78abf934b8cd337b07",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:54:31.5821897Z"
     },
     {
       "relativePath": "Data/patches/f22cce0dc38542f893d93fdd7b0dc9f0.json",
@@ -1938,6 +2892,24 @@
       "lastModifiedUtc": "2026-06-12T14:38:48.8692048Z"
     },
     {
+      "relativePath": "Data/project-history-index.json",
+      "fileType": "Config",
+      "name": "project-history-index",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T16:14:11.5763928Z"
+    },
+    {
+      "relativePath": "Data/project-knowledge-index.json",
+      "fileType": "Config",
+      "name": "project-knowledge-index",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T16:14:11.1964114Z"
+    },
+    {
       "relativePath": "Data/projects.json",
       "fileType": "Config",
       "name": "projects",
@@ -1945,6 +2917,24 @@
       "kind": "Config",
       "summary": "",
       "lastModifiedUtc": "2026-06-06T15:49:43.6762056Z"
+    },
+    {
+      "relativePath": "Data/task-slice-execution-history.json",
+      "fileType": "Config",
+      "name": "task-slice-execution-history",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T16:53:29.6079119Z"
+    },
+    {
+      "relativePath": "Data/task-slice-verification-history.json",
+      "fileType": "Config",
+      "name": "task-slice-verification-history",
+      "namespace": "",
+      "kind": "Config",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T15:11:43.8236841Z"
     },
     {
       "relativePath": "Data/verification-profiles.json",
@@ -1974,6 +2964,24 @@
       "lastModifiedUtc": "2026-06-06T14:47:49.954221Z"
     },
     {
+      "relativePath": "Models/AgentDashboardMetrics.cs",
+      "fileType": "CSharp",
+      "name": "AgentDashboardMetrics",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T16:34:59.1870371Z"
+    },
+    {
+      "relativePath": "Models/AgentDashboardSummary.cs",
+      "fileType": "CSharp",
+      "name": "AgentDashboardSummary",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:41:03.0055327Z"
+    },
+    {
       "relativePath": "Models/AgentInstructionContext.cs",
       "fileType": "CSharp",
       "name": "AgentInstructionContext",
@@ -1981,6 +2989,69 @@
       "kind": "Model",
       "summary": "",
       "lastModifiedUtc": "2026-06-14T09:44:54.2221692Z"
+    },
+    {
+      "relativePath": "Models/AgentModelAssignment.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelAssignment",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:26:08.8718847Z"
+    },
+    {
+      "relativePath": "Models/AgentModelBenchmarkRun.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelBenchmarkRun",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:01:52.1962333Z"
+    },
+    {
+      "relativePath": "Models/AgentModelComparisonRun.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelComparisonRun",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:11:58.3455065Z"
+    },
+    {
+      "relativePath": "Models/AgentModelRecommendation.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelRecommendation",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:17:13.2132407Z"
+    },
+    {
+      "relativePath": "Models/AgentOrchestrationRun.cs",
+      "fileType": "CSharp",
+      "name": "AgentOrchestrationRun",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T16:21:01.7034759Z"
+    },
+    {
+      "relativePath": "Models/AgentOrchestrationStatus.cs",
+      "fileType": "CSharp",
+      "name": "AgentOrchestrationStatus",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T16:21:01.3140985Z"
+    },
+    {
+      "relativePath": "Models/AgentOrchestrationStep.cs",
+      "fileType": "CSharp",
+      "name": "AgentOrchestrationStep",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T16:21:01.5090984Z"
     },
     {
       "relativePath": "Models/Agents/AgentDefinition.cs",
@@ -2007,7 +3078,7 @@
       "namespace": "AiBox.DevPortal.Models.Agents",
       "kind": "Model",
       "summary": "",
-      "lastModifiedUtc": "2026-06-10T14:01:34.0814165Z"
+      "lastModifiedUtc": "2026-06-19T14:47:21.0664553Z"
     },
     {
       "relativePath": "Models/Agents/AgentPermission.cs",
@@ -2098,6 +3169,15 @@
       "kind": "Model",
       "summary": "",
       "lastModifiedUtc": "2026-06-02T16:31:47.2117469Z"
+    },
+    {
+      "relativePath": "Models/AllowedChangeType.cs",
+      "fileType": "CSharp",
+      "name": "AllowedChangeType",
+      "namespace": "",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:14:01.4215937Z"
     },
     {
       "relativePath": "Models/CodexTaskExportRequest.cs",
@@ -2586,6 +3666,15 @@
       "lastModifiedUtc": "2026-06-10T14:48:42.651901Z"
     },
     {
+      "relativePath": "Models/PatchBackupResult.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupResult",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T12:55:12.5681759Z"
+    },
+    {
       "relativePath": "Models/PatchContextCoverage.cs",
       "fileType": "CSharp",
       "name": "PatchContextCoverage",
@@ -2721,6 +3810,15 @@
       "lastModifiedUtc": "2026-06-13T10:44:38.3472278Z"
     },
     {
+      "relativePath": "Models/PatchRollbackEntry.cs",
+      "fileType": "CSharp",
+      "name": "PatchRollbackEntry",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:25:23.7818241Z"
+    },
+    {
       "relativePath": "Models/PatchScopeAnalysis.cs",
       "fileType": "CSharp",
       "name": "PatchScopeAnalysis",
@@ -2820,6 +3918,33 @@
       "lastModifiedUtc": "2026-06-07T15:45:20.3437515Z"
     },
     {
+      "relativePath": "Models/ProjectHistoryIndex.cs",
+      "fileType": "CSharp",
+      "name": "ProjectHistoryIndex",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T10:10:30.7541136Z"
+    },
+    {
+      "relativePath": "Models/ProjectHistoryItem.cs",
+      "fileType": "CSharp",
+      "name": "ProjectHistoryItem",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T10:10:30.5571138Z"
+    },
+    {
+      "relativePath": "Models/ProjectHistorySummary.cs",
+      "fileType": "CSharp",
+      "name": "ProjectHistorySummary",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T10:10:30.9301134Z"
+    },
+    {
       "relativePath": "Models/ProjectKnowledgeIndex.cs",
       "fileType": "CSharp",
       "name": "ProjectKnowledgeIndex",
@@ -2901,6 +4026,33 @@
       "lastModifiedUtc": "2026-06-07T10:50:39.2474085Z"
     },
     {
+      "relativePath": "Models/RiskAnalysisResult.cs",
+      "fileType": "CSharp",
+      "name": "RiskAnalysisResult",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:39:47.3565187Z"
+    },
+    {
+      "relativePath": "Models/RiskFactor.cs",
+      "fileType": "CSharp",
+      "name": "RiskFactor",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:39:47.1555187Z"
+    },
+    {
+      "relativePath": "Models/RiskLevel.cs",
+      "fileType": "CSharp",
+      "name": "RiskLevel",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:39:46.9525188Z"
+    },
+    {
       "relativePath": "Models/SdxlTextToImageRequest.cs",
       "fileType": "CSharp",
       "name": "SdxlTextToImageRequest",
@@ -2926,6 +4078,168 @@
       "kind": "Model",
       "summary": "",
       "lastModifiedUtc": "2026-06-02T15:02:33.3468316Z"
+    },
+    {
+      "relativePath": "Models/TaskPlan.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlan",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T13:44:21.7522933Z"
+    },
+    {
+      "relativePath": "Models/TaskPlanApplyResult.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanApplyResult",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:30:18.858659Z"
+    },
+    {
+      "relativePath": "Models/TaskPlanExecutionGraph.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanExecutionGraph",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T09:31:41.9606565Z"
+    },
+    {
+      "relativePath": "Models/TaskPlanRiskSummary.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanRiskSummary",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:42:20.418484Z"
+    },
+    {
+      "relativePath": "Models/TaskPlanSlice.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanSlice",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:39:57.0565163Z"
+    },
+    {
+      "relativePath": "Models/TaskSlice.cs",
+      "fileType": "CSharp",
+      "name": "TaskSlice",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-14T15:25:55.4670309Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceApplyAuditEntry.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApplyAuditEntry",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:16:42.7790447Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceApplyHistoryItem.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApplyHistoryItem",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T16:21:41.4358194Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceApplyResult.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApplyResult",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:50:24.4723879Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceApproval.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApproval",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T16:51:57.0310916Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceBuildVerificationResult.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceBuildVerificationResult",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T15:27:22.8599522Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceDependency.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceDependency",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T10:43:44.9791597Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceExecutionRequest.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceExecutionRequest",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:09:55.2131438Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceExecutionResult.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceExecutionResult",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T16:50:54.8970838Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceRiskAnalysis.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceRiskAnalysis",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T18:04:00.9263623Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceRiskLevel.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceRiskLevel",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T18:03:56.367366Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceStatus.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceStatus",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T11:36:47.2035449Z"
+    },
+    {
+      "relativePath": "Models/TaskSliceVerificationLoopResult.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceVerificationLoopResult",
+      "namespace": "AiBox.DevPortal.Models",
+      "kind": "Model",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T20:04:08.3397511Z"
     },
     {
       "relativePath": "Models/VerificationCheck.cs",
@@ -3114,7 +4428,7 @@
       "namespace": "",
       "kind": "Unknown",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T11:01:33.8013729Z"
+      "lastModifiedUtc": "2026-06-19T16:21:15.264095Z"
     },
     {
       "relativePath": "Properties/AssemblyInfo.cs",
@@ -3135,13 +4449,76 @@
       "lastModifiedUtc": "2026-06-02T15:00:43.7859127Z"
     },
     {
+      "relativePath": "Services/AgentDashboardMetricsService.cs",
+      "fileType": "CSharp",
+      "name": "AgentDashboardMetricsService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T16:34:59.3820368Z"
+    },
+    {
+      "relativePath": "Services/AgentDashboardService.cs",
+      "fileType": "CSharp",
+      "name": "AgentDashboardService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:43:20.4895045Z"
+    },
+    {
       "relativePath": "Services/AgentInstructionService.cs",
       "fileType": "CSharp",
       "name": "AgentInstructionService",
       "namespace": "AiBox.DevPortal.Services",
       "kind": "Service",
+      "summary": "Manages agent instructions and builds context based on file paths.",
+      "lastModifiedUtc": "2026-06-14T16:23:16.4339979Z"
+    },
+    {
+      "relativePath": "Services/AgentModelBenchmarkService.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelBenchmarkService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T09:50:05.7478572Z"
+      "lastModifiedUtc": "2026-06-19T15:02:16.6122268Z"
+    },
+    {
+      "relativePath": "Services/AgentModelComparisonService.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelComparisonService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:12:16.7080772Z"
+    },
+    {
+      "relativePath": "Services/AgentModelRecommendationService.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelRecommendationService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:26:13.9188835Z"
+    },
+    {
+      "relativePath": "Services/AgentModelRoutingService.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelRoutingService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:28:08.7288554Z"
+    },
+    {
+      "relativePath": "Services/AgentOrchestrationService.cs",
+      "fileType": "CSharp",
+      "name": "AgentOrchestrationService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T16:21:58.5590841Z"
     },
     {
       "relativePath": "Services/Agents/AgentActionProfiles.cs",
@@ -3149,8 +4526,8 @@
       "name": "AgentActionProfiles",
       "namespace": "AiBox.DevPortal.Services.Agents",
       "kind": "Service",
-      "summary": "",
-      "lastModifiedUtc": "2026-06-10T14:18:39.7473925Z"
+      "summary": "Represents the action profiles for different agent operations.",
+      "lastModifiedUtc": "2026-06-14T18:29:27.8037757Z"
     },
     {
       "relativePath": "Services/Agents/AgentModeProfileService.cs",
@@ -3158,8 +4535,8 @@
       "name": "AgentModeProfileService",
       "namespace": "AiBox.DevPortal.Services.Agents",
       "kind": "Service",
-      "summary": "",
-      "lastModifiedUtc": "2026-06-12T20:34:23.0309682Z"
+      "summary": "Manages agent mode profiles.",
+      "lastModifiedUtc": "2026-06-19T14:48:25.2524421Z"
     },
     {
       "relativePath": "Services/Agents/AgentModeRunner.cs",
@@ -3167,8 +4544,8 @@
       "name": "AgentModeRunner",
       "namespace": "AiBox.DevPortal.Services.Agents",
       "kind": "Service",
-      "summary": "",
-      "lastModifiedUtc": "2026-06-14T09:50:32.1878355Z"
+      "summary": "Runs agent modes based on the provided profile and request.",
+      "lastModifiedUtc": "2026-06-14T18:29:27.8044767Z"
     },
     {
       "relativePath": "Services/Agents/AgentRegistryService.cs",
@@ -3356,8 +4733,8 @@
       "name": "CoderConsoleService",
       "namespace": "AiBox.DevPortal.Services",
       "kind": "Service",
-      "summary": "\\n Represents one saved Local Coder history entry.\\n",
-      "lastModifiedUtc": "2026-06-14T11:01:33.632373Z"
+      "summary": "Describes the member.",
+      "lastModifiedUtc": "2026-06-14T19:06:23.8047226Z"
     },
     {
       "relativePath": "Services/ComfyUiOperationService.cs",
@@ -3657,6 +5034,15 @@
       "lastModifiedUtc": "2026-06-10T14:48:43.0109008Z"
     },
     {
+      "relativePath": "Services/IPatchBackupService.cs",
+      "fileType": "CSharp",
+      "name": "IPatchBackupService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T14:23:46.9986861Z"
+    },
+    {
       "relativePath": "Services/IPatchEditOperationService.cs",
       "fileType": "CSharp",
       "name": "IPatchEditOperationService",
@@ -3681,7 +5067,7 @@
       "namespace": "AiBox.DevPortal.Services",
       "kind": "Service",
       "summary": "",
-      "lastModifiedUtc": "2026-06-10T14:41:47.2571455Z"
+      "lastModifiedUtc": "2026-06-19T14:26:01.2518082Z"
     },
     {
       "relativePath": "Services/IProjectKnowledgeIndexService.cs",
@@ -3855,6 +5241,15 @@
       "lastModifiedUtc": "2026-06-12T12:10:59.1604082Z"
     },
     {
+      "relativePath": "Services/PatchBackupService.cs",
+      "fileType": "CSharp",
+      "name": "PatchBackupService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T12:55:12.5681759Z"
+    },
+    {
       "relativePath": "Services/PatchContextCoverageAnalyzer.cs",
       "fileType": "CSharp",
       "name": "PatchContextCoverageAnalyzer",
@@ -3879,7 +5274,7 @@
       "namespace": "AiBox.DevPortal.Services",
       "kind": "Service",
       "summary": "\u0022, \u0022",
-      "lastModifiedUtc": "2026-06-13T20:22:11.0245901Z"
+      "lastModifiedUtc": "2026-06-14T19:02:19.9829018Z"
     },
     {
       "relativePath": "Services/PatchIntentGuard.cs",
@@ -3897,7 +5292,7 @@
       "namespace": "AiBox.DevPortal.Services",
       "kind": "Service",
       "summary": "",
-      "lastModifiedUtc": "2026-06-13T17:53:57.5444227Z"
+      "lastModifiedUtc": "2026-06-16T13:49:41.5270966Z"
     },
     {
       "relativePath": "Services/PatchPackageService.cs",
@@ -3915,7 +5310,7 @@
       "namespace": "AiBox.DevPortal.Services",
       "kind": "Service",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T10:40:03.9812692Z"
+      "lastModifiedUtc": "2026-06-14T19:02:06.3429118Z"
     },
     {
       "relativePath": "Services/PatchRollbackService.cs",
@@ -3924,7 +5319,7 @@
       "namespace": "AiBox.DevPortal.Services",
       "kind": "Service",
       "summary": "",
-      "lastModifiedUtc": "2026-06-10T14:41:57.1101397Z"
+      "lastModifiedUtc": "2026-06-19T14:29:47.0867127Z"
     },
     {
       "relativePath": "Services/PatchScopeGuard.cs",
@@ -3952,6 +5347,15 @@
       "kind": "Service",
       "summary": "",
       "lastModifiedUtc": "2026-06-14T10:51:32.427785Z"
+    },
+    {
+      "relativePath": "Services/ProjectHistoryIndexService.cs",
+      "fileType": "CSharp",
+      "name": "ProjectHistoryIndexService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:58:05.1742941Z"
     },
     {
       "relativePath": "Services/ProjectKnowledgeIndexService.cs",
@@ -4026,6 +5430,15 @@
       "lastModifiedUtc": "2026-06-07T10:51:33.1665382Z"
     },
     {
+      "relativePath": "Services/RiskAnalysisService.cs",
+      "fileType": "CSharp",
+      "name": "RiskAnalysisService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:42:33.4454814Z"
+    },
+    {
       "relativePath": "Services/SdxlTextToImageService.cs",
       "fileType": "CSharp",
       "name": "SdxlTextToImageService",
@@ -4041,7 +5454,133 @@
       "namespace": "AiBox.DevPortal.Services",
       "kind": "Service",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T10:37:00.8766526Z"
+      "lastModifiedUtc": "2026-06-14T15:01:48.340194Z"
+    },
+    {
+      "relativePath": "Services/TaskDecompositionService.cs",
+      "fileType": "CSharp",
+      "name": "TaskDecompositionService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:40:05.7385141Z"
+    },
+    {
+      "relativePath": "Services/TaskPlanApplyService.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanApplyService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:32:46.4086226Z"
+    },
+    {
+      "relativePath": "Services/TaskPlanDependencyGraphService.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanDependencyGraphService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:33:38.4396097Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceApplyAuditService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApplyAuditService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:16:42.9720446Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceApplyHistoryService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApplyHistoryService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T16:21:41.6368193Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceApplyService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApplyService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:26:10.9068041Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceApprovalService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApprovalService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T16:54:26.7369458Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceExecutionService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceExecutionService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:10:20.7701383Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceMapper.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceMapper",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-15T12:03:01.93782Z"
+    },
+    {
+      "relativePath": "Services/TaskSlicePatchPreviewPreparationService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSlicePatchPreviewPreparationService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T10:17:37.3785318Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceRiskAnalysisService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceRiskAnalysisService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T18:06:44.66823Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceRollbackService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceRollbackService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T09:26:41.4189237Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceVerificationLoopService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceVerificationLoopService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T20:09:01.7715131Z"
+    },
+    {
+      "relativePath": "Services/TaskSliceVerificationService.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceVerificationService",
+      "namespace": "AiBox.DevPortal.Services",
+      "kind": "Service",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T20:08:43.2165281Z"
     },
     {
       "relativePath": "Services/ToolStatusService.cs",
@@ -4107,6 +5646,24 @@
       "lastModifiedUtc": "2026-06-06T14:53:53.2669187Z"
     },
     {
+      "relativePath": "tests/AiBox.DevPortal.Tests/AgentDashboardMetricsServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "AgentDashboardMetricsServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T16:37:02.5528764Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/AgentDashboardServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "AgentDashboardServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:05:56.5852365Z"
+    },
+    {
       "relativePath": "tests/AiBox.DevPortal.Tests/AgentInstructionServiceTests.cs",
       "fileType": "CSharp",
       "name": "AgentInstructionServiceTests",
@@ -4114,6 +5671,51 @@
       "kind": "Test",
       "summary": "",
       "lastModifiedUtc": "2026-06-14T09:45:17.8731482Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/AgentModelBenchmarkServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelBenchmarkServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:06:07.3971649Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/AgentModelComparisonServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelComparisonServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:13:15.8610636Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/AgentModelRecommendationServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelRecommendationServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:21:00.256957Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/AgentModelRoutingServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "AgentModelRoutingServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:27:36.5888632Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/AgentOrchestrationServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "AgentOrchestrationServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T16:21:58.7540841Z"
     },
     {
       "relativePath": "tests/AiBox.DevPortal.Tests/AiBox.DevPortal.Tests.csproj",
@@ -4131,7 +5733,7 @@
       "namespace": "AiBox.DevPortal.Tests",
       "kind": "Test",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T09:57:22.5296288Z"
+      "lastModifiedUtc": "2026-06-19T16:08:51.314281Z"
     },
     {
       "relativePath": "tests/AiBox.DevPortal.Tests/CoderConsoleServiceAgentInstructionsTests.cs",
@@ -4149,7 +5751,7 @@
       "namespace": "AiBox.DevPortal.Tests",
       "kind": "Test",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T10:38:32.9063334Z"
+      "lastModifiedUtc": "2026-06-14T20:59:29.8728458Z"
     },
     {
       "relativePath": "tests/AiBox.DevPortal.Tests/LocalCoderContextServiceTests.cs",
@@ -4221,7 +5823,7 @@
       "namespace": "AiBox.DevPortal.Tests",
       "kind": "Test",
       "summary": "\u003C/summary\u003E\u0022 } } }))); var replaceDiagnostic = Assert.Single(exception.ReplaceDiagnostics); Assert.Contains(\u0022public sealed class Example\u0022, replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal); Assert.DoesNotContain(\u0022Name\u0022, replaceDiagnostic.SuggestedReplacementTarget, StringComparison.Ordinal); var targetDiagnostic = Assert.Single(exception.SuggestedTargetDiagnostics); Assert.Equal(\u0022For adding documentation, use insert_before with the class or member declaration as anchor.\u0022, targetDiagnostic.Recommendation); Assert.Contains(\u0022public sealed class Example\u0022, targetDiagnostic.SuggestedTargetText, StringComparison.Ordinal); } finally { if (Directory.Exists(projectRoot)) { Directory.Delete(projectRoot, recursive: true); } } } [Fact] public async Task BuildAsync_XmlDocRequest_ClassWithXmlDocs_SuggestsSummaryBlock() { var projectRoot = Path.Combine(Path.GetTempPath(), $\u0022aibox-xml-doc-block-test-{Guid.NewGuid():N}\u0022); const string relativePath = \u0022Example.cs\u0022; const string content = \u0022\u0022\u0022 \u003Csummary\u003E Existing docs",
-      "lastModifiedUtc": "2026-06-14T10:39:25.3792964Z"
+      "lastModifiedUtc": "2026-06-14T19:10:35.3559036Z"
     },
     {
       "relativePath": "tests/AiBox.DevPortal.Tests/PatchIntentServiceTests.cs",
@@ -4230,7 +5832,16 @@
       "namespace": "AiBox.DevPortal.Tests",
       "kind": "Test",
       "summary": "",
-      "lastModifiedUtc": "2026-06-13T17:53:44.0184373Z"
+      "lastModifiedUtc": "2026-06-16T11:10:28.9966528Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/PatchRollbackServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "PatchRollbackServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T15:06:02.3851663Z"
     },
     {
       "relativePath": "tests/AiBox.DevPortal.Tests/PatchValidationGuidanceFactoryTests.cs",
@@ -4248,7 +5859,7 @@
       "namespace": "AiBox.DevPortal.Tests",
       "kind": "Test",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T11:04:04.7142712Z"
+      "lastModifiedUtc": "2026-06-14T13:42:01.8216416Z"
     },
     {
       "relativePath": "tests/AiBox.DevPortal.Tests/PlannerContextSelectionServiceTests.cs",
@@ -4278,13 +5889,112 @@
       "lastModifiedUtc": "2026-06-12T20:39:33.351672Z"
     },
     {
+      "relativePath": "tests/AiBox.DevPortal.Tests/RiskAnalysisServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "RiskAnalysisServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:41:25.048495Z"
+    },
+    {
       "relativePath": "tests/AiBox.DevPortal.Tests/SelectedContextValidatorTests.cs",
       "fileType": "CSharp",
       "name": "SelectedContextValidatorTests",
       "namespace": "AiBox.DevPortal.Tests",
       "kind": "Test",
       "summary": "",
-      "lastModifiedUtc": "2026-06-14T10:37:47.6683652Z"
+      "lastModifiedUtc": "2026-06-14T15:02:03.6371818Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskDecompositionServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskDecompositionServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T13:41:25.240495Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskPlanApplyServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskPlanApplyServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:28:45.4477388Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskSliceApplyAuditServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApplyAuditServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:28:32.0007445Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskSliceApprovalServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceApprovalServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:30:19.595699Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskSliceExecutionServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceExecutionServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T09:57:42.937522Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskSlicePatchPreviewPreparationServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskSlicePatchPreviewPreparationServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-16T11:56:40.1066441Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskSliceRiskAnalysisServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceRiskAnalysisServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T18:07:29.5711937Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskSliceRiskGateTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceRiskGateTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:28:51.5197362Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskSliceRollbackServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceRollbackServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-19T14:29:01.632732Z"
+    },
+    {
+      "relativePath": "tests/AiBox.DevPortal.Tests/TaskSliceVerificationLoopServiceTests.cs",
+      "fileType": "CSharp",
+      "name": "TaskSliceVerificationLoopServiceTests",
+      "namespace": "AiBox.DevPortal.Tests",
+      "kind": "Test",
+      "summary": "",
+      "lastModifiedUtc": "2026-06-18T20:53:20.5169416Z"
     },
     {
       "relativePath": "tests/AiBox.DevPortal.Tests/XmlDocumentationWorkflowTests.cs",
@@ -4293,7 +6003,7 @@
       "namespace": "AiBox.DevPortal.Tests",
       "kind": "Test",
       "summary": "\\n Docs\\n",
-      "lastModifiedUtc": "2026-06-13T17:51:05.8506112Z"
+      "lastModifiedUtc": "2026-06-14T18:43:44.7347616Z"
     },
     {
       "relativePath": "Workflows/ComfyUI/01_sdxl_text2image.json",

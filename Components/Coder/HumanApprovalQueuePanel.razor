@@ -1,0 +1,248 @@
+@using AiBox.DevPortal.Models
+@inject HumanApprovalQueueService HumanApprovalQueueService
+@inject AgentOrchestrationService AgentOrchestrationService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Human Approval Queue" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Review pending approvals, approve to resume orchestration, or reject to fail the run."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@LoadAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+                @statusMessage
+            </RadzenAlert>
+        }
+
+        <RadzenFormField Text="Decision notes" Style="width: 100%;">
+            <RadzenTextArea @bind-Value="@decisionNotes"
+                            Rows="2"
+                            Style="width: 100%;"
+                            Placeholder="Optional notes for approval or rejection" />
+        </RadzenFormField>
+
+        @if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else
+        {
+            <RadzenCard Style="margin: 0;">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="Pending Approvals" TextStyle="TextStyle.H6" />
+                    @if (pendingRequests.Count == 0)
+                    {
+                        <RadzenText Text="No pending human approval requests." TextStyle="TextStyle.Body2" />
+                    }
+                    else
+                    {
+                        <RadzenDataGrid Data="@pendingRequests"
+                                        TItem="HumanApprovalRequest"
+                                        AllowPaging="false"
+                                        AllowSorting="false"
+                                        AllowFiltering="false"
+                                        Density="Density.Compact">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Title="Requested" Width="180px">
+                                    <Template Context="item">
+                                        @item.RequestedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Property="TaskName" Title="Task" />
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Property="RiskLevel" Title="Risk" Width="90px" />
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Property="RequestedBy" Title="Requested By" Width="140px" />
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Title="Reason">
+                                    <Template Context="item">
+                                        @item.Reason
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Title="Status" Width="110px">
+                                    <Template Context="item">
+                                        <RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@GetStatusStyle(item.Status)" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Title="Actions" Width="220px">
+                                    <Template Context="item">
+                                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                            <RadzenButton Text="Approve"
+                                                          Size="ButtonSize.Small"
+                                                          ButtonStyle="ButtonStyle.Success"
+                                                          Click="@(() => ApproveAsync(item))"
+                                                          Disabled="@isBusy" />
+                                            <RadzenButton Text="Reject"
+                                                          Size="ButtonSize.Small"
+                                                          ButtonStyle="ButtonStyle.Danger"
+                                                          Click="@(() => RejectAsync(item))"
+                                                          Disabled="@isBusy" />
+                                        </RadzenStack>
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenCard Style="margin: 0;">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="Approval History" TextStyle="TextStyle.H6" />
+                    @if (approvalHistory.Count == 0)
+                    {
+                        <RadzenText Text="No approval history is available yet." TextStyle="TextStyle.Body2" />
+                    }
+                    else
+                    {
+                        <RadzenDataGrid Data="@approvalHistory"
+                                        TItem="HumanApprovalRequest"
+                                        AllowPaging="false"
+                                        AllowSorting="false"
+                                        AllowFiltering="false"
+                                        Density="Density.Compact">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Title="Requested" Width="180px">
+                                    <Template Context="item">
+                                        @item.RequestedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Property="TaskName" Title="Task" />
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Property="RiskLevel" Title="Risk" Width="90px" />
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Title="Status" Width="100px">
+                                    <Template Context="item">
+                                        <RadzenBadge Text="@item.Status.ToString()" BadgeStyle="@GetStatusStyle(item.Status)" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Title="Decision At" Width="180px">
+                                    <Template Context="item">
+                                        @(item.DecisionAtUtc is null ? "-" : item.DecisionAtUtc.Value.ToString("yyyy-MM-dd HH:mm:ss"))
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Property="DecisionBy" Title="Decision By" Width="140px" />
+                                <RadzenDataGridColumn TItem="HumanApprovalRequest" Property="Notes" Title="Notes" />
+                            </Columns>
+                        </RadzenDataGrid>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private IReadOnlyList<HumanApprovalRequest> pendingRequests = [];
+    private IReadOnlyList<HumanApprovalRequest> approvalHistory = [];
+    private string decisionNotes = string.Empty;
+    private bool isBusy;
+    private bool isLoading = true;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isBusy = true;
+        isLoading = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            pendingRequests = await HumanApprovalQueueService.GetPendingAsync(25);
+            approvalHistory = await HumanApprovalQueueService.GetLatestAsync(25);
+            statusMessage = $"Loaded {pendingRequests.Count} pending approval(s).";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to load human approval queue: {exception.Message}";
+            pendingRequests = [];
+            approvalHistory = [];
+        }
+        finally
+        {
+            isBusy = false;
+            isLoading = false;
+        }
+    }
+
+    private async Task ApproveAsync(HumanApprovalRequest request)
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            await HumanApprovalQueueService.DecideAsync(request.Id, HumanApprovalDecision.Approved, "Portal", decisionNotes);
+            await AgentOrchestrationService.ResumeOrchestrationAsync(request.RunId);
+            await LoadAsync();
+            statusMessage = $"Approved and resumed run for {request.TaskName}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to approve {request.TaskName}: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task RejectAsync(HumanApprovalRequest request)
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            await HumanApprovalQueueService.DecideAsync(request.Id, HumanApprovalDecision.Rejected, "Portal", decisionNotes);
+            await AgentOrchestrationService.RejectHumanApprovalAsync(request.RunId, decisionNotes);
+            await LoadAsync();
+            statusMessage = $"Rejected approval for {request.TaskName}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to reject {request.TaskName}: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private static BadgeStyle GetStatusStyle(HumanApprovalRequestStatus status)
+    {
+        return status switch
+        {
+            HumanApprovalRequestStatus.Approved => BadgeStyle.Success,
+            HumanApprovalRequestStatus.Rejected => BadgeStyle.Danger,
+            HumanApprovalRequestStatus.Expired => BadgeStyle.Light,
+            _ => BadgeStyle.Warning
+        };
+    }
+}

@@ -249,6 +249,7 @@ Completed:
 
 * Preferred model selection per agent role
 * Fallback model selection
+* Recommendation-based routing opt-in
 * Routing reason tracking
 * Routing assignment persistence
 
@@ -258,6 +259,77 @@ Related Files:
 * Services/AgentModelRoutingService.cs
 * Models/Agents/AgentModeProfile.cs
 * Components/Coder/AgentProfilesPanel.razor
+
+### Model Benchmark Runs
+
+Completed:
+
+* Benchmark runs per agent role
+* Benchmark persistence
+* Benchmark duration and output metrics
+
+Related Files:
+
+* Models/AgentModelBenchmarkRun.cs
+* Services/AgentModelBenchmarkService.cs
+* Components/Coder/AgentModelBenchmarkPanel.razor
+
+### Model Comparison Runs
+
+Completed:
+
+* Multi-model comparisons per role and prompt
+* Comparison run persistence
+* Best-model selection from benchmark results
+
+Related Files:
+
+* Models/AgentModelComparisonRun.cs
+* Services/AgentModelComparisonService.cs
+* Components/Coder/AgentModelComparisonPanel.razor
+
+### Automatic Model Recommendation
+
+Completed:
+
+* Role-based recommendation scoring
+* Recommendation persistence
+* Recommendation refresh UI
+
+Related Files:
+
+* Models/AgentModelRecommendation.cs
+* Services/AgentModelRecommendationService.cs
+* Components/Coder/AgentModelRecommendationPanel.razor
+
+### Recommendation-Based Routing
+
+Completed:
+
+* Routing can default to the latest recommendation per role
+* Explicit preferred model still wins
+* Fallback model remains available when recommendation is unavailable
+* Recommendation opt-in is persisted in routing assignments
+
+Related Files:
+
+* Models/AgentModelAssignment.cs
+* Services/AgentModelRoutingService.cs
+* Components/Coder/AgentProfilesPanel.razor
+
+### Canonical AgentProfilesPanel Cleanup
+
+Completed:
+
+* Removed the obsolete agent profile wrapper
+* Consolidated routing UI onto AgentProfilesPanel
+* Updated smoke coverage to target the canonical panel
+
+Related Files:
+
+* Components/Coder/AgentProfilesPanel.razor
+* Components/Pages/Coder.razor
+* tests/AiBox.DevPortal.Tests/CoderComponentSmokeTests.cs
 
 ## 2026-06-19
 
@@ -358,14 +430,14 @@ Implementation notes:
 
 ### V2.7 Multi-Model Intelligence
 
-Status: In Progress
+Status: Completed
 
 Started:
 
 * Agent Model Routing
 * Preferred and fallback model assignments
 
-Current focus:
+Completed:
 
 * Model benchmark runs
 * Model comparison runs
@@ -375,8 +447,39 @@ Current focus:
 
 Implementation notes:
 
-* Routing is now profile-aware, but model selection remains rule-driven.
-* The next step is to turn routing into measurable, comparative intelligence.
+* Routing is now profile-aware and recommendation-driven.
+* Model benchmarks, comparisons, and recommendations are persisted and surfaced in the dashboard.
+* The routing layer now supports explicit preference, recommendation fallback, and explainable assignment reasons.
+
+### V2.8 Agent Orchestration
+
+Completed:
+
+* Agent Orchestration Foundation
+* Real Orchestration Execution
+* Orchestration Apply Step
+* CommitAndSync Step
+* Orchestration Safety Review
+* Orchestration Audit Timeline
+
+Related Files:
+
+* Models/AgentOrchestrationRun.cs
+* Models/AgentOrchestrationStep.cs
+* Models/AgentOrchestrationStatus.cs
+* Models/AgentOrchestrationTimelineEvent.cs
+* Services/AgentOrchestrationService.cs
+* Services/AgentOrchestrationSafetyService.cs
+* Services/AgentOrchestrationTimelineService.cs
+* Components/Coder/AgentOrchestrationPanel.razor
+* Components/Coder/AgentOrchestrationSafetyPanel.razor
+* Components/Coder/AgentOrchestrationTimelinePanel.razor
+
+Implementation notes:
+
+* Orchestration now executes the planner, patch builder, verifier, reviewer, apply, and git sync workflow using existing services.
+* Apply safety decisions are generated before apply and recorded in the run state, audit log, and timeline.
+* Git sync failures and skipped runs are recorded without blocking state persistence.
 
 ### V2.8 Project History Index
 
@@ -403,21 +506,23 @@ Implementation notes:
 
 ## In Progress
 
-### Multi-Model Intelligence
+### V2.9 Autonomous Execution Controls
 
-Status: In Progress
+Status: Planned
 
 Dependencies:
 
-* Agent Mode Profiles
-* Agent Model Routing
-* Dashboard metrics
+* Agent Orchestration
+* Apply Audit Log
+* Safety Review
 
 Acceptance Criteria:
 
-* Compare local models by task type and execution outcome.
-* Recommend the best model per agent role.
-* Keep routing explainable and auditable.
+* Human approval queue for risky orchestration actions.
+* Pause and resume orchestration runs.
+* Retry failed orchestration steps safely.
+* Scheduled agent runs with controlled execution windows.
+* Execution policy profiles that shape autonomy and approval behavior.
 
 ## Known Technical Decisions
 
@@ -433,5 +538,8 @@ Acceptance Criteria:
 1. Model Benchmark Runs
 2. Model Comparison Runs
 3. Automatic Model Recommendation
-4. Agent Orchestration
-5. Autonomous Execution Safeguards
+4. Human Approval Queue
+5. Orchestration Pause / Resume
+6. Retry Failed Step
+7. Scheduled Agent Runs
+8. Execution Policy Profiles

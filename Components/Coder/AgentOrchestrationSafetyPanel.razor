@@ -1,0 +1,152 @@
+@using AiBox.DevPortal.Models
+@inject AgentOrchestrationSafetyService AgentOrchestrationSafetyService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Orchestration Safety" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Review the latest safety reports that gate apply decisions."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@LoadAsync"
+                          Disabled="@isBusy" />
+        </RadzenStack>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+                @statusMessage
+            </RadzenAlert>
+        }
+
+        @if (isLoading)
+        {
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" />
+        }
+        else if (latestReports.Count == 0)
+        {
+            <RadzenText Text="No orchestration safety reports available yet." TextStyle="TextStyle.Body2" />
+        }
+        else
+        {
+            <RadzenDataGrid Data="@latestReports"
+                            TItem="AgentOrchestrationSafetyReport"
+                            AllowPaging="false"
+                            AllowSorting="false"
+                            AllowFiltering="false"
+                            Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="AgentOrchestrationSafetyReport" Title="UTC" Width="180px">
+                        <Template Context="item">
+                            @item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentOrchestrationSafetyReport" Property="TaskName" Title="Task" />
+                    <RadzenDataGridColumn TItem="AgentOrchestrationSafetyReport" Property="HighestRiskLevel" Title="Risk" Width="90px" />
+                    <RadzenDataGridColumn TItem="AgentOrchestrationSafetyReport" Title="Status" Width="150px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@GetStatusText(item)"
+                                         BadgeStyle="@GetStatusStyle(item)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="AgentOrchestrationSafetyReport" Property="TotalChangedFiles" Title="Files" Width="90px" />
+                    <RadzenDataGridColumn TItem="AgentOrchestrationSafetyReport" Title="Reasons">
+                        <Template Context="item">
+                            @GetReasonsText(item)
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private IReadOnlyList<AgentOrchestrationSafetyReport> latestReports = [];
+    private bool isBusy;
+    private bool isLoading = true;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isBusy = true;
+        isLoading = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            latestReports = await AgentOrchestrationSafetyService.GetLatestAsync(12);
+            statusMessage = $"Loaded {latestReports.Count} safety report(s).";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to load safety reports: {exception.Message}";
+            latestReports = [];
+        }
+        finally
+        {
+            isBusy = false;
+            isLoading = false;
+        }
+    }
+
+    private static string GetStatusText(AgentOrchestrationSafetyReport report)
+    {
+        if (report.BlocksAutoApply)
+        {
+            return "Blocked";
+        }
+
+        if (report.RequiresManualApproval)
+        {
+            return "Approval required";
+        }
+
+        return "Allowed";
+    }
+
+    private static BadgeStyle GetStatusStyle(AgentOrchestrationSafetyReport report)
+    {
+        if (report.BlocksAutoApply)
+        {
+            return BadgeStyle.Danger;
+        }
+
+        if (report.RequiresManualApproval)
+        {
+            return BadgeStyle.Warning;
+        }
+
+        return BadgeStyle.Success;
+    }
+
+    private static string GetReasonsText(AgentOrchestrationSafetyReport report)
+    {
+        return report.Reasons.Count == 0
+            ? report.Summary
+            : string.Join(" | ", report.Reasons);
+    }
+}
