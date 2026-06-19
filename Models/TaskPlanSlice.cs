@@ -12,15 +12,18 @@ public sealed class TaskPlanSlice
     public TaskSliceStatus Status { get; set; } = TaskSliceStatus.Pending;
     public DateTime? PatchPreviewCreatedAt { get; set; }
     public List<string> TargetFiles { get; set; } = [];
-public IReadOnlyList<string> DependsOnSliceIds { get; set; } = [];
+    public IReadOnlyList<string> DependsOnSliceIds { get; set; } = [];
     public List<string> InstructionFiles { get; set; } = [];
     public AllowedChangeType AllowedChangeType { get; set; } = AllowedChangeType.Any;
     public List<string> MustNotChange { get; set; } = [];
     public List<string> VerificationCommands { get; set; } = [];
     public List<string> RelatedFiles { get; set; } = [];
+    public RiskLevel RiskLevel { get; set; } = RiskLevel.Low;
+    public int RiskScore { get; set; }
+    public string RiskSummary { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? AppliedAt { get; set; } 
+    public DateTime? AppliedAt { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public static implicit operator TaskPlanSlice(TaskSlice slice)
@@ -41,6 +44,9 @@ public IReadOnlyList<string> DependsOnSliceIds { get; set; } = [];
             MustNotChange = [.. slice.MustNotChange],
             VerificationCommands = [.. slice.VerificationCommands],
             RelatedFiles = [.. slice.TargetFiles.Concat(slice.InstructionFiles).Distinct(StringComparer.OrdinalIgnoreCase)],
+            RiskLevel = RiskLevel.Low,
+            RiskScore = 0,
+            RiskSummary = string.Empty,
             Notes = string.Empty,
             Status = TaskSliceStatus.Pending,
             PatchPreviewCreatedAt = null,

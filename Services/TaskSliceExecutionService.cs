@@ -56,6 +56,19 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
                 : GetNextStatus(beforeStatus);
             var isFailure = afterStatus == TaskSliceStatus.Failed;
 
+            var errors = new List<string>();
+            if (isFailure)
+            {
+                if (isGeneratePatch)
+                {
+                    errors.Add($"Slice '{slice.Title}' cannot generate a patch preview from state '{beforeStatus}'.");
+                }
+                else
+                {
+                    errors.Add($"Slice '{slice.Title}' is in a failed state and was not advanced.");
+                }
+            }
+
             slice.Status = afterStatus;
             slice.UpdatedAt = executedAt;
             slice.Notes = AppendExecutionSummary(
@@ -77,13 +90,9 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
                 Success = !isFailure,
                 BuildSuccess = false,
                 VerificationSuccess = false,
-                Summary = BuildSummary(slice, beforeStatus, afterStatus, requestedAction, request),
+                Summary = BuildSummary(slice, beforeStatus, afterStatus, requestedAction),
                 GeneratedFiles = [],
-                Errors = isFailure
-                    ? [isGeneratePatch
-                        ? $"Slice '{slice.Title}' cannot generate a patch preview from state '{beforeStatus}'."
-                        : $"Slice '{slice.Title}' is in a failed state and was not advanced."]
-                    : [],
+                Errors = errors,
                 ExecutedAt = executedAt
             };
 
@@ -131,11 +140,11 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
         TaskPlanSlice slice,
         TaskSliceStatus beforeStatus,
         TaskSliceStatus afterStatus,
-        string requestedAction,
-        TaskSliceExecutionRequest request)
+        string requestedAction)
     {
-        var requestedBy = string.IsNullOrWhiteSpace(request.RequestedBy) ? "unknown caller" : request.RequestedBy;
-        return $"{requestedAction} for {slice.Title} by {requestedBy}: {beforeStatus} -> {afterStatus} at {DateTime.UtcNow:O}. No build, patch, or verification work was executed.";
+        var requestedBy = "unknown caller";
+        var summary = $"{requestedAction} for {slice.Title} by {requestedBy}: {beforeStatus} -> {afterStatus} at {DateTime.UtcNow:O}. No build, patch, or verification work was executed.";
+        return summary;
     }
 
     private static string AppendExecutionSummary(
@@ -162,7 +171,6 @@ public sealed class TaskSliceExecutionService(IWebHostEnvironment environment)
     {
         return string.IsNullOrWhiteSpace(requestedAction) ? "AdvanceStatus" : requestedAction.Trim();
     }
-
     private async Task AppendHistoryAsync(TaskSliceExecutionResult result, CancellationToken cancellationToken)
     {
         var history = await LoadHistoryAsync(cancellationToken);

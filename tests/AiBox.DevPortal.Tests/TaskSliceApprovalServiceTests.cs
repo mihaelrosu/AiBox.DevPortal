@@ -53,10 +53,12 @@ public sealed class TaskSliceApprovalServiceTests
             var environment = new TestWebHostEnvironment(projectRoot);
             var approvalService = new TaskSliceApprovalService(environment);
             var applyHistoryService = new TaskSliceApplyHistoryService(environment);
+            var auditService = new TaskSliceApplyAuditService(environment);
 
             var patchBackupService = Substitute.For<IPatchBackupService>();
             var patchPackageService = Substitute.For<IPatchPackageService>();
-            var rollbackService = new TaskSliceRollbackService(Substitute.For<IPatchRollbackService>());
+            var patchRollbackService = Substitute.For<IPatchRollbackService>();
+            var rollbackService = new TaskSliceRollbackService(patchRollbackService);
 
             var slice = CreateSlice(status: TaskSliceStatus.Verified);
             patchPackageService.GetByIdAsync(slice.PatchPackageId, Arg.Any<CancellationToken>())
@@ -71,9 +73,11 @@ public sealed class TaskSliceApprovalServiceTests
             var applyService = new TaskSliceApplyService(
                 patchBackupService,
                 patchPackageService,
-                new TaskSliceRollbackService(Substitute.For<IPatchRollbackService>()),
+                patchRollbackService,
+                rollbackService,
                 applyHistoryService,
-                approvalService);
+                approvalService,
+                auditService);
 
             var result = await applyService.ApplyAsync(projectRoot, slice);
 

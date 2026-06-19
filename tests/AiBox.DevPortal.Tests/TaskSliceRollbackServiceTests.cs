@@ -67,12 +67,15 @@ public sealed class TaskSliceRollbackServiceTests
             var rollbackService = new TaskSliceRollbackService(patchRollbackService);
             var applyHistoryService = new TaskSliceApplyHistoryService(environment);
             var approvalService = new TaskSliceApprovalService(environment);
+            var auditService = new TaskSliceApplyAuditService(environment);
             var applyService = new TaskSliceApplyService(
                 patchBackupService,
                 patchPackageService,
+                patchRollbackService,
                 rollbackService,
                 applyHistoryService,
-                approvalService);
+                approvalService,
+                auditService);
 
             var generateResult = await executionService.ExecuteSliceAsync(
                 new TaskSliceExecutionRequest

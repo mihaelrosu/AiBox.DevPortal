@@ -7,13 +7,24 @@ namespace AiBox.DevPortal.Services;
 public sealed class TaskSliceApplyService(
     IPatchBackupService patchBackupService,
     IPatchPackageService patchPackageService,
+    IPatchRollbackService patchRollbackService,
     TaskSliceRollbackService taskSliceRollbackService,
     TaskSliceApplyHistoryService taskSliceApplyHistoryService,
-    TaskSliceApprovalService taskSliceApprovalService)
+    TaskSliceApprovalService taskSliceApprovalService,
+    TaskSliceApplyAuditService taskSliceApplyAuditService)
 {
     public async Task<TaskSliceApplyResult> ApplyAsync(
         string projectPath,
         TaskPlanSlice slice,
+        CancellationToken cancellationToken = default)
+    {
+        return await ApplyAsync(projectPath, slice, false, cancellationToken);
+    }
+
+    public async Task<TaskSliceApplyResult> ApplyAsync(
+        string projectPath,
+        TaskPlanSlice slice,
+        bool highRiskApproved,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
@@ -25,11 +36,12 @@ public sealed class TaskSliceApplyService(
                 Errors = ["Project path is required."]
             };
 
-            if (slice is not null)
+            if (slice is null)
             {
-                await RecordHistoryAsync(slice, result, cancellationToken);
+                return result;
             }
-            return result;
+
+            return await CompleteAttemptAsync(slice, result, blocked: true, highRiskApproved: highRiskApproved, changedFiles: [], cancellationToken);
         }
 
         ArgumentNullException.ThrowIfNull(slice);
@@ -44,11 +56,23 @@ public sealed class TaskSliceApplyService(
                 Errors = [error]
             };
 
-            if (slice is not null)
+            return await CompleteAttemptAsync(slice, result, blocked: true, highRiskApproved: highRiskApproved, changedFiles: [], cancellationToken);
+        }
+
+        var riskGate = EvaluateRiskGate(slice, highRiskApproved);
+        var riskGateMessage = riskGate.Message;
+        if (!riskGate.Allowed)
+        {
+            var errorMessage = riskGate.Message ?? "Slice is blocked by the risk gate.";
+            var result = new TaskSliceApplyResult
             {
-                await RecordHistoryAsync(slice, result, cancellationToken);
-            }
-            return result;
+                Success = false,
+                Message = errorMessage,
+                RiskGateMessage = errorMessage,
+                Errors = [errorMessage]
+            };
+
+            return await CompleteAttemptAsync(slice, result, blocked: true, highRiskApproved: highRiskApproved, changedFiles: [], cancellationToken);
         }
 
         if (string.IsNullOrWhiteSpace(slice.PatchPackageId))
@@ -61,11 +85,7 @@ public sealed class TaskSliceApplyService(
                 Errors = [error]
             };
 
-            if (slice is not null)
-            {
-                await RecordHistoryAsync(slice, result, cancellationToken);
-            }
-            return result;
+            return await CompleteAttemptAsync(slice, result, blocked: true, highRiskApproved: highRiskApproved, changedFiles: [], cancellationToken);
         }
 
         try
@@ -83,8 +103,7 @@ public sealed class TaskSliceApplyService(
                     Errors = [error]
                 };
 
-                await RecordHistoryAsync(slice, result, cancellationToken);
-                return result;
+                return await CompleteAttemptAsync(slice, result, blocked: true, highRiskApproved: highRiskApproved, changedFiles: [], cancellationToken);
             }
 
             var package = await patchPackageService.GetByIdAsync(slice.PatchPackageId, cancellationToken);
@@ -98,11 +117,7 @@ public sealed class TaskSliceApplyService(
                     Errors = [error]
                 };
 
-                if (slice is not null)
-                {
-                    await RecordHistoryAsync(slice, result, cancellationToken);
-                }
-                return result;
+                return await CompleteAttemptAsync(slice, result, blocked: true, highRiskApproved: highRiskApproved, changedFiles: [], cancellationToken);
             }
 
             var rootPath = GetValidatedProjectRoot(projectPath);
@@ -114,10 +129,23 @@ public sealed class TaskSliceApplyService(
                 var targetPath = GetValidatedTargetPath(rootPath, change.RelativePath);
                 validatedPaths.Add(Path.GetRelativePath(rootPath, targetPath).Replace('\\', '/'));
             }
+            var changedFiles = validatedPaths.ToArray();
 
             var backupResult = await patchBackupService.CreateBackupAsync(
                 rootPath,
                 validatedPaths,
+                cancellationToken);
+
+            await patchRollbackService.RecordAsync(
+                new PatchRollbackEntry
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    PlanId = slice.PlanId,
+                    SliceId = slice.Id,
+                    BackupId = backupResult.BackupFolderPath,
+                    ChangedFiles = [.. validatedPaths],
+                    Restored = false
+                },
                 cancellationToken);
 
             var appliedFilesCount = await ApplyPackageFileChangesAsync(rootPath, fileChanges, cancellationToken);
@@ -153,14 +181,14 @@ public sealed class TaskSliceApplyService(
                 {
                     Success = true,
                     Message = "Applied successfully",
+                    RiskGateMessage = riskGateMessage,
                     BackupFolderPath = backupResult.BackupFolderPath,
                     BackedUpFilesCount = backupResult.BackedUpFilesCount,
                     AppliedFilesCount = appliedFilesCount,
                     BuildVerificationResult = buildVerificationResult,
                     Errors = []
                 };
-                await RecordHistoryAsync(slice, applyResult, cancellationToken);
-                return applyResult;
+                return await CompleteAttemptAsync(slice, applyResult, blocked: false, highRiskApproved: highRiskApproved, changedFiles, cancellationToken);
             }
 
             var buildFailureErrors = BuildErrors(buildVerificationResult);
@@ -197,6 +225,7 @@ public sealed class TaskSliceApplyService(
                 Message = rollbackSucceeded
                     ? "Build failed. Rollback completed successfully."
                     : "Build failed. Rollback failed.",
+                RiskGateMessage = riskGateMessage,
                 RollbackMessage = rollbackSucceeded
                     ? string.IsNullOrWhiteSpace(rollbackBuildMessage)
                         ? rollbackMessage
@@ -208,11 +237,11 @@ public sealed class TaskSliceApplyService(
                 BuildVerificationResult = buildVerificationResult,
                 Errors = buildFailureErrors
             };
-            await RecordHistoryAsync(slice, applyResult, cancellationToken);
-            return applyResult;
+            return await CompleteAttemptAsync(slice, applyResult, blocked: false, highRiskApproved: highRiskApproved, changedFiles, cancellationToken);
         }
         catch (Exception exception)
         {
+            var blocked = !slice.Status.Equals(TaskSliceStatus.Applied);
             var failedAt = DateTime.UtcNow;
             slice.Status = TaskSliceStatus.Failed;
             slice.AppliedAt = null;
@@ -224,12 +253,12 @@ public sealed class TaskSliceApplyService(
                 RolledBack = false,
                 RollbackSucceeded = false,
                 Message = $"Apply simulation failed: {exception.Message}",
+                RiskGateMessage = riskGateMessage,
                 RollbackMessage = exception.Message,
                 Errors = [exception.Message]
             };
 
-            await RecordHistoryAsync(slice, result, cancellationToken);
-            return result;
+            return await CompleteAttemptAsync(slice, result, blocked, highRiskApproved, [], cancellationToken);
         }
     }
 
@@ -418,15 +447,90 @@ public sealed class TaskSliceApplyService(
         }
     }
 
+    private async Task RecordAuditAsync(
+        TaskPlanSlice slice,
+        TaskSliceApplyResult result,
+        bool blocked,
+        bool approvedHighRiskApply,
+        IReadOnlyList<string> changedFiles,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await taskSliceApplyAuditService.AddAsync(
+                new TaskSliceApplyAuditEntry
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    PlanId = slice.PlanId,
+                    SliceId = slice.Id,
+                    SliceTitle = slice.Title,
+                    RiskLevel = slice.RiskLevel,
+                    RiskScore = slice.RiskScore,
+                    ApprovedHighRiskApply = approvedHighRiskApply,
+                    Success = result.Success,
+                    Blocked = blocked,
+                    Message = BuildAuditMessage(result),
+                    ChangedFiles = [.. changedFiles]
+                },
+                cancellationToken);
+        }
+        catch
+        {
+            // Audit tracking must not block the apply flow.
+        }
+    }
+
+    private async Task<TaskSliceApplyResult> CompleteAttemptAsync(
+        TaskPlanSlice slice,
+        TaskSliceApplyResult result,
+        bool blocked,
+        bool highRiskApproved,
+        IReadOnlyList<string> changedFiles,
+        CancellationToken cancellationToken)
+    {
+        await RecordHistoryAsync(slice, result, cancellationToken);
+        await RecordAuditAsync(slice, result, blocked, highRiskApproved, changedFiles, cancellationToken);
+        return result;
+    }
+
     private static string BuildHistoryMessage(TaskSliceApplyResult result)
     {
-        if (string.IsNullOrWhiteSpace(result.RollbackMessage))
+        var message = string.IsNullOrWhiteSpace(result.RollbackMessage)
+            ? result.Message
+            : $"{result.Message} {result.RollbackMessage}".Trim();
+
+        if (string.IsNullOrWhiteSpace(result.RiskGateMessage))
         {
-            return result.Message;
+            return message;
         }
 
-        return $"{result.Message} {result.RollbackMessage}".Trim();
+        if (string.Equals(message, result.RiskGateMessage, StringComparison.Ordinal))
+        {
+            return message;
+        }
+
+        return $"{message} {result.RiskGateMessage}".Trim();
+    }
+
+    private static string BuildAuditMessage(TaskSliceApplyResult result)
+    {
+        var message = BuildHistoryMessage(result);
+        return string.IsNullOrWhiteSpace(message) ? result.Message : message;
+    }
+
+    private static RiskGateOutcome EvaluateRiskGate(TaskPlanSlice slice, bool highRiskApproved)
+    {
+        return slice.RiskLevel switch
+        {
+            RiskLevel.Low => new RiskGateOutcome(true, null),
+            RiskLevel.Medium => new RiskGateOutcome(true, "Medium-risk slice. Review carefully before apply."),
+            RiskLevel.High when highRiskApproved => new RiskGateOutcome(true, "High-risk apply approved."),
+            RiskLevel.High => new RiskGateOutcome(false, "High-risk slices require explicit manual approval before apply."),
+            RiskLevel.Critical => new RiskGateOutcome(false, "Critical-risk slices cannot be applied."),
+            _ => new RiskGateOutcome(true, null)
+        };
     }
 
     private sealed record BuildProcessResult(int ExitCode, string StandardOutput, string StandardError);
+    private sealed record RiskGateOutcome(bool Allowed, string? Message);
 }

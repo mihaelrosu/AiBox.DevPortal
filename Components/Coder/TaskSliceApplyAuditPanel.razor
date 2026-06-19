@@ -1,0 +1,77 @@
+@using AiBox.DevPortal.Models
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.5rem"
+                     Wrap="FlexWrap.Wrap">
+            <RadzenText Text="Apply Audit Log" TextStyle="TextStyle.H6" />
+            <RadzenBadge Text="@($"{Items.Count} recent")" BadgeStyle="BadgeStyle.Info" />
+        </RadzenStack>
+
+        @if (Items.Count == 0)
+        {
+            <RadzenText Text="No apply audit entries available yet." TextStyle="TextStyle.Body2" />
+        }
+        else
+        {
+            <RadzenDataGrid Data="@Items"
+                            TItem="TaskSliceApplyAuditEntry"
+                            AllowPaging="false"
+                            AllowSorting="false"
+                            AllowFiltering="false"
+                            Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Property="TimestampUtc" Title="UTC" Width="170px">
+                        <Template Context="item">
+                            @item.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Property="SliceTitle" Title="Slice" />
+                    <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Property="RiskLevel" Title="Risk" Width="90px" />
+                    <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Title="Apply" Width="120px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@(item.Blocked ? "Blocked" : item.Success ? "Success" : "Failed")"
+                                         BadgeStyle="@(item.Blocked ? BadgeStyle.Danger : item.Success ? BadgeStyle.Success : BadgeStyle.Warning)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Title="Approval" Width="110px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@(item.ApprovedHighRiskApply ? "Approved" : "No")"
+                                         BadgeStyle="@(item.ApprovedHighRiskApply ? BadgeStyle.Success : BadgeStyle.Light)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Title="Files" Width="90px">
+                        <Template Context="item">
+                            <RadzenText Text="@item.ChangedFiles.Count.ToString()" TextStyle="TextStyle.Body2" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TaskSliceApplyAuditEntry" Title="Message">
+                        <Template Context="item">
+                            <RadzenStack Gap="0.35rem">
+                                <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
+                                @if (OnRollbackRequested.HasDelegate && item.Success && !item.Blocked)
+                                {
+                                    <RadzenButton Text="Rollback"
+                                                  Icon="undo"
+                                                  ButtonStyle="ButtonStyle.Warning"
+                                                  Size="ButtonSize.Small"
+                                                  Disabled="@IsBusy"
+                                                  Click="@(() => OnRollbackRequested.InvokeAsync(item))" />
+                                }
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public IReadOnlyList<TaskSliceApplyAuditEntry> Items { get; set; } = [];
+    [Parameter] public EventCallback<TaskSliceApplyAuditEntry> OnRollbackRequested { get; set; }
+    [Parameter] public bool IsBusy { get; set; }
+}

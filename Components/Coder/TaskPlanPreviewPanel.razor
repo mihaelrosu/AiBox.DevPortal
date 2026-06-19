@@ -43,20 +43,48 @@
                             <RadzenText Text="@slice.Title" TextStyle="TextStyle.Body1" />
                             <RadzenBadge Text="@slice.Status.ToString()" BadgeStyle="@GetStatusBadgeStyle(slice.Status)" />
                             <RadzenBadge Text="@slice.AllowedChangeType.ToString()" BadgeStyle="BadgeStyle.Secondary" />
-                            @if (GetSliceRiskAnalysis(slice) is not null)
+                            @if (HasRiskDisplay(slice))
                             {
-                                <RadzenBadge Text="@($"Risk: {GetSliceRiskAnalysis(slice)!.RiskLevel}")"
-                                             BadgeStyle="@GetRiskBadgeStyle(GetSliceRiskAnalysis(slice)!.RiskLevel)" />
+                                <RadzenBadge Text="@($"Risk: {GetDisplayRiskLevel(slice)}")"
+                                             BadgeStyle="@GetRiskBadgeStyle(GetDisplayRiskLevel(slice))" />
                             }
                         </RadzenStack>
 
                         <RadzenText Text="@GetSliceBodyText(slice)" TextStyle="TextStyle.Body2" />
 
-                        @if (GetSliceRiskAnalysis(slice) is not null)
+                        @if (HasRiskDisplay(slice))
+                        {
+                            <RadzenText Text="@GetSliceRiskSummary(slice)" TextStyle="TextStyle.Caption" />
+                        }
+
+                        @if (string.IsNullOrWhiteSpace(slice.RiskSummary) && GetSliceRiskAnalysis(slice) is not null)
                         {
                             <TaskSliceRiskPanel Analysis="@GetSliceRiskAnalysis(slice)"
                                                 Compact="true"
                                                 ShowReasons="true" />
+                        }
+
+                        @{
+                            var displayRiskLevel = GetDisplayRiskLevel(slice);
+                        }
+
+                        @if (displayRiskLevel == RiskLevel.Medium)
+                        {
+                            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat">
+                                Medium-risk apply: review before applying.
+                            </RadzenAlert>
+                        }
+                        else if (displayRiskLevel == RiskLevel.High)
+                        {
+                            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat">
+                                High-risk apply requires explicit manual approval.
+                            </RadzenAlert>
+                        }
+                        else if (displayRiskLevel == RiskLevel.Critical)
+                        {
+                            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat">
+                                Critical-risk slices are blocked from apply.
+                            </RadzenAlert>
                         }
 
                         <RadzenStack Gap="0.25rem">
@@ -107,14 +135,23 @@
                                           Disabled="@(!OnVerifyRequested.HasDelegate || IsVerifyingSlice)"
                                           Click="@(() => OnVerifyRequested.InvokeAsync(slice))" />
                         }
-                            @if (slice.Status == TaskSliceStatus.Verified)
+                        @if (slice.Status == TaskSliceStatus.Verified)
+                        {
+                            @if (displayRiskLevel == RiskLevel.High)
                             {
-                                <TaskSliceApprovalPanel Slice="@slice"
-                                                        Approval="@GetSliceApproval(slice)"
-                                                        RiskAnalysis="@GetSliceRiskAnalysis(slice)"
-                                                        IsBusy="@(IsApplyingSlice || IsApprovalBusy)"
-                                                        OnApproveRequested="@OnApproveRequested"
-                                                        OnRejectRequested="@OnRejectRequested" />
+                                <RadzenButton Text="@GetHighRiskApprovalButtonText(slice)"
+                                              Icon="verified"
+                                              ButtonStyle="@(HighRiskApplyApprovals.Contains(slice.Id) ? ButtonStyle.Success : ButtonStyle.Warning)"
+                                              Disabled="@(!OnHighRiskApplyApprovalRequested.HasDelegate)"
+                                              Click="@(() => OnHighRiskApplyApprovalRequested.InvokeAsync(slice))" />
+                            }
+
+                            <TaskSliceApprovalPanel Slice="@slice"
+                                                    Approval="@GetSliceApproval(slice)"
+                                                    RiskAnalysis="@GetSliceRiskAnalysis(slice)"
+                                                    IsBusy="@(IsApplyingSlice || IsApprovalBusy)"
+                                                    OnApproveRequested="@OnApproveRequested"
+                                                    OnRejectRequested="@OnRejectRequested" />
 
                                 <RadzenButton Text="Apply" Icon="done_all" ButtonStyle="ButtonStyle.Success"
                                           Disabled="@(!CanApplySlice(slice))"
@@ -269,12 +306,14 @@
     [Parameter] public EventCallback<TaskPlan> OnApplyPlanRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnApproveRequested { get; set; }
     [Parameter] public EventCallback<TaskPlanSlice> OnRejectRequested { get; set; }
+    [Parameter] public EventCallback<TaskPlanSlice> OnHighRiskApplyApprovalRequested { get; set; }
     [Parameter] public bool IsGeneratingPatch { get; set; }
     [Parameter] public bool IsVerifyingSlice { get; set; }
     [Parameter] public bool IsRollingBack { get; set; }
     [Parameter] public bool IsApplyingSlice { get; set; }
     [Parameter] public bool IsApplyingPlan { get; set; }
     [Parameter] public bool IsApprovalBusy { get; set; }
+    [Parameter] public IReadOnlySet<string> HighRiskApplyApprovals { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     [Parameter] public IReadOnlyDictionary<string, TaskSliceApproval> SliceApprovals { get; set; } = new Dictionary<string, TaskSliceApproval>();
     [Parameter] public IReadOnlyDictionary<string, TaskSliceRiskAnalysis> SliceRiskAnalyses { get; set; } = new Dictionary<string, TaskSliceRiskAnalysis>(StringComparer.OrdinalIgnoreCase);
     [Parameter] public IReadOnlyDictionary<string, TaskSliceVerificationLoopResult> SliceVerificationLoopResults { get; set; } = new Dictionary<string, TaskSliceVerificationLoopResult>(StringComparer.OrdinalIgnoreCase);
@@ -322,6 +361,53 @@
         return SliceRiskAnalyses.TryGetValue(slice.Id, out var analysis) ? analysis : null;
     }
 
+    private bool HasRiskDisplay(TaskPlanSlice slice)
+    {
+        return GetDisplayRiskLevel(slice) != RiskLevel.Low ||
+               !string.IsNullOrWhiteSpace(slice.RiskSummary) ||
+               GetSliceRiskAnalysis(slice) is not null;
+    }
+
+    private RiskLevel GetDisplayRiskLevel(TaskPlanSlice slice)
+    {
+        if (slice.RiskLevel != RiskLevel.Low || !string.IsNullOrWhiteSpace(slice.RiskSummary))
+        {
+            return slice.RiskLevel;
+        }
+
+        var analysis = GetSliceRiskAnalysis(slice);
+        return analysis is null
+            ? slice.RiskLevel
+            : analysis.RiskLevel switch
+            {
+                TaskSliceRiskLevel.Low => RiskLevel.Low,
+                TaskSliceRiskLevel.Medium => RiskLevel.Medium,
+                TaskSliceRiskLevel.High => RiskLevel.High,
+                TaskSliceRiskLevel.Critical => RiskLevel.Critical,
+                _ => RiskLevel.Low
+            };
+    }
+
+    private string GetSliceRiskSummary(TaskPlanSlice slice)
+    {
+        if (!string.IsNullOrWhiteSpace(slice.RiskSummary))
+        {
+            return slice.RiskSummary;
+        }
+
+        var analysis = GetSliceRiskAnalysis(slice);
+        return analysis is null
+            ? string.Empty
+            : string.Join(" ", analysis.Reasons);
+    }
+
+    private string GetHighRiskApprovalButtonText(TaskPlanSlice slice)
+    {
+        return HighRiskApplyApprovals.Contains(slice.Id)
+            ? "Revoke high-risk approval"
+            : "Approve high-risk apply";
+    }
+
     private TaskSliceVerificationLoopResult? GetSliceVerificationLoopResult(TaskPlanSlice slice)
     {
         return SliceVerificationLoopResults.TryGetValue(slice.Id, out var result) ? result : null;
@@ -341,7 +427,15 @@
     {
         return OnApplyRequested.HasDelegate &&
                !IsApplyingSlice &&
-               GetSliceApproval(slice)?.Status == TaskSliceApprovalStatus.Approved;
+               GetSliceApproval(slice)?.Status == TaskSliceApprovalStatus.Approved &&
+               (slice.RiskLevel switch
+               {
+                   RiskLevel.Low => true,
+                   RiskLevel.Medium => true,
+                   RiskLevel.High => HighRiskApplyApprovals.Contains(slice.Id),
+                   RiskLevel.Critical => false,
+                   _ => true
+               });
     }
 
     private bool CanApplyPlan()
@@ -352,14 +446,14 @@
                Plan.Slices.Any(slice => GetSliceApproval(slice)?.Status == TaskSliceApprovalStatus.Approved);
     }
 
-    private static BadgeStyle GetRiskBadgeStyle(TaskSliceRiskLevel riskLevel)
+    private static BadgeStyle GetRiskBadgeStyle(RiskLevel riskLevel)
     {
         return riskLevel switch
         {
-            TaskSliceRiskLevel.Low => BadgeStyle.Success,
-            TaskSliceRiskLevel.Medium => BadgeStyle.Warning,
-            TaskSliceRiskLevel.High => BadgeStyle.Danger,
-            TaskSliceRiskLevel.Critical => BadgeStyle.Danger,
+            RiskLevel.Low => BadgeStyle.Success,
+            RiskLevel.Medium => BadgeStyle.Warning,
+            RiskLevel.High => BadgeStyle.Danger,
+            RiskLevel.Critical => BadgeStyle.Danger,
             _ => BadgeStyle.Light
         };
     }

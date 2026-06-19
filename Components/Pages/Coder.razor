@@ -71,6 +71,7 @@
                                           IsApplyingPlan="@isApplyingPlan"
                                           IsApprovalBusy="@isApprovalBusy"
                                           PlanApplyResult="@planApplyResult"
+                                          HighRiskApplyApprovals="@highRiskApplyApprovals"
                                           SliceApprovals="@sliceApprovals"
                                           SliceRiskAnalyses="@sliceRiskAnalyses"
                                           SliceVerificationLoopResults="@sliceVerificationLoopResults"
@@ -78,6 +79,7 @@
                                           OnApplyRequested="@ApplySliceAsync"
                                           OnApplyPlanRequested="@ApplyPlanAsync"
                                           OnApproveRequested="@ApproveSliceAsync"
+                                          OnHighRiskApplyApprovalRequested="@ToggleHighRiskApplyApprovalAsync"
                                           OnGeneratePatchRequested="@GenerateSlicePatchPreviewAsync"
                                           OnRejectRequested="@RejectSliceAsync"
                                           OnRollbackRequested="@RollbackSliceAsync" />
@@ -111,6 +113,9 @@
                     }
 
                     <TaskSliceApplyHistoryPanel Items="@applyHistoryItems" />
+                    <TaskSliceApplyAuditPanel Items="@applyAuditEntries"
+                                              IsBusy="@isRollingBackSlice"
+                                              OnRollbackRequested="@RollbackApplyAuditAsync" />
                 </RadzenStack>
             </RadzenStack>
         </RadzenTabsItem>
@@ -351,6 +356,7 @@
     [Inject] private TaskPlanApplyService TaskPlanApplyService { get; set; } = default!;
     [Inject] private TaskSliceRiskAnalysisService TaskSliceRiskAnalysisService { get; set; } = default!;
     [Inject] private TaskSliceApplyHistoryService TaskSliceApplyHistoryService { get; set; } = default!;
+    [Inject] private TaskSliceApplyAuditService TaskSliceApplyAuditService { get; set; } = default!;
     [Inject] private ILocalCoderVerificationProfileService LocalCoderVerificationProfileService { get; set; } = default!;
     [Inject] private IProjectKnowledgeIndexService ProjectKnowledgeIndexService { get; set; } = default!;
     [Inject] private PlannerContextSelectionService PlannerContextSelectionService { get; set; } = default!;
@@ -382,12 +388,14 @@
     private IReadOnlyList<LocalCoderHistoryEntry> historyEntries = [];
     private IReadOnlyList<TaskSliceExecutionResult> sliceExecutionHistory = [];
     private IReadOnlyList<TaskSliceApplyHistoryItem> applyHistoryItems = [];
+    private IReadOnlyList<TaskSliceApplyAuditEntry> applyAuditEntries = [];
     private IReadOnlyDictionary<string, TaskSliceApproval> sliceApprovals = new Dictionary<string, TaskSliceApproval>(StringComparer.OrdinalIgnoreCase);
     private ProjectKnowledgeIndex? projectKnowledgeIndex;
     private List<LocalCoderFileContext> fileContexts = [];
     private List<string> selectedFilePaths = [];
     private List<FileSearchItem> selectedFiles = [];
     private readonly HashSet<string> confirmedGeneratedFilePaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> highRiskApplyApprovals = new(StringComparer.OrdinalIgnoreCase);
     private int contextLoadVersion;
     private readonly List<LocalCoderPlanTask> planTasks = [];
     private TaskPlan? taskPlanPreview;
@@ -499,6 +507,7 @@
             await LoadHistoryAsync();
             await LoadApprovalStatesAsync();
             await LoadApplyHistoryAsync();
+            await LoadApplyAuditAsync();
         }
         catch (Exception exception)
         {
@@ -514,10 +523,22 @@
         isApplyingSlice = true;
         try
         {
-            var result = await TaskSliceApplyService.ApplyAsync(request.ProjectPath, slice);
-            sliceStatusMessages[slice.Id] = string.IsNullOrWhiteSpace(result.RollbackMessage)
+            var result = await TaskSliceApplyService.ApplyAsync(
+                request.ProjectPath,
+                slice,
+                highRiskApproved: IsHighRiskApplyApproved(slice));
+
+            var statusMessage = string.IsNullOrWhiteSpace(result.RollbackMessage)
                 ? result.Message
                 : $"{result.Message}{Environment.NewLine}{result.RollbackMessage}";
+
+            if (!string.IsNullOrWhiteSpace(result.RiskGateMessage) &&
+                !string.Equals(result.RiskGateMessage, result.Message, StringComparison.Ordinal))
+            {
+                statusMessage = $"{statusMessage}{Environment.NewLine}{result.RiskGateMessage}";
+            }
+
+            sliceStatusMessages[slice.Id] = statusMessage;
             if (result.BuildVerificationResult is not null)
             {
                 sliceBuildVerificationResults[slice.Id] = result.BuildVerificationResult;
@@ -549,6 +570,7 @@
                 result.Message);
 
             await LoadApplyHistoryAsync();
+            await LoadApplyAuditAsync();
             await LoadApprovalStatesAsync();
             await InvokeAsync(StateHasChanged);
         }
@@ -556,6 +578,76 @@
         {
             isApplyingSlice = false;
         }
+    }
+
+    private async Task RollbackApplyAuditAsync(TaskSliceApplyAuditEntry auditEntry)
+    {
+        if (taskPlanPreview is null)
+        {
+            return;
+        }
+
+        var slice = taskPlanPreview.Slices.FirstOrDefault(item => string.Equals(item.Id, auditEntry.SliceId, StringComparison.OrdinalIgnoreCase));
+        if (slice is null)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Rollback unavailable", "The slice is no longer available in the current plan preview.");
+            return;
+        }
+
+        isRollingBackSlice = true;
+        try
+        {
+            var rollbackResult = await TaskSliceRollbackService.RollbackSliceAsync(slice);
+            var rollbackMessage = rollbackResult.Summary;
+
+            await TaskSliceApplyAuditService.AddAsync(new TaskSliceApplyAuditEntry
+            {
+                TimestampUtc = DateTime.UtcNow,
+                PlanId = auditEntry.PlanId,
+                SliceId = auditEntry.SliceId,
+                SliceTitle = auditEntry.SliceTitle,
+                RiskLevel = auditEntry.RiskLevel,
+                RiskScore = auditEntry.RiskScore,
+                ApprovedHighRiskApply = auditEntry.ApprovedHighRiskApply,
+                Success = rollbackResult.Success,
+                Blocked = false,
+                Message = $"Rollback: {rollbackMessage}",
+                ChangedFiles = [.. auditEntry.ChangedFiles]
+            });
+
+            sliceStatusMessages[slice.Id] = rollbackMessage;
+            await LoadApplyAuditAsync();
+            await LoadApplyHistoryAsync();
+            await InvokeAsync(StateHasChanged);
+
+            NotificationService.Notify(
+                rollbackResult.Success ? NotificationSeverity.Success : NotificationSeverity.Warning,
+                rollbackResult.Success ? "Rollback completed" : "Rollback failed",
+                rollbackMessage);
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Rollback failed", exception.Message);
+        }
+        finally
+        {
+            isRollingBackSlice = false;
+        }
+    }
+
+    private Task ToggleHighRiskApplyApprovalAsync(TaskPlanSlice slice)
+    {
+        if (!highRiskApplyApprovals.Add(slice.Id))
+        {
+            highRiskApplyApprovals.Remove(slice.Id);
+        }
+
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsHighRiskApplyApproved(TaskPlanSlice slice)
+    {
+        return highRiskApplyApprovals.Contains(slice.Id);
     }
 
     private async Task ApplyPlanAsync(TaskPlan plan)
@@ -602,6 +694,7 @@
             }
 
             await LoadApplyHistoryAsync();
+            await LoadApplyAuditAsync();
             await LoadApprovalStatesAsync();
             await InvokeAsync(StateHasChanged);
         }
@@ -734,6 +827,7 @@
         selectedHistoryEntry = null;
         selectedAgentRun = null;
         selectedPatchPackage = null;
+        highRiskApplyApprovals.Clear();
 
         error = null;
         projectKnowledgeIndex = null;
@@ -903,6 +997,7 @@
         sliceVerificationLoopResults.Clear();
         sliceBuildVerificationResults.Clear();
         sliceStatusMessages.Clear();
+        highRiskApplyApprovals.Clear();
         ClearPatchDebug();
     }
 
@@ -913,6 +1008,7 @@
         sliceVerificationLoopResults.Clear();
         sliceBuildVerificationResults.Clear();
         sliceStatusMessages.Clear();
+        highRiskApplyApprovals.Clear();
     }
 
     #endregion
@@ -2286,6 +2382,18 @@
         try
         {
             applyHistoryItems = await TaskSliceApplyHistoryService.GetHistoryAsync(10);
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+    }
+
+    private async Task LoadApplyAuditAsync()
+    {
+        try
+        {
+            applyAuditEntries = await TaskSliceApplyAuditService.GetLatestAsync(10);
         }
         catch (Exception exception)
         {

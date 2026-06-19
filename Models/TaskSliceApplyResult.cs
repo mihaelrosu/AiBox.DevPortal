@@ -12,4 +12,5 @@ public sealed class TaskSliceApplyResult
     public int AppliedFilesCount { get; set; }
     public TaskSliceBuildVerificationResult? BuildVerificationResult { get; set; }
     public IReadOnlyList<string> Errors { get; set; } = [];
+    public string? RiskGateMessage { get; set; }
 }

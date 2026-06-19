@@ -26,16 +26,19 @@ public sealed class TaskPlanApplyServiceTests
             var patchPackageService = new PatchPackageService(environment, approvalGateService);
             var approvalService = new TaskSliceApprovalService(environment);
             var applyHistoryService = new TaskSliceApplyHistoryService(environment);
-            var patchRollbackService = new PatchRollbackService(patchPackageService);
+            var auditService = new TaskSliceApplyAuditService(environment);
+            var patchRollbackService = Substitute.For<IPatchRollbackService>();
             var rollbackService = new TaskSliceRollbackService(patchRollbackService);
             var backupService = new PatchBackupService(environment, Substitute.For<ILogger<PatchBackupService>>());
             var dependencyGraphService = new TaskPlanDependencyGraphService();
             var applyService = new TaskSliceApplyService(
                 backupService,
                 patchPackageService,
+                patchRollbackService,
                 rollbackService,
                 applyHistoryService,
-                approvalService);
+                approvalService,
+                auditService);
             var planApplyService = new TaskPlanApplyService(applyService, approvalService, dependencyGraphService);
 
             var slice1 = await CreateSliceAsync(
@@ -157,16 +160,19 @@ public sealed class TaskPlanApplyServiceTests
             var patchPackageService = new PatchPackageService(environment, approvalGateService);
             var approvalService = new TaskSliceApprovalService(environment);
             var applyHistoryService = new TaskSliceApplyHistoryService(environment);
-            var patchRollbackService = new PatchRollbackService(patchPackageService);
+            var auditService = new TaskSliceApplyAuditService(environment);
+            var patchRollbackService = Substitute.For<IPatchRollbackService>();
             var rollbackService = new TaskSliceRollbackService(patchRollbackService);
             var backupService = new PatchBackupService(environment, Substitute.For<ILogger<PatchBackupService>>());
             var dependencyGraphService = new TaskPlanDependencyGraphService();
             var applyService = new TaskSliceApplyService(
                 backupService,
                 patchPackageService,
+                patchRollbackService,
                 rollbackService,
                 applyHistoryService,
-                approvalService);
+                approvalService,
+                auditService);
             var planApplyService = new TaskPlanApplyService(applyService, approvalService, dependencyGraphService);
 
             var slice1 = await CreateSliceAsync(
@@ -258,16 +264,19 @@ public sealed class TaskPlanApplyServiceTests
             var patchPackageService = new PatchPackageService(environment, approvalGateService);
             var approvalService = new TaskSliceApprovalService(environment);
             var applyHistoryService = new TaskSliceApplyHistoryService(environment);
-            var patchRollbackService = new PatchRollbackService(patchPackageService);
+            var auditService = new TaskSliceApplyAuditService(environment);
+            var patchRollbackService = Substitute.For<IPatchRollbackService>();
             var rollbackService = new TaskSliceRollbackService(patchRollbackService);
             var backupService = new PatchBackupService(environment, Substitute.For<ILogger<PatchBackupService>>());
             var dependencyGraphService = new TaskPlanDependencyGraphService();
             var applyService = new TaskSliceApplyService(
                 backupService,
                 patchPackageService,
+                patchRollbackService,
                 rollbackService,
                 applyHistoryService,
-                approvalService);
+                approvalService,
+                auditService);
             var planApplyService = new TaskPlanApplyService(applyService, approvalService, dependencyGraphService);
 
             var sliceA = await CreateSliceAsync(
@@ -368,16 +377,19 @@ public sealed class TaskPlanApplyServiceTests
             var patchPackageService = new PatchPackageService(environment, approvalGateService);
             var approvalService = new TaskSliceApprovalService(environment);
             var applyHistoryService = new TaskSliceApplyHistoryService(environment);
-            var patchRollbackService = new PatchRollbackService(patchPackageService);
+            var auditService = new TaskSliceApplyAuditService(environment);
+            var patchRollbackService = Substitute.For<IPatchRollbackService>();
             var rollbackService = new TaskSliceRollbackService(patchRollbackService);
             var backupService = new PatchBackupService(environment, Substitute.For<ILogger<PatchBackupService>>());
             var dependencyGraphService = new TaskPlanDependencyGraphService();
             var applyService = new TaskSliceApplyService(
                 backupService,
                 patchPackageService,
+                patchRollbackService,
                 rollbackService,
                 applyHistoryService,
-                approvalService);
+                approvalService,
+                auditService);
             var planApplyService = new TaskPlanApplyService(applyService, approvalService, dependencyGraphService);
 
             var slice1 = await CreateSliceAsync(

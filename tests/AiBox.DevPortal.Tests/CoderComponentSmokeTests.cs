@@ -473,6 +473,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         var verificationService = new TaskSliceVerificationService(instructionEnvironment);
         var riskAnalysisService = new TaskSliceRiskAnalysisService();
         var verificationLoopService = new TaskSliceVerificationLoopService(verificationService, riskAnalysisService);
+        var planRiskAnalysisService = new RiskAnalysisService();
 
         Services.AddSingleton(coderConsoleService);
         Services.AddSingleton(Substitute.For<IAgentModeRunner>());
@@ -481,7 +482,8 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(runHistoryService);
         Services.AddSingleton(projectKnowledgeIndexService);
         Services.AddSingleton(new PlannerContextSelectionService());
-        Services.AddSingleton(new TaskDecompositionService());
+        Services.AddSingleton(planRiskAnalysisService);
+        Services.AddSingleton(new TaskDecompositionService(planRiskAnalysisService));
         Services.AddSingleton(patchPackageService);
         Services.AddSingleton(Substitute.For<IPatchBackupService>());
         Services.AddSingleton(Substitute.For<IPatchApplyService>());
@@ -493,6 +495,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(new TaskSliceApprovalService(instructionEnvironment));
         Services.AddSingleton(riskAnalysisService);
         Services.AddSingleton(new TaskSliceApplyHistoryService(instructionEnvironment));
+        Services.AddSingleton(new TaskSliceApplyAuditService(instructionEnvironment));
         Services.AddSingleton<TaskSliceApplyService>();
         Services.AddSingleton<TaskPlanApplyService>();
         Services.AddSingleton<TaskSliceRollbackService>();
