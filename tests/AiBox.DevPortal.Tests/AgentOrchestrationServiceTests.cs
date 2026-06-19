@@ -210,6 +210,9 @@ public sealed class AgentOrchestrationServiceTests
             var riskyRequest = """
                 Create:
                 Program.cs
+                Services/AuthService.cs
+                Data/AppDbContext.cs
+                Services/DependencyInjectionService.cs
                 """;
             var harness = CreateHarness(
                 root,
@@ -218,6 +221,33 @@ public sealed class AgentOrchestrationServiceTests
                         "Program.cs",
                         """
                         Console.WriteLine("High risk update");
+                        """),
+                    new PatchOperationFixture(
+                        "Services/AuthService.cs",
+                        """
+                        namespace AiBox.DevPortal.Services;
+
+                        public sealed class AuthService
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Data/AppDbContext.cs",
+                        """
+                        namespace AiBox.DevPortal.Data;
+
+                        public sealed class AppDbContext
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Services/DependencyInjectionService.cs",
+                        """
+                        namespace AiBox.DevPortal.Services;
+
+                        public sealed class DependencyInjectionService
+                        {
+                        }
                         """))),
                 BuildOllamaResponse("The patch is valid and should be reviewed."));
 
@@ -228,6 +258,7 @@ public sealed class AgentOrchestrationServiceTests
                 approveHighRiskApply: false);
 
             Assert.Equal(AgentOrchestrationStatus.Paused, run.Status);
+            Assert.Equal(RiskLevel.High, run.SafetyHighestRiskLevel);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[0].Status);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[1].Status);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[2].Status);
@@ -260,6 +291,9 @@ public sealed class AgentOrchestrationServiceTests
             var riskyRequest = """
                 Create:
                 Program.cs
+                Services/AuthService.cs
+                Data/AppDbContext.cs
+                Services/DependencyInjectionService.cs
                 """;
             var harness = CreateHarness(
                 root,
@@ -268,6 +302,33 @@ public sealed class AgentOrchestrationServiceTests
                         "Program.cs",
                         """
                         Console.WriteLine("High risk update");
+                        """),
+                    new PatchOperationFixture(
+                        "Services/AuthService.cs",
+                        """
+                        namespace AiBox.DevPortal.Services;
+
+                        public sealed class AuthService
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Data/AppDbContext.cs",
+                        """
+                        namespace AiBox.DevPortal.Data;
+
+                        public sealed class AppDbContext
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Services/DependencyInjectionService.cs",
+                        """
+                        namespace AiBox.DevPortal.Services;
+
+                        public sealed class DependencyInjectionService
+                        {
+                        }
                         """))),
                 BuildOllamaResponse("The patch is valid and should be reviewed."));
 
@@ -279,6 +340,7 @@ public sealed class AgentOrchestrationServiceTests
 
             Assert.Equal(AgentOrchestrationStatus.Paused, pausedRun.Status);
             Assert.True(pausedRun.HumanApprovalPending);
+            Assert.Equal(RiskLevel.High, pausedRun.SafetyHighestRiskLevel);
             Assert.False(pausedRun.SafetyBlocksAutoApply);
             Assert.True(pausedRun.SafetyRequiresManualApproval);
 
@@ -300,6 +362,86 @@ public sealed class AgentOrchestrationServiceTests
     }
 
     [Fact]
+    public async Task RunOrchestrationAsync_HumanApproval_RejectFailsOrchestration()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var riskyRequest = """
+                Create:
+                Program.cs
+                Services/AuthService.cs
+                Data/AppDbContext.cs
+                Services/DependencyInjectionService.cs
+                """;
+            var harness = CreateHarness(
+                root,
+                BuildOllamaResponse(BuildPatchOperationsJson(
+                    new PatchOperationFixture(
+                        "Program.cs",
+                        """
+                        Console.WriteLine("High risk update");
+                        """),
+                    new PatchOperationFixture(
+                        "Services/AuthService.cs",
+                        """
+                        namespace AiBox.DevPortal.Services;
+
+                        public sealed class AuthService
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Data/AppDbContext.cs",
+                        """
+                        namespace AiBox.DevPortal.Data;
+
+                        public sealed class AppDbContext
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Services/DependencyInjectionService.cs",
+                        """
+                        namespace AiBox.DevPortal.Services;
+
+                        public sealed class DependencyInjectionService
+                        {
+                        }
+                        """))),
+                BuildOllamaResponse("The patch is valid and should be reviewed."));
+
+            var pausedRun = await harness.Service.RunOrchestrationAsync(
+                "High risk rejection",
+                riskyRequest,
+                commitAndSync: false,
+                approveHighRiskApply: false);
+
+            Assert.Equal(AgentOrchestrationStatus.Paused, pausedRun.Status);
+            Assert.True(pausedRun.HumanApprovalPending);
+
+            var request = Assert.Single(await harness.QueueService.GetPendingAsync(10));
+            await harness.QueueService.DecideAsync(request.Id, HumanApprovalDecision.Rejected, "tester", "Rejected after review");
+
+            var failedRun = await harness.Service.RejectHumanApprovalAsync(pausedRun.Id, "Rejected after review");
+
+            Assert.Equal(AgentOrchestrationStatus.Failed, failedRun.Status);
+            Assert.False(failedRun.HumanApprovalPending);
+            Assert.False(failedRun.ApplySucceeded);
+            Assert.Contains("rejected", failedRun.PausedReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(AgentOrchestrationStatus.Failed, failedRun.Steps[4].Status);
+            Assert.Equal(AgentOrchestrationStatus.Skipped, failedRun.Steps[5].Status);
+            Assert.Empty(await harness.QueueService.GetPendingAsync(10));
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
     public async Task RunOrchestrationAsync_CriticalRiskAlwaysBlocked()
     {
         var root = CreateTempProjectRoot();
@@ -310,8 +452,17 @@ public sealed class AgentOrchestrationServiceTests
             var criticalRequest = """
                 Create:
                 Program.cs
-                appsettings.json
                 Services/AuthService.cs
+                Data/AppDbContext.cs
+                Services/DependencyInjectionService.cs
+                Security/Secrets.cs
+                Controllers/AdminController.cs
+                Docs/README.md
+                Docs/More.md
+                Extra/Another.cs
+                Extra/YetAnother.cs
+                Extra/More.cs
+                Extra/EvenMore.cs
                 """;
             var harness = CreateHarness(
                 root,
@@ -322,22 +473,89 @@ public sealed class AgentOrchestrationServiceTests
                         Console.WriteLine("Critical risk update");
                         """),
                     new PatchOperationFixture(
-                        "appsettings.json",
-                        """
-                        {
-                          "Logging": {
-                            "LogLevel": {
-                              "Default": "Debug"
-                            }
-                          }
-                        }
-                        """),
-                    new PatchOperationFixture(
                         "Services/AuthService.cs",
                         """
                         namespace AiBox.DevPortal.Services;
 
                         public sealed class AuthService
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Data/AppDbContext.cs",
+                        """
+                        namespace AiBox.DevPortal.Data;
+
+                        public sealed class AppDbContext
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Services/DependencyInjectionService.cs",
+                        """
+                        namespace AiBox.DevPortal.Services;
+
+                        public sealed class DependencyInjectionService
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Security/Secrets.cs",
+                        """
+                        namespace AiBox.DevPortal.Security;
+
+                        public sealed class Secrets
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Controllers/AdminController.cs",
+                        """
+                        namespace AiBox.DevPortal.Controllers;
+
+                        public sealed class AdminController
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Docs/README.md",
+                        "# docs"),
+                    new PatchOperationFixture(
+                        "Docs/More.md",
+                        "# more"),
+                    new PatchOperationFixture(
+                        "Extra/Another.cs",
+                        """
+                        namespace AiBox.DevPortal.Extra;
+
+                        public sealed class Another
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Extra/YetAnother.cs",
+                        """
+                        namespace AiBox.DevPortal.Extra;
+
+                        public sealed class YetAnother
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Extra/More.cs",
+                        """
+                        namespace AiBox.DevPortal.Extra;
+
+                        public sealed class More
+                        {
+                        }
+                        """),
+                    new PatchOperationFixture(
+                        "Extra/EvenMore.cs",
+                        """
+                        namespace AiBox.DevPortal.Extra;
+
+                        public sealed class EvenMore
                         {
                         }
                         """))),
@@ -350,6 +568,7 @@ public sealed class AgentOrchestrationServiceTests
                 approveHighRiskApply: true);
 
             Assert.Equal(AgentOrchestrationStatus.Failed, run.Status);
+            Assert.Equal(RiskLevel.Critical, run.SafetyHighestRiskLevel);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[0].Status);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[1].Status);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[2].Status);
@@ -359,6 +578,7 @@ public sealed class AgentOrchestrationServiceTests
             Assert.False(run.ApplySucceeded);
             Assert.Contains("cannot be applied", run.ApplyRiskGateMessage, StringComparison.OrdinalIgnoreCase);
             Assert.NotEmpty(run.ApplyAuditIds);
+            Assert.Empty(await harness.QueueService.GetPendingAsync(10));
             Assert.False(run.CommitAttempted);
             Assert.False(run.PushAttempted);
         }
