@@ -3,7 +3,9 @@ using AiBox.DevPortal.Models;
 
 namespace AiBox.DevPortal.Services;
 
-public sealed class ScheduledAgentRunService(IWebHostEnvironment environment)
+public sealed class ScheduledAgentRunService(
+    IWebHostEnvironment environment,
+    ExecutionPolicyProfileService executionPolicyProfileService)
 {
     private const string SchedulesFileName = "scheduled-agent-runs.json";
 
@@ -54,7 +56,7 @@ public sealed class ScheduledAgentRunService(IWebHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(schedule);
 
-        var saved = Normalize(schedule);
+        var saved = await ValidateAndNormalizeAsync(schedule, cancellationToken);
         saved.Id = Guid.NewGuid().ToString("N");
         saved.CreatedAtUtc = saved.CreatedAtUtc == default ? DateTime.UtcNow : saved.CreatedAtUtc;
 
@@ -81,7 +83,7 @@ public sealed class ScheduledAgentRunService(IWebHostEnvironment environment)
 
         ArgumentNullException.ThrowIfNull(schedule);
 
-        var updated = Normalize(schedule);
+        var updated = await ValidateAndNormalizeAsync(schedule, cancellationToken);
         updated.Id = id.Trim();
 
         await FileLock.WaitAsync(cancellationToken);
@@ -197,22 +199,52 @@ public sealed class ScheduledAgentRunService(IWebHostEnvironment environment)
         return Path.Combine(environment.ContentRootPath, "Data", SchedulesFileName);
     }
 
-    private static ScheduledAgentRun Normalize(ScheduledAgentRun schedule)
+    private async Task<ScheduledAgentRun> ValidateAndNormalizeAsync(ScheduledAgentRun schedule, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(schedule.Name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(schedule.CronExpression);
-        ArgumentException.ThrowIfNullOrWhiteSpace(schedule.TaskName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(schedule.UserRequest);
-        ArgumentException.ThrowIfNullOrWhiteSpace(schedule.ExecutionPolicyName);
+        var name = schedule.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Schedule name is required.");
+        }
+
+        var cronExpression = schedule.CronExpression?.Trim();
+        if (string.IsNullOrWhiteSpace(cronExpression))
+        {
+            throw new ArgumentException("Cron expression cannot be empty.");
+        }
+
+        var taskName = schedule.TaskName?.Trim();
+        if (string.IsNullOrWhiteSpace(taskName))
+        {
+            throw new ArgumentException("Task name is required.");
+        }
+
+        var userRequest = schedule.UserRequest?.Trim();
+        if (string.IsNullOrWhiteSpace(userRequest))
+        {
+            throw new ArgumentException("User request is required.");
+        }
+
+        var executionPolicyName = schedule.ExecutionPolicyName?.Trim();
+        if (string.IsNullOrWhiteSpace(executionPolicyName))
+        {
+            throw new ArgumentException("Execution policy name is required.");
+        }
+
+        var executionPolicy = await executionPolicyProfileService.GetByNameAsync(executionPolicyName, cancellationToken);
+        if (executionPolicy is null)
+        {
+            throw new ArgumentException($"Execution policy '{executionPolicyName}' does not exist.");
+        }
 
         return new ScheduledAgentRun
         {
-            Name = schedule.Name.Trim(),
+            Name = name,
             Enabled = schedule.Enabled,
-            CronExpression = schedule.CronExpression.Trim(),
-            TaskName = schedule.TaskName.Trim(),
-            UserRequest = schedule.UserRequest.Trim(),
-            ExecutionPolicyName = schedule.ExecutionPolicyName.Trim(),
+            CronExpression = cronExpression,
+            TaskName = taskName,
+            UserRequest = userRequest,
+            ExecutionPolicyName = executionPolicy.Name,
             CommitAndSync = schedule.CommitAndSync,
             CreatedAtUtc = schedule.CreatedAtUtc == default ? DateTime.UtcNow : schedule.CreatedAtUtc,
             LastRunAtUtc = schedule.LastRunAtUtc,

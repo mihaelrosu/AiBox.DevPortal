@@ -10,7 +10,39 @@ namespace AiBox.DevPortal.Tests;
 public sealed class ScheduledAgentRunServiceTests
 {
     [Fact]
-    public async Task CreateAsync_PersistsSchedule()
+    public async Task CreateAsync_RejectsMissingName()
+    {
+        await AssertInvalidScheduleAsync(
+            schedule => schedule.Name = string.Empty,
+            "Schedule name is required.");
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsMissingTaskName()
+    {
+        await AssertInvalidScheduleAsync(
+            schedule => schedule.TaskName = " ",
+            "Task name is required.");
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsMissingRequest()
+    {
+        await AssertInvalidScheduleAsync(
+            schedule => schedule.UserRequest = string.Empty,
+            "User request is required.");
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsInvalidPolicy()
+    {
+        await AssertInvalidScheduleAsync(
+            schedule => schedule.ExecutionPolicyName = "DoesNotExist",
+            "Execution policy 'DoesNotExist' does not exist.");
+    }
+
+    [Fact]
+    public async Task CreateAsync_PersistsValidSchedule()
     {
         var root = CreateTempProjectRoot();
 
@@ -58,16 +90,7 @@ public sealed class ScheduledAgentRunServiceTests
         try
         {
             var service = CreateService(root);
-            var created = await service.CreateAsync(new ScheduledAgentRun
-            {
-                Name = "Nightly run",
-                Enabled = true,
-                CronExpression = "0 0 * * *",
-                TaskName = "Initial task",
-                UserRequest = "Initial request",
-                ExecutionPolicyName = "Safe",
-                CommitAndSync = false
-            });
+            var created = await service.CreateAsync(CreateValidSchedule("Safe"));
 
             var updated = await service.UpdateAsync(created.Id, new ScheduledAgentRun
             {
@@ -109,16 +132,7 @@ public sealed class ScheduledAgentRunServiceTests
         try
         {
             var service = CreateService(root);
-            var created = await service.CreateAsync(new ScheduledAgentRun
-            {
-                Name = "Nightly run",
-                Enabled = false,
-                CronExpression = "0 0 * * *",
-                TaskName = "Initial task",
-                UserRequest = "Initial request",
-                ExecutionPolicyName = "Safe",
-                CommitAndSync = false
-            });
+            var created = await service.CreateAsync(CreateValidSchedule("Safe", enabled: false));
 
             var enabled = await service.EnableAsync(created.Id);
             Assert.NotNull(enabled);
@@ -142,16 +156,7 @@ public sealed class ScheduledAgentRunServiceTests
         try
         {
             var service = CreateService(root);
-            var created = await service.CreateAsync(new ScheduledAgentRun
-            {
-                Name = "Nightly run",
-                Enabled = true,
-                CronExpression = "0 0 * * *",
-                TaskName = "Initial task",
-                UserRequest = "Initial request",
-                ExecutionPolicyName = "Safe",
-                CommitAndSync = false
-            });
+            var created = await service.CreateAsync(CreateValidSchedule("Safe"));
 
             var deleted = await service.DeleteAsync(created.Id);
 
@@ -164,9 +169,46 @@ public sealed class ScheduledAgentRunServiceTests
         }
     }
 
+    private static async Task AssertInvalidScheduleAsync(Action<ScheduledAgentRun> mutate, string expectedMessage)
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var service = CreateService(root);
+            var schedule = CreateValidSchedule("Safe");
+            mutate(schedule);
+
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(schedule));
+
+            Assert.Equal(expectedMessage, exception.Message);
+            Assert.Empty(await service.GetAllAsync());
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    private static ScheduledAgentRun CreateValidSchedule(string policyName, bool enabled = true)
+    {
+        return new ScheduledAgentRun
+        {
+            Name = "Nightly run",
+            Enabled = enabled,
+            CronExpression = "0 0 * * *",
+            TaskName = "Implement orchestration",
+            UserRequest = "Create a nightly orchestration run.",
+            ExecutionPolicyName = policyName,
+            CommitAndSync = false
+        };
+    }
+
     private static ScheduledAgentRunService CreateService(string root)
     {
-        return new ScheduledAgentRunService(new TestWebHostEnvironment(root));
+        var environment = new TestWebHostEnvironment(root);
+        var policyService = new ExecutionPolicyProfileService(environment);
+        return new ScheduledAgentRunService(environment, policyService);
     }
 
     private static string CreateTempProjectRoot()
