@@ -258,6 +258,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddScoped<AgentModelBenchmarkService>();
         Services.AddScoped<AgentModelComparisonService>();
         Services.AddScoped<AgentDashboardService>();
+        Services.AddScoped<AgentOrchestrationCheckpointService>();
         Services.AddScoped<AgentOrchestrationService>();
         Services.AddScoped<AgentInstructionService>();
         Services.AddScoped<PlannerContextSelectionService>();

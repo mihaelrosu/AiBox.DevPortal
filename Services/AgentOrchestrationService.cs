@@ -20,6 +20,7 @@ public sealed class AgentOrchestrationService(
     TaskSliceApplyAuditService taskSliceApplyAuditService,
     TaskSliceApplyService taskSliceApplyService,
     HumanApprovalQueueService humanApprovalQueueService,
+    AgentOrchestrationCheckpointService checkpointService,
     AgentOrchestrationSafetyService safetyService,
     AgentOrchestrationTimelineService timelineService,
     GitSyncService gitSyncService)
@@ -82,6 +83,83 @@ public sealed class AgentOrchestrationService(
         return run;
     }
 
+    public async Task<AgentOrchestrationRun> PauseOrchestrationAsync(
+        string runId,
+        string? message = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(runId))
+        {
+            throw new ArgumentException("Run id is required.", nameof(runId));
+        }
+
+        AgentOrchestrationRun run;
+        await FileLock.WaitAsync(cancellationToken);
+        try
+        {
+            run = (await LoadAsync(cancellationToken))
+                .FirstOrDefault(item => item.Id.Equals(runId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException($"Run not found: {runId}");
+        }
+        finally
+        {
+            FileLock.Release();
+        }
+
+        if (run.Status is AgentOrchestrationStatus.Completed or AgentOrchestrationStatus.Failed)
+        {
+            throw new InvalidOperationException($"Run {run.Id} is {run.Status.ToString().ToLowerInvariant()} and cannot be paused.");
+        }
+
+        if (run.Status == AgentOrchestrationStatus.Paused)
+        {
+            return Clone(run);
+        }
+
+        if (run.Steps.Count == 0)
+        {
+            throw new InvalidOperationException("Run does not have any steps to pause.");
+        }
+
+        if (run.Steps.Any(step => step.Status == AgentOrchestrationStatus.InProgress))
+        {
+            throw new InvalidOperationException("Pause is only supported between steps.");
+        }
+
+        var currentStepIndex = run.Steps.FindLastIndex(step => step.Status == AgentOrchestrationStatus.Completed);
+        var nextStepIndex = run.Steps.FindIndex(Math.Max(currentStepIndex + 1, 0), step => step.Status == AgentOrchestrationStatus.Pending);
+
+        if (nextStepIndex < 0)
+        {
+            throw new InvalidOperationException("Run does not have a pending step to pause.");
+        }
+
+        var currentStepName = currentStepIndex >= 0 ? run.Steps[currentStepIndex].StepName : string.Empty;
+        var nextStep = run.Steps[nextStepIndex];
+        var pauseMessage = string.IsNullOrWhiteSpace(message)
+            ? $"Run paused before {nextStep.StepName}."
+            : message.Trim();
+
+        nextStep.Status = AgentOrchestrationStatus.Paused;
+        nextStep.StartedAtUtc = nextStep.StartedAtUtc == default ? DateTime.UtcNow : nextStep.StartedAtUtc;
+        nextStep.CompletedAtUtc = null;
+        nextStep.DurationMs = 0;
+        nextStep.Success = false;
+        nextStep.ErrorMessage = string.Empty;
+        nextStep.Message = pauseMessage;
+
+        run.Status = AgentOrchestrationStatus.Paused;
+        run.PausedAtUtc = DateTime.UtcNow;
+        run.PausedReason = pauseMessage;
+        run.HumanApprovalPending = false;
+        run.CompletedAtUtc = null;
+        run.NextStepIndex = nextStepIndex;
+
+        await RecordPauseCheckpointAsync(run, currentStepName, nextStep.StepName, pauseMessage, cancellationToken);
+        await PersistRunAsync(run, cancellationToken);
+        return Clone(run);
+    }
+
     public async Task<AgentOrchestrationRun> ResumeOrchestrationAsync(
         string runId,
         CancellationToken cancellationToken = default)
@@ -104,8 +182,74 @@ public sealed class AgentOrchestrationService(
             FileLock.Release();
         }
 
+        if (run.Status is AgentOrchestrationStatus.Completed or AgentOrchestrationStatus.Failed)
+        {
+            throw new InvalidOperationException($"Run {run.Id} is {run.Status.ToString().ToLowerInvariant()} and cannot be resumed.");
+        }
+
         if (run.Status != AgentOrchestrationStatus.Paused)
         {
+            return Clone(run);
+        }
+
+        var checkpoint = await checkpointService.GetLatestForRunAsync(run.Id, cancellationToken);
+
+        var pausedStepIndex = run.Steps.FindIndex(step => step.Status == AgentOrchestrationStatus.Paused);
+        if (pausedStepIndex < 0 && checkpoint is not null && !string.IsNullOrWhiteSpace(checkpoint.NextStepName))
+        {
+            pausedStepIndex = run.Steps.FindIndex(step => step.StepName.Equals(checkpoint.NextStepName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (pausedStepIndex < 0 && run.NextStepIndex >= 0 && run.NextStepIndex < run.Steps.Count)
+        {
+            pausedStepIndex = run.NextStepIndex;
+        }
+
+        if (pausedStepIndex < 0)
+        {
+            pausedStepIndex = run.Steps.FindIndex(step => step.Status == AgentOrchestrationStatus.Pending);
+        }
+
+        if (pausedStepIndex < 0)
+        {
+            throw new InvalidOperationException($"Run {run.Id} does not have a pending step to resume.");
+        }
+
+        var pausedStep = run.Steps[pausedStepIndex];
+
+        run.Status = AgentOrchestrationStatus.InProgress;
+        run.HumanApprovalPending = false;
+        run.PausedAtUtc = null;
+        run.PausedReason = string.Empty;
+        run.CompletedAtUtc = null;
+        await PersistRunAsync(run, cancellationToken);
+
+        await RecordTimelineEventAsync(new AgentOrchestrationTimelineEvent
+        {
+            RunId = run.Id,
+            TimestampUtc = DateTime.UtcNow,
+            EventType = AgentOrchestrationTimelineEventType.RunResumed,
+            StepName = pausedStep.StepName,
+            Message = string.IsNullOrWhiteSpace(checkpoint?.Message)
+                ? $"Run resumed from {pausedStep.StepName}."
+                : $"Run resumed from {pausedStep.StepName}: {checkpoint.Message}",
+            Severity = AgentOrchestrationTimelineSeverity.Info,
+            RelatedEntityId = checkpoint?.Id ?? run.Id
+        }, cancellationToken);
+
+        if (!pausedStep.StepName.Equals("Apply", StringComparison.OrdinalIgnoreCase))
+        {
+            pausedStep.Status = AgentOrchestrationStatus.InProgress;
+            pausedStep.StartedAtUtc = pausedStep.StartedAtUtc == default ? DateTime.UtcNow : pausedStep.StartedAtUtc;
+            pausedStep.CompletedAtUtc = null;
+            pausedStep.DurationMs = 0;
+            pausedStep.Success = false;
+            pausedStep.ErrorMessage = string.Empty;
+            pausedStep.Message = string.IsNullOrWhiteSpace(checkpoint?.Message)
+                ? $"Resumed {pausedStep.StepName}."
+                : checkpoint.Message;
+            run.NextStepIndex = pausedStepIndex;
+            await PersistRunAsync(run, cancellationToken);
             return Clone(run);
         }
 
@@ -126,14 +270,7 @@ public sealed class AgentOrchestrationService(
         var slice = BuildCheckpointSlice(run);
         var package = await patchPackageService.GetByIdAsync(run.CheckpointPatchPackageId, cancellationToken)
             ?? throw new InvalidOperationException($"Patch package not found: {run.CheckpointPatchPackageId}");
-        var applyStepIndex = run.NextStepIndex > 0 ? run.NextStepIndex : 4;
-
-        run.Status = AgentOrchestrationStatus.InProgress;
-        run.HumanApprovalPending = false;
-        run.PausedAtUtc = null;
-        run.PausedReason = string.Empty;
-        run.CompletedAtUtc = null;
-        await PersistRunAsync(run, cancellationToken);
+        var applyStepIndex = pausedStepIndex;
 
         try
         {
@@ -200,6 +337,11 @@ public sealed class AgentOrchestrationService(
         finally
         {
             FileLock.Release();
+        }
+
+        if (run.Status is AgentOrchestrationStatus.Completed or AgentOrchestrationStatus.Failed)
+        {
+            throw new InvalidOperationException($"Run {run.Id} is {run.Status.ToString().ToLowerInvariant()} and cannot be resumed.");
         }
 
         if (run.Status != AgentOrchestrationStatus.Paused)
@@ -651,6 +793,8 @@ public sealed class AgentOrchestrationService(
         if (safetyReport.RequiresManualApproval && !approvalGranted)
         {
             var request = await GetOrCreateApprovalRequestAsync(run, safetyReport, cancellationToken);
+            var applyStepIndex = Math.Max(run.Steps.FindIndex(item => item.Id.Equals(step.Id, StringComparison.OrdinalIgnoreCase)), 0);
+            var nextStep = run.Steps.ElementAtOrDefault(applyStepIndex + 1);
 
             run.ApplySucceeded = false;
             run.ApplyMessage = $"Waiting for human approval: {safetyReport.Summary}";
@@ -659,7 +803,7 @@ public sealed class AgentOrchestrationService(
             run.HumanApprovalPending = true;
             run.PausedAtUtc = DateTime.UtcNow;
             run.PausedReason = safetyReport.Summary;
-            run.NextStepIndex = Math.Max(run.Steps.FindIndex(item => item.Id.Equals(step.Id, StringComparison.OrdinalIgnoreCase)), 0);
+            run.NextStepIndex = applyStepIndex;
             run.CheckpointPlanId = slice.PlanId;
             run.CheckpointSliceId = slice.Id;
             run.CheckpointSliceTitle = slice.Title;
@@ -674,6 +818,7 @@ public sealed class AgentOrchestrationService(
             step.Message = run.ApplyMessage;
             run.Status = AgentOrchestrationStatus.Paused;
             run.CompletedAtUtc = null;
+            await RecordPauseCheckpointAsync(run, step.StepName, nextStep?.StepName ?? string.Empty, safetyReport.Summary, cancellationToken);
             await PersistRunAsync(run, cancellationToken);
             return true;
         }
@@ -1348,6 +1493,52 @@ public sealed class AgentOrchestrationService(
         {
             // Timeline persistence should not block orchestration execution.
         }
+    }
+
+    private async Task<AgentOrchestrationCheckpoint> RecordPauseCheckpointAsync(
+        AgentOrchestrationRun run,
+        string currentStepName,
+        string nextStepName,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        var checkpoint = await checkpointService.CreateAsync(new AgentOrchestrationCheckpoint
+        {
+            RunId = run.Id,
+            CreatedAtUtc = DateTime.UtcNow,
+            CurrentStepName = currentStepName,
+            NextStepName = nextStepName,
+            Status = AgentOrchestrationStatus.Paused,
+            Message = message
+        }, cancellationToken);
+
+        await RecordTimelineEventAsync(new AgentOrchestrationTimelineEvent
+        {
+            RunId = run.Id,
+            TimestampUtc = checkpoint.CreatedAtUtc,
+            EventType = AgentOrchestrationTimelineEventType.PauseRequested,
+            StepName = string.IsNullOrWhiteSpace(nextStepName) ? currentStepName : nextStepName,
+            Message = string.IsNullOrWhiteSpace(message)
+                ? $"Pause requested for run {run.TaskName}."
+                : message,
+            Severity = AgentOrchestrationTimelineSeverity.Warning,
+            RelatedEntityId = run.Id
+        }, cancellationToken);
+
+        await RecordTimelineEventAsync(new AgentOrchestrationTimelineEvent
+        {
+            RunId = run.Id,
+            TimestampUtc = checkpoint.CreatedAtUtc,
+            EventType = AgentOrchestrationTimelineEventType.CheckpointCreated,
+            StepName = string.IsNullOrWhiteSpace(nextStepName) ? currentStepName : nextStepName,
+            Message = string.IsNullOrWhiteSpace(message)
+                ? "Orchestration checkpoint created."
+                : message,
+            Severity = AgentOrchestrationTimelineSeverity.Info,
+            RelatedEntityId = checkpoint.Id
+        }, cancellationToken);
+
+        return checkpoint;
     }
 
     private async Task<List<AgentOrchestrationRun>> LoadAsync(CancellationToken cancellationToken)

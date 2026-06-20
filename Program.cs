@@ -82,6 +82,7 @@ builder.Services.AddScoped<TaskSliceApplyAuditService>();
 builder.Services.AddScoped<TaskSliceApprovalService>();
 builder.Services.AddScoped<TaskSliceRiskAnalysisService>();
 builder.Services.AddScoped<AgentDashboardMetricsService>();
+builder.Services.AddScoped<AgentOrchestrationCheckpointService>();
 builder.Services.AddScoped<AgentOrchestrationSafetyService>();
 builder.Services.AddScoped<AgentOrchestrationTimelineService>();
 builder.Services.AddScoped<HumanApprovalQueueService>();

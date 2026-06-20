@@ -1,5 +1,6 @@
 @using AiBox.DevPortal.Models.Agents
 @inject AgentOrchestrationService AgentOrchestrationService
+@inject AgentOrchestrationCheckpointService AgentOrchestrationCheckpointService
 
 <RadzenCard>
     <RadzenStack Gap="0.75rem">
@@ -141,7 +142,7 @@
                                                       Icon="visibility"
                                                       Size="ButtonSize.Small"
                                                       ButtonStyle="ButtonStyle.Light"
-                                                      Click="@(() => SelectRun(item.Id))" />
+                                                      Click="@(() => SelectRunAsync(item.Id))" />
                                     </Template>
                                 </RadzenDataGridColumn>
                             </Columns>
@@ -154,16 +155,30 @@
             {
                 <RadzenCard Style="margin: 0;">
                     <RadzenStack Gap="0.75rem">
-                        <RadzenStack Orientation="Orientation.Horizontal"
-                                     AlignItems="AlignItems.Center"
-                                     JustifyContent="JustifyContent.SpaceBetween"
-                                     Gap="0.75rem"
-                                     Wrap="FlexWrap.Wrap">
-                            <div>
-                                <RadzenText Text="@($"Selected Run: {selectedRun.TaskName}")" TextStyle="TextStyle.H6" />
-                                <RadzenText Text="@selectedRun.UserRequest" TextStyle="TextStyle.Body2" />
-                            </div>
-                            <RadzenBadge Text="@selectedRun.Status.ToString()" BadgeStyle="@GetStatusStyle(selectedRun.Status)" />
+                            <RadzenStack Orientation="Orientation.Horizontal"
+                                         AlignItems="AlignItems.Center"
+                                         JustifyContent="JustifyContent.SpaceBetween"
+                                         Gap="0.75rem"
+                                         Wrap="FlexWrap.Wrap">
+                                <div>
+                                    <RadzenText Text="@($"Selected Run: {selectedRun.TaskName}")" TextStyle="TextStyle.H6" />
+                                    <RadzenText Text="@selectedRun.UserRequest" TextStyle="TextStyle.Body2" />
+                                </div>
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                <RadzenBadge Text="@selectedRun.Status.ToString()" BadgeStyle="@GetStatusStyle(selectedRun.Status)" />
+                                <RadzenButton Text="Pause"
+                                              Icon="pause"
+                                              Size="ButtonSize.Small"
+                                              ButtonStyle="ButtonStyle.Warning"
+                                              Click="@PauseSelectedRunAsync"
+                                              Disabled="@(!CanPauseSelectedRun())" />
+                                <RadzenButton Text="Resume"
+                                              Icon="play_arrow"
+                                              Size="ButtonSize.Small"
+                                              ButtonStyle="ButtonStyle.Success"
+                                              Click="@ResumeSelectedRunAsync"
+                                              Disabled="@(!CanResumeSelectedRun())" />
+                            </RadzenStack>
                         </RadzenStack>
 
                         <RadzenCard Style="margin: 0;">
@@ -208,6 +223,30 @@
                                         <RadzenText Text="@selectedRun.PausedReason" TextStyle="TextStyle.Caption" />
                                     }
                                 </RadzenStack>
+                            </RadzenCard>
+                        }
+
+                        @if (selectedCheckpoint is not null)
+                        {
+                            <RadzenCard Style="margin: 0;">
+                                <RadzenStack Gap="0.35rem">
+                                    <RadzenText Text="Latest Checkpoint" TextStyle="TextStyle.H6" />
+                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                        <RadzenBadge Text="@selectedCheckpoint.Status.ToString()"
+                                                     BadgeStyle="@GetCheckpointStatusStyle(selectedCheckpoint.Status)" />
+                                        <RadzenText Text="@($"Created: {selectedCheckpoint.CreatedAtUtc:yyyy-MM-dd HH:mm:ss}")" TextStyle="TextStyle.Caption" />
+                                    </RadzenStack>
+                                    <RadzenText Text="@selectedCheckpoint.Message" TextStyle="TextStyle.Body2" />
+                                    <RadzenText Text="@($"Current step: {GetCheckpointFieldText(selectedCheckpoint.CurrentStepName)}")" TextStyle="TextStyle.Caption" />
+                                    <RadzenText Text="@($"Next step: {GetCheckpointFieldText(selectedCheckpoint.NextStepName)}")" TextStyle="TextStyle.Caption" />
+                                    <RadzenText Text="@($"Checkpoint id: {selectedCheckpoint.Id}")" TextStyle="TextStyle.Caption" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        }
+                        else if (selectedRun.Status == AgentOrchestrationStatus.Paused)
+                        {
+                            <RadzenCard Style="margin: 0;">
+                                <RadzenText Text="No checkpoint has been recorded for this paused run yet." TextStyle="TextStyle.Body2" />
                             </RadzenCard>
                         }
 
@@ -359,6 +398,7 @@
     private readonly AgentMode[] agentRoles = Enum.GetValues<AgentMode>();
     private IReadOnlyList<AgentOrchestrationRun> latestRuns = [];
     private AgentOrchestrationRun? selectedRun;
+    private AgentOrchestrationCheckpoint? selectedCheckpoint;
     private string selectedRunId = string.Empty;
     private string taskName = "Agent orchestration run";
     private string userRequest = "Simulate planner, patch builder, verifier, reviewer, and apply steps.";
@@ -386,6 +426,7 @@
             latestRuns = await AgentOrchestrationService.GetLatestAsync(20);
             selectedRun = ResolveSelectedRun();
             selectedRunId = selectedRun?.Id ?? string.Empty;
+            await LoadSelectedCheckpointAsync();
             statusMessage = $"Loaded {latestRuns.Count} orchestration run(s).";
         }
         catch (Exception exception)
@@ -393,6 +434,7 @@
             errorMessage = $"Unable to load orchestration runs: {exception.Message}";
             latestRuns = [];
             selectedRun = null;
+            selectedCheckpoint = null;
             selectedRunId = string.Empty;
             statusMessage = string.Empty;
         }
@@ -436,6 +478,7 @@
             var run = await AgentOrchestrationService.RunOrchestrationAsync(taskName, userRequest, commitAndSync, approveHighRiskApply);
             selectedRunId = run.Id;
             selectedRun = run;
+            await LoadSelectedCheckpointAsync();
             await LoadAsync();
             statusMessage = $"Orchestration {GetStatusText(run.Status)} for {taskName.Trim()}.";
         }
@@ -557,10 +600,67 @@
         }
     }
 
-    private void SelectRun(string runId)
+    private async Task SelectRunAsync(string runId)
     {
         selectedRunId = runId;
         selectedRun = ResolveSelectedRun();
+        await LoadSelectedCheckpointAsync();
+    }
+
+    private async Task PauseSelectedRunAsync()
+    {
+        if (selectedRun is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+        var selectedTaskName = selectedRun.TaskName;
+
+        try
+        {
+            await AgentOrchestrationService.PauseOrchestrationAsync(selectedRun.Id);
+            await LoadAsync();
+            statusMessage = $"Paused run {selectedTaskName}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to pause orchestration: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ResumeSelectedRunAsync()
+    {
+        if (selectedRun is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+        var selectedTaskName = selectedRun.TaskName;
+
+        try
+        {
+            await AgentOrchestrationService.ResumeOrchestrationAsync(selectedRun.Id);
+            await LoadAsync();
+            statusMessage = $"Resumed run {selectedTaskName}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Unable to resume orchestration: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private AgentOrchestrationRun? ResolveSelectedRun()
@@ -575,6 +675,13 @@
         }
 
         return latestRuns.FirstOrDefault();
+    }
+
+    private async Task LoadSelectedCheckpointAsync()
+    {
+        selectedCheckpoint = selectedRun is null
+            ? null
+            : await AgentOrchestrationCheckpointService.GetLatestForRunAsync(selectedRun.Id);
     }
 
     private static string GetRoleLabel(AgentMode role)
@@ -601,6 +708,36 @@
             AgentOrchestrationStatus.Skipped => BadgeStyle.Light,
             _ => BadgeStyle.Light
         };
+    }
+
+    private static BadgeStyle GetCheckpointStatusStyle(AgentOrchestrationStatus status)
+    {
+        return status switch
+        {
+            AgentOrchestrationStatus.Paused => BadgeStyle.Warning,
+            AgentOrchestrationStatus.InProgress => BadgeStyle.Info,
+            AgentOrchestrationStatus.Completed => BadgeStyle.Success,
+            AgentOrchestrationStatus.Failed => BadgeStyle.Danger,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    private static string GetCheckpointFieldText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private bool CanPauseSelectedRun()
+    {
+        return selectedRun is not null &&
+               selectedRun.Status != AgentOrchestrationStatus.Paused &&
+               selectedRun.Status != AgentOrchestrationStatus.Completed &&
+               selectedRun.Status != AgentOrchestrationStatus.Failed;
+    }
+
+    private bool CanResumeSelectedRun()
+    {
+        return selectedRun is not null && selectedRun.Status == AgentOrchestrationStatus.Paused;
     }
 
     private static string GetStatusText(AgentOrchestrationStatus status)

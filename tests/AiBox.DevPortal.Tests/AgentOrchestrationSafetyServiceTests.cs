@@ -271,6 +271,7 @@ public sealed class AgentOrchestrationSafetyServiceTests
             taskSliceApprovalService,
             taskSliceApplyAuditService);
         var safetyService = new AgentOrchestrationSafetyService(environment);
+        var checkpointService = new AgentOrchestrationCheckpointService(environment);
         var timelineService = new AgentOrchestrationTimelineService(environment);
         var approvalQueueService = new HumanApprovalQueueService(environment, timelineService);
         var gitSyncService = new GitSyncService();
@@ -293,6 +294,7 @@ public sealed class AgentOrchestrationSafetyServiceTests
             taskSliceApplyAuditService,
             taskSliceApplyService,
             approvalQueueService,
+            checkpointService,
             safetyService,
             timelineService,
             gitSyncService);

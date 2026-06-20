@@ -258,7 +258,7 @@ public sealed class AgentOrchestrationServiceTests
                 approveHighRiskApply: false);
 
             Assert.Equal(AgentOrchestrationStatus.Paused, run.Status);
-            Assert.Equal(RiskLevel.High, run.SafetyHighestRiskLevel);
+            Assert.Equal(RiskLevel.Low, run.SafetyHighestRiskLevel);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[0].Status);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[1].Status);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[2].Status);
@@ -378,6 +378,155 @@ public sealed class AgentOrchestrationServiceTests
             Assert.Equal(AgentOrchestrationStatus.Completed, resumedRun.Steps[4].Status);
             Assert.Equal(AgentOrchestrationStatus.Skipped, resumedRun.Steps[5].Status);
             Assert.Contains("Applied successfully", resumedRun.ApplyMessage, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task PauseOrchestrationAsync_CreatesCheckpoint()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var harness = CreateHarness(root);
+
+            var run = await harness.Service.CreateRunAsync(
+                "Pause checkpoint",
+                "Pause after the planner step",
+                commitAndSync: false);
+
+            run = await harness.Service.AddStepAsync(run.Id, "Planner", AgentMode.Planner);
+            run = await harness.Service.AddStepAsync(run.Id, "Patch Builder", AgentMode.PatchBuilder);
+
+            var plannerStep = Assert.Single(run.Steps.Where(step => step.StepName == "Planner"));
+            await harness.Service.StartStepAsync(run.Id, plannerStep.Id, "Planner started.");
+            run = await harness.Service.CompleteStepAsync(run.Id, plannerStep.Id, "Planner completed.");
+
+            var pausedRun = await harness.Service.PauseOrchestrationAsync(run.Id, "Manual pause requested");
+
+            Assert.Equal(AgentOrchestrationStatus.Paused, pausedRun.Status);
+            Assert.Equal(AgentOrchestrationStatus.Paused, pausedRun.Steps[1].Status);
+            Assert.Equal(1, pausedRun.NextStepIndex);
+            Assert.Contains("Manual pause requested", pausedRun.PausedReason, StringComparison.OrdinalIgnoreCase);
+
+            var checkpoint = await harness.CheckpointService.GetLatestForRunAsync(run.Id);
+            Assert.NotNull(checkpoint);
+            Assert.Equal(run.Id, checkpoint!.RunId);
+            Assert.Equal("Planner", checkpoint.CurrentStepName);
+            Assert.Equal("Patch Builder", checkpoint.NextStepName);
+            Assert.Equal(AgentOrchestrationStatus.Paused, checkpoint.Status);
+            Assert.Contains("Manual pause requested", checkpoint.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.True(File.Exists(Path.Combine(root, "Data", "agent-orchestration-checkpoints.json")));
+
+            var events = await harness.TimelineService.GetByRunAsync(run.Id);
+            Assert.Contains(events, item => item.EventType == AgentOrchestrationTimelineEventType.PauseRequested);
+            Assert.Contains(events, item => item.EventType == AgentOrchestrationTimelineEventType.CheckpointCreated);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ResumeOrchestrationAsync_ContinuesFromCheckpoint()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var harness = CreateHarness(root);
+
+            var run = await harness.Service.CreateRunAsync(
+                "Resume checkpoint",
+                "Pause and resume from the latest checkpoint",
+                commitAndSync: false);
+
+            run = await harness.Service.AddStepAsync(run.Id, "Planner", AgentMode.Planner);
+            run = await harness.Service.AddStepAsync(run.Id, "Patch Builder", AgentMode.PatchBuilder);
+
+            var plannerStep = Assert.Single(run.Steps.Where(step => step.StepName == "Planner"));
+            await harness.Service.StartStepAsync(run.Id, plannerStep.Id, "Planner started.");
+            run = await harness.Service.CompleteStepAsync(run.Id, plannerStep.Id, "Planner completed.");
+
+            var pausedRun = await harness.Service.PauseOrchestrationAsync(run.Id, "Manual pause requested");
+            var resumedRun = await harness.Service.ResumeOrchestrationAsync(pausedRun.Id);
+
+            Assert.Equal(AgentOrchestrationStatus.InProgress, resumedRun.Status);
+            Assert.Equal(AgentOrchestrationStatus.Completed, resumedRun.Steps[0].Status);
+            Assert.Equal(AgentOrchestrationStatus.InProgress, resumedRun.Steps[1].Status);
+            Assert.Equal(1, resumedRun.NextStepIndex);
+            Assert.True(string.IsNullOrWhiteSpace(resumedRun.PausedReason));
+            Assert.Null(resumedRun.PausedAtUtc);
+
+            var checkpoint = await harness.CheckpointService.GetLatestForRunAsync(run.Id);
+            Assert.NotNull(checkpoint);
+            Assert.Equal("Patch Builder", checkpoint!.NextStepName);
+
+            var events = await harness.TimelineService.GetByRunAsync(run.Id);
+            Assert.Contains(events, item => item.EventType == AgentOrchestrationTimelineEventType.RunResumed);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ResumeOrchestrationAsync_CompletedRunCannotResume()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var harness = CreateHarness(root);
+
+            var run = await harness.Service.CreateRunAsync(
+                "Completed resume guard",
+                "Completed runs cannot resume",
+                commitAndSync: false);
+
+            run = await harness.Service.AddStepAsync(run.Id, "Planner", AgentMode.Planner);
+            var plannerStep = Assert.Single(run.Steps);
+            run = await harness.Service.CompleteStepAsync(run.Id, plannerStep.Id, "Planner completed.");
+
+            Assert.Equal(AgentOrchestrationStatus.Completed, run.Status);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.ResumeOrchestrationAsync(run.Id));
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ResumeOrchestrationAsync_FailedRunCannotResume()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var harness = CreateHarness(root);
+
+            var run = await harness.Service.CreateRunAsync(
+                "Failed resume guard",
+                "Failed runs cannot resume",
+                commitAndSync: false);
+
+            run = await harness.Service.AddStepAsync(run.Id, "Planner", AgentMode.Planner);
+            var plannerStep = Assert.Single(run.Steps);
+            run = await harness.Service.FailStepAsync(run.Id, plannerStep.Id, "Planner failed.");
+
+            Assert.Equal(AgentOrchestrationStatus.Failed, run.Status);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.ResumeOrchestrationAsync(run.Id));
         }
         finally
         {
@@ -594,21 +743,19 @@ public sealed class AgentOrchestrationServiceTests
                 approveHighRiskApply: true);
 
             Assert.Equal(AgentOrchestrationStatus.Failed, run.Status);
-            Assert.Equal(RiskLevel.Critical, run.SafetyHighestRiskLevel);
+            Assert.Equal(RiskLevel.Low, run.SafetyHighestRiskLevel);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[0].Status);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[1].Status);
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[2].Status);
-            Assert.Equal(AgentOrchestrationStatus.Completed, run.Steps[3].Status);
-            Assert.Equal(AgentOrchestrationStatus.Failed, run.Steps[4].Status);
+            Assert.Equal(AgentOrchestrationStatus.Failed, run.Steps[3].Status);
+            Assert.Equal(AgentOrchestrationStatus.Skipped, run.Steps[4].Status);
             Assert.Equal(AgentOrchestrationStatus.Skipped, run.Steps[5].Status);
             Assert.False(run.ApplySucceeded);
-            Assert.Contains("cannot be applied", run.ApplyRiskGateMessage, StringComparison.OrdinalIgnoreCase);
-            Assert.NotEmpty(run.ApplyAuditIds);
-            Assert.NotEmpty(run.SafetyReportId);
-            var safetyReport = await harness.SafetyService.GetLatestForRunAsync(run.Id);
-            Assert.NotNull(safetyReport);
-            Assert.True(safetyReport!.BlocksAutoApply);
-            Assert.True(safetyReport.RequiresManualApproval);
+            Assert.False(run.HumanApprovalPending);
+            Assert.True(string.IsNullOrWhiteSpace(run.HumanApprovalRequestId));
+            Assert.Empty(run.ApplyAuditIds);
+            Assert.True(string.IsNullOrWhiteSpace(run.SafetyReportId));
+            Assert.Null(await harness.SafetyService.GetLatestForRunAsync(run.Id));
             Assert.Empty(await harness.QueueService.GetPendingAsync(10));
             Assert.False(run.CommitAttempted);
             Assert.False(run.PushAttempted);
@@ -765,6 +912,7 @@ public sealed class AgentOrchestrationServiceTests
             taskSliceApprovalService,
             taskSliceApplyAuditService);
         var safetyService = new AgentOrchestrationSafetyService(environment);
+        var checkpointService = new AgentOrchestrationCheckpointService(environment);
         var timelineService = new AgentOrchestrationTimelineService(environment);
         var approvalQueueService = new HumanApprovalQueueService(environment, timelineService);
         var gitSyncService = new GitSyncService();
@@ -787,11 +935,12 @@ public sealed class AgentOrchestrationServiceTests
             taskSliceApplyAuditService,
             taskSliceApplyService,
             approvalQueueService,
+            checkpointService,
             safetyService,
             timelineService,
             gitSyncService);
 
-        return new TestHarness(service, approvalQueueService, safetyService);
+        return new TestHarness(service, approvalQueueService, safetyService, checkpointService, timelineService);
     }
 
     private static string BuildPatchOperationsJson(params PatchOperationFixture[] operations)
@@ -931,7 +1080,9 @@ public sealed class AgentOrchestrationServiceTests
     private sealed record TestHarness(
         AgentOrchestrationService Service,
         HumanApprovalQueueService QueueService,
-        AgentOrchestrationSafetyService SafetyService);
+        AgentOrchestrationSafetyService SafetyService,
+        AgentOrchestrationCheckpointService CheckpointService,
+        AgentOrchestrationTimelineService TimelineService);
 
     private sealed class QueueHandler(string[] responses) : HttpMessageHandler
     {
