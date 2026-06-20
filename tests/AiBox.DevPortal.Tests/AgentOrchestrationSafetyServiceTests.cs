@@ -53,7 +53,7 @@ public sealed class AgentOrchestrationSafetyServiceTests
     }
 
     [Fact]
-    public async Task ProgramCsChanges_RequireApproval()
+    public async Task SafePolicy_RequiresApproval_ForProgramCs()
     {
         await using var context = CreateContext();
 
@@ -61,7 +61,8 @@ public sealed class AgentOrchestrationSafetyServiceTests
             "run-3",
             "Startup change",
             CreateSlice("slice-3", RiskLevel.Low),
-            ["Program.cs"]);
+            ["Program.cs"],
+            "Safe");
 
         Assert.False(report.BlocksAutoApply);
         Assert.True(report.RequiresManualApproval);
@@ -69,127 +70,69 @@ public sealed class AgentOrchestrationSafetyServiceTests
     }
 
     [Fact]
-    public async Task LowRisk_IsAllowed()
+    public async Task BalancedPolicy_RespectsMaxChangedFiles()
     {
         await using var context = CreateContext();
 
         var report = await context.Service.GenerateAsync(
             "run-4",
-            "Docs task",
+            "Balanced task",
             CreateSlice("slice-4", RiskLevel.Low),
-            ["Docs/README.md"]);
+            [
+                "Docs/README.md",
+                "Docs/More.md",
+                "Docs/Extra.md",
+                "Docs/One.md",
+                "Docs/Two.md",
+                "Docs/Three.md",
+                "Docs/Four.md",
+                "Docs/Five.md",
+                "Docs/Six.md",
+                "Docs/Seven.md",
+                "Docs/Eight.md"
+            ],
+            "Balanced");
 
         Assert.False(report.BlocksAutoApply);
-        Assert.False(report.RequiresManualApproval);
+        Assert.True(report.RequiresManualApproval);
         Assert.Equal(RiskLevel.Low, report.HighestRiskLevel);
-        Assert.Contains("allowed auto apply", report.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(report.Reasons, reason => reason.Contains("More than 10 changed files", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Balanced", report.Summary, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task Apply_IsSkipped_WhenSafetyBlocks()
+    public async Task AggressivePolicy_AllowsMoreChanges_ButStillBlocksCritical()
     {
-        var root = CreateTempProjectRoot();
+        await using var context = CreateContext();
 
-        try
-        {
-            WriteProjectFile(root);
-            var harness = CreateHarness(
-                root,
-                BuildOllamaResponse(BuildPatchOperationsJson(
-                    new PatchOperationFixture("Program.cs", "Console.WriteLine(\"one\");"),
-                    new PatchOperationFixture("Services/AuthService.cs", """
-                        namespace AiBox.DevPortal.Services;
+        var report = await context.Service.GenerateAsync(
+            "run-5",
+            "Aggressive task",
+            CreateSlice("slice-5", RiskLevel.Critical),
+            [
+                "Program.cs",
+                "Security/Secrets.cs",
+                "Security/Identity/Users.cs",
+                "Auth/LoginService.cs",
+                "Docs/README.md",
+                "Docs/More.md",
+                "Docs/Extra.md",
+                "Docs/One.md",
+                "Docs/Two.md",
+                "Docs/Three.md",
+                "Docs/Four.md",
+                "Docs/Five.md",
+                "Docs/Six.md"
+            ],
+            "Aggressive");
 
-                        public sealed class AuthService
-                        {
-                        }
-                        """),
-                    new PatchOperationFixture("Data/AppDbContext.cs", """
-                        namespace AiBox.DevPortal.Data;
-
-                        public sealed class AppDbContext
-                        {
-                        }
-                        """),
-                    new PatchOperationFixture("Data/Migrations/202606190001_AddUsers.cs", """
-                        namespace AiBox.DevPortal.Data.Migrations;
-
-                        public sealed class AddUsers
-                        {
-                        }
-                        """),
-                    new PatchOperationFixture("Services/Support/FeatureFlagService.cs", """
-                        namespace AiBox.DevPortal.Services.Support;
-
-                        public sealed class FeatureFlagService
-                        {
-                        }
-                        """),
-                    new PatchOperationFixture("Security/Secrets.cs", """
-                        namespace AiBox.DevPortal.Security;
-
-                        public sealed class Secrets
-                        {
-                        }
-                        """),
-                    new PatchOperationFixture("Security/Credentials.cs", """
-                        namespace AiBox.DevPortal.Security;
-
-                        public sealed class Credentials
-                        {
-                        }
-                        """),
-                    new PatchOperationFixture("Controllers/AdminController.cs", """
-                        namespace AiBox.DevPortal.Controllers;
-
-                        public sealed class AdminController
-                        {
-                        }
-                        """),
-                    new PatchOperationFixture("Docs/README.md", "# docs"),
-                    new PatchOperationFixture("Docs/More.md", "# more"),
-                    new PatchOperationFixture("Extra/Another.cs", """
-                        namespace AiBox.DevPortal.Extra;
-
-                        public sealed class Another
-                        {
-                        }
-                        """))),
-                BuildOllamaResponse("Looks good."));
-
-            var run = await harness.Service.RunOrchestrationAsync(
-                "Safety blocked orchestration",
-                """
-                Create:
-                Program.cs
-                Services/AuthService.cs
-                Data/AppDbContext.cs
-                Data/Migrations/202606190001_AddUsers.cs
-                Services/Support/FeatureFlagService.cs
-                Security/Secrets.cs
-                Security/Credentials.cs
-                Controllers/AdminController.cs
-                Docs/README.md
-                Docs/More.md
-                Extra/Another.cs
-                """,
-                commitAndSync: false,
-                approveHighRiskApply: true);
-
-            Assert.Equal(AgentOrchestrationStatus.Failed, run.Status);
-            Assert.True(run.SafetyBlocksAutoApply);
-            Assert.True(run.SafetyRequiresManualApproval);
-            Assert.NotEmpty(run.SafetyReportId);
-            Assert.Contains(run.SafetyReasons, reason => reason.Contains("cannot be applied", StringComparison.OrdinalIgnoreCase));
-            Assert.False(run.ApplySucceeded);
-            Assert.Equal(AgentOrchestrationStatus.Failed, run.Steps[4].Status);
-            Assert.Equal(AgentOrchestrationStatus.Skipped, run.Steps[5].Status);
-            Assert.Contains("cannot be applied", run.ApplyRiskGateMessage, StringComparison.OrdinalIgnoreCase);
-        }
-        finally
-        {
-            DeleteTempProjectRoot(root);
-        }
+        Assert.True(report.BlocksAutoApply);
+        Assert.True(report.RequiresManualApproval);
+        Assert.Equal(RiskLevel.Critical, report.HighestRiskLevel);
+        Assert.Contains(report.Reasons, reason => reason.Contains("Critical risk", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(report.Reasons, reason => reason.Contains("Program.cs changes", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(report.Reasons, reason => reason.Contains("More than", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(report.Reasons, reason => reason.Contains("security changes", StringComparison.OrdinalIgnoreCase));
     }
 
     private static Context CreateContext()
@@ -197,7 +140,8 @@ public sealed class AgentOrchestrationSafetyServiceTests
         var root = CreateTempProjectRoot();
         Directory.CreateDirectory(Path.Combine(root, "Data"));
         var environment = new TestWebHostEnvironment(root);
-        var service = new AgentOrchestrationSafetyService(environment);
+        var executionPolicyProfileService = new ExecutionPolicyProfileService(environment);
+        var service = new AgentOrchestrationSafetyService(environment, executionPolicyProfileService);
         return new Context(root, service);
     }
 
@@ -270,7 +214,8 @@ public sealed class AgentOrchestrationSafetyServiceTests
             taskSliceApplyHistoryService,
             taskSliceApprovalService,
             taskSliceApplyAuditService);
-        var safetyService = new AgentOrchestrationSafetyService(environment);
+        var executionPolicyProfileService = new ExecutionPolicyProfileService(environment);
+        var safetyService = new AgentOrchestrationSafetyService(environment, executionPolicyProfileService);
         var checkpointService = new AgentOrchestrationCheckpointService(environment);
         var timelineService = new AgentOrchestrationTimelineService(environment);
         var approvalQueueService = new HumanApprovalQueueService(environment, timelineService);
@@ -295,6 +240,7 @@ public sealed class AgentOrchestrationSafetyServiceTests
             taskSliceApplyService,
             approvalQueueService,
             checkpointService,
+            executionPolicyProfileService,
             safetyService,
             timelineService,
             gitSyncService);

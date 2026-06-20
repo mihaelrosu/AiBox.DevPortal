@@ -100,6 +100,7 @@ builder.Services.AddScoped<TaskSliceVerificationService>();
 builder.Services.AddScoped<IDockerService, DockerService>();
 builder.Services.AddScoped<IGeneratedImageHistoryService, GeneratedImageHistoryService>();
 builder.Services.AddScoped<IImageToolService, ImageToolService>();
+builder.Services.AddScoped<ExecutionPolicyProfileService>();
 builder.Services.AddHttpClient<IToolStatusService, ToolStatusService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(2);

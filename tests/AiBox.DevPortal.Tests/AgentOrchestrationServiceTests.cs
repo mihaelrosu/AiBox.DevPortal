@@ -767,6 +767,30 @@ public sealed class AgentOrchestrationServiceTests
     }
 
     [Fact]
+    public async Task GetExecutionPolicyProfileAsync_LoadsProfileByName()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var harness = CreateHarness(root);
+
+            var profile = await harness.Service.GetExecutionPolicyProfileAsync("safe");
+
+            Assert.NotNull(profile);
+            Assert.Equal("Safe", profile!.Name);
+            Assert.False(profile.AllowAutoApply);
+            Assert.False(profile.AllowCommitAndSync);
+            Assert.True(profile.RequireHumanApprovalForHighRisk);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
     public async Task RunOrchestrationAsync_ApplyNotRunAfterVerifierFailure()
     {
         var root = CreateTempProjectRoot();
@@ -911,7 +935,8 @@ public sealed class AgentOrchestrationServiceTests
             taskSliceApplyHistoryService,
             taskSliceApprovalService,
             taskSliceApplyAuditService);
-        var safetyService = new AgentOrchestrationSafetyService(environment);
+        var executionPolicyProfileService = new ExecutionPolicyProfileService(environment);
+        var safetyService = new AgentOrchestrationSafetyService(environment, executionPolicyProfileService);
         var checkpointService = new AgentOrchestrationCheckpointService(environment);
         var timelineService = new AgentOrchestrationTimelineService(environment);
         var approvalQueueService = new HumanApprovalQueueService(environment, timelineService);
@@ -936,6 +961,7 @@ public sealed class AgentOrchestrationServiceTests
             taskSliceApplyService,
             approvalQueueService,
             checkpointService,
+            executionPolicyProfileService,
             safetyService,
             timelineService,
             gitSyncService);

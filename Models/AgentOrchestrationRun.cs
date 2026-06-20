@@ -11,6 +11,7 @@ public sealed class AgentOrchestrationRun
     public DateTime? CompletedAtUtc { get; set; }
     public bool CommitAndSync { get; set; }
     public bool ApproveHighRiskApply { get; set; }
+    public string ExecutionPolicyName { get; set; } = "Safe";
     public string HumanApprovalRequestId { get; set; } = string.Empty;
     public bool HumanApprovalPending { get; set; }
     public DateTime? PausedAtUtc { get; set; }

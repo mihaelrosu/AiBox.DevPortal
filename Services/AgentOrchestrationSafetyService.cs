@@ -3,9 +3,12 @@ using AiBox.DevPortal.Models;
 
 namespace AiBox.DevPortal.Services;
 
-public sealed class AgentOrchestrationSafetyService(IWebHostEnvironment environment)
+public sealed class AgentOrchestrationSafetyService(
+    IWebHostEnvironment environment,
+    ExecutionPolicyProfileService executionPolicyProfileService)
 {
     private const string ReportsFileName = "agent-orchestration-safety-reports.json";
+    private const string DefaultPolicyName = "Safe";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -59,6 +62,7 @@ public sealed class AgentOrchestrationSafetyService(IWebHostEnvironment environm
         string taskName,
         TaskPlanSlice slice,
         IReadOnlyList<string> changedFiles,
+        string? executionPolicyName = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(runId))
@@ -74,39 +78,42 @@ public sealed class AgentOrchestrationSafetyService(IWebHostEnvironment environm
         ArgumentNullException.ThrowIfNull(slice);
 
         var files = NormalizeChangedFiles(changedFiles);
+        var policy = await GetPolicyAsync(executionPolicyName, cancellationToken);
         var reasons = new List<string>();
         var blocksAutoApply = slice.RiskLevel == RiskLevel.Critical;
-        var requiresManualApproval = slice.RiskLevel is RiskLevel.High or RiskLevel.Critical;
+        var requiresManualApproval = !policy.AllowAutoApply;
 
         if (slice.RiskLevel == RiskLevel.Critical)
         {
+            requiresManualApproval = true;
             reasons.Add("Critical risk blocks auto apply and cannot be applied.");
         }
 
-        if (slice.RiskLevel == RiskLevel.High)
+        if (slice.RiskLevel == RiskLevel.High && policy.RequireHumanApprovalForHighRisk)
         {
+            requiresManualApproval = true;
             reasons.Add("High risk requires approval.");
         }
 
-        if (files.Count > 10)
+        if (files.Count > policy.MaxChangedFiles)
         {
             requiresManualApproval = true;
-            reasons.Add("More than 10 changed files requires approval.");
+            reasons.Add($"More than {policy.MaxChangedFiles} changed files requires approval.");
         }
 
-        if (files.Any(IsProgramFile))
+        if (!policy.AllowProgramCsChanges && files.Any(IsProgramFile))
         {
             requiresManualApproval = true;
             reasons.Add("Program.cs changes require approval.");
         }
 
-        if (files.Any(IsSecuritySensitiveFile))
+        if (!policy.AllowSecurityChanges && files.Any(IsSecuritySensitiveFile))
         {
             requiresManualApproval = true;
             reasons.Add("Authentication, identity, or security changes require approval.");
         }
 
-        var summary = BuildSummary(blocksAutoApply, requiresManualApproval, reasons);
+        var summary = BuildSummary(policy, blocksAutoApply, requiresManualApproval, reasons);
 
         var report = new AgentOrchestrationSafetyReport
         {
@@ -135,7 +142,33 @@ public sealed class AgentOrchestrationSafetyService(IWebHostEnvironment environm
         }
     }
 
-    private static string BuildSummary(bool blocksAutoApply, bool requiresManualApproval, IReadOnlyList<string> reasons)
+    private async Task<ExecutionPolicyProfile> GetPolicyAsync(string? executionPolicyName, CancellationToken cancellationToken)
+    {
+        var policyName = string.IsNullOrWhiteSpace(executionPolicyName) ? DefaultPolicyName : executionPolicyName.Trim();
+        var policy = await executionPolicyProfileService.GetByNameAsync(policyName, cancellationToken);
+
+        if (policy is not null)
+        {
+            return policy;
+        }
+
+        return new ExecutionPolicyProfile
+        {
+            Name = DefaultPolicyName,
+            AllowAutoApply = false,
+            AllowCommitAndSync = false,
+            RequireHumanApprovalForHighRisk = true,
+            AllowProgramCsChanges = false,
+            AllowSecurityChanges = false,
+            MaxChangedFiles = 3
+        };
+    }
+
+    private static string BuildSummary(
+        ExecutionPolicyProfile policy,
+        bool blocksAutoApply,
+        bool requiresManualApproval,
+        IReadOnlyList<string> reasons)
     {
         if (blocksAutoApply)
         {
@@ -147,13 +180,13 @@ public sealed class AgentOrchestrationSafetyService(IWebHostEnvironment environm
         if (requiresManualApproval)
         {
             return reasons.Count == 0
-                ? "Safety review requires manual approval."
-                : $"Safety review requires manual approval: {string.Join(" ", reasons)}";
+                ? $"Safety review requires manual approval under policy '{policy.Name}'."
+                : $"Safety review requires manual approval under policy '{policy.Name}': {string.Join(" ", reasons)}";
         }
 
         return reasons.Count == 0
-            ? "Safety review allowed auto apply."
-            : $"Safety review allowed auto apply: {string.Join(" ", reasons)}";
+            ? $"Safety review allowed auto apply under policy '{policy.Name}'."
+            : $"Safety review allowed auto apply under policy '{policy.Name}': {string.Join(" ", reasons)}";
     }
 
     private static bool IsProgramFile(string path)

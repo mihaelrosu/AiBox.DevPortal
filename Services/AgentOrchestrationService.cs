@@ -21,6 +21,7 @@ public sealed class AgentOrchestrationService(
     TaskSliceApplyService taskSliceApplyService,
     HumanApprovalQueueService humanApprovalQueueService,
     AgentOrchestrationCheckpointService checkpointService,
+    ExecutionPolicyProfileService executionPolicyProfileService,
     AgentOrchestrationSafetyService safetyService,
     AgentOrchestrationTimelineService timelineService,
     GitSyncService gitSyncService)
@@ -81,6 +82,11 @@ public sealed class AgentOrchestrationService(
     {
         var run = await CreateRunRecordAsync(taskName, userRequest, commitAndSync, [], AgentOrchestrationStatus.Pending, approveHighRiskApply, cancellationToken);
         return run;
+    }
+
+    public Task<ExecutionPolicyProfile?> GetExecutionPolicyProfileAsync(string profileName, CancellationToken cancellationToken = default)
+    {
+        return executionPolicyProfileService.GetByNameAsync(profileName, cancellationToken);
     }
 
     public async Task<AgentOrchestrationRun> PauseOrchestrationAsync(
@@ -1035,7 +1041,7 @@ public sealed class AgentOrchestrationService(
             return BuildSafetyReportFromRun(run);
         }
 
-        var safetyReport = await safetyService.GenerateAsync(run.Id, run.TaskName, slice, changedFiles, cancellationToken);
+        var safetyReport = await safetyService.GenerateAsync(run.Id, run.TaskName, slice, changedFiles, run.ExecutionPolicyName, cancellationToken);
         run.SafetyReportId = safetyReport.Id;
         run.SafetyReportCreatedAtUtc = safetyReport.CreatedAtUtc;
         run.SafetyHighestRiskLevel = safetyReport.HighestRiskLevel;
@@ -1238,6 +1244,7 @@ public sealed class AgentOrchestrationService(
                 UserRequest = userRequest?.Trim() ?? string.Empty,
                 CommitAndSync = commitAndSync,
                 ApproveHighRiskApply = approveHighRiskApply,
+                ExecutionPolicyName = "Safe",
                 Status = status,
                 CreatedAtUtc = DateTime.UtcNow,
                 CompletedAtUtc = status == AgentOrchestrationStatus.Completed ? DateTime.UtcNow : null,
@@ -1584,6 +1591,7 @@ public sealed class AgentOrchestrationService(
             CompletedAtUtc = run.CompletedAtUtc,
             CommitAndSync = run.CommitAndSync,
             ApproveHighRiskApply = run.ApproveHighRiskApply,
+            ExecutionPolicyName = run.ExecutionPolicyName,
             ApplySucceeded = run.ApplySucceeded,
             ApplyMessage = run.ApplyMessage,
             ApplyRiskGateMessage = run.ApplyRiskGateMessage,
