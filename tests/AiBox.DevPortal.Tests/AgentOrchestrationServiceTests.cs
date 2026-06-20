@@ -269,8 +269,18 @@ public sealed class AgentOrchestrationServiceTests
             Assert.Contains("manual approval", run.ApplyRiskGateMessage, StringComparison.OrdinalIgnoreCase);
             Assert.NotEmpty(run.HumanApprovalRequestId);
             Assert.True(run.HumanApprovalPending);
+            Assert.NotEmpty(run.SafetyReportId);
+
+            var safetyReport = await harness.SafetyService.GetLatestForRunAsync(run.Id);
+            Assert.NotNull(safetyReport);
+            Assert.Equal(run.SafetyReportId, safetyReport!.Id);
+            Assert.True(safetyReport.RequiresManualApproval);
+            Assert.False(safetyReport.BlocksAutoApply);
+            Assert.Contains(safetyReport.Reasons, reason => reason.Contains("Program.cs", StringComparison.OrdinalIgnoreCase));
+
             var approvalRequest = Assert.Single(await harness.QueueService.GetPendingAsync(10));
             Assert.Equal(run.Id, approvalRequest.RunId);
+            Assert.Contains("Program.cs", approvalRequest.Reason, StringComparison.OrdinalIgnoreCase);
             Assert.False(run.CommitAttempted);
             Assert.False(run.PushAttempted);
         }
@@ -340,11 +350,22 @@ public sealed class AgentOrchestrationServiceTests
 
             Assert.Equal(AgentOrchestrationStatus.Paused, pausedRun.Status);
             Assert.True(pausedRun.HumanApprovalPending);
-            Assert.Equal(RiskLevel.High, pausedRun.SafetyHighestRiskLevel);
+            Assert.Equal(RiskLevel.Low, pausedRun.SafetyHighestRiskLevel);
             Assert.False(pausedRun.SafetyBlocksAutoApply);
             Assert.True(pausedRun.SafetyRequiresManualApproval);
+            Assert.NotEmpty(pausedRun.SafetyReportId);
+
+            var safetyReport = await harness.SafetyService.GetLatestForRunAsync(pausedRun.Id);
+            Assert.NotNull(safetyReport);
+            Assert.Equal(pausedRun.SafetyReportId, safetyReport!.Id);
+            Assert.Equal(RiskLevel.Low, safetyReport.HighestRiskLevel);
+            Assert.True(safetyReport.RequiresManualApproval);
+            Assert.False(safetyReport.BlocksAutoApply);
 
             var request = Assert.Single(await harness.QueueService.GetPendingAsync(10));
+            Assert.Equal(pausedRun.Id, request.RunId);
+            Assert.Equal(HumanApprovalRequestStatus.Pending, request.Status);
+
             await harness.QueueService.DecideAsync(request.Id, HumanApprovalDecision.Approved, "tester", "Approved for resume");
 
             var resumedRun = await harness.Service.ResumeOrchestrationAsync(pausedRun.Id);
@@ -353,6 +374,9 @@ public sealed class AgentOrchestrationServiceTests
             Assert.True(resumedRun.ApplySucceeded);
             Assert.False(resumedRun.HumanApprovalPending);
             Assert.NotEmpty(resumedRun.ApplyAuditIds);
+            Assert.Equal(pausedRun.SafetyReportId, resumedRun.SafetyReportId);
+            Assert.Equal(AgentOrchestrationStatus.Completed, resumedRun.Steps[4].Status);
+            Assert.Equal(AgentOrchestrationStatus.Skipped, resumedRun.Steps[5].Status);
             Assert.Contains("Applied successfully", resumedRun.ApplyMessage, StringComparison.OrdinalIgnoreCase);
         }
         finally
@@ -421,6 +445,7 @@ public sealed class AgentOrchestrationServiceTests
 
             Assert.Equal(AgentOrchestrationStatus.Paused, pausedRun.Status);
             Assert.True(pausedRun.HumanApprovalPending);
+            Assert.NotEmpty(pausedRun.SafetyReportId);
 
             var request = Assert.Single(await harness.QueueService.GetPendingAsync(10));
             await harness.QueueService.DecideAsync(request.Id, HumanApprovalDecision.Rejected, "tester", "Rejected after review");
@@ -430,6 +455,7 @@ public sealed class AgentOrchestrationServiceTests
             Assert.Equal(AgentOrchestrationStatus.Failed, failedRun.Status);
             Assert.False(failedRun.HumanApprovalPending);
             Assert.False(failedRun.ApplySucceeded);
+            Assert.Equal(pausedRun.SafetyReportId, failedRun.SafetyReportId);
             Assert.Contains("rejected", failedRun.PausedReason, StringComparison.OrdinalIgnoreCase);
             Assert.Equal(AgentOrchestrationStatus.Failed, failedRun.Steps[4].Status);
             Assert.Equal(AgentOrchestrationStatus.Skipped, failedRun.Steps[5].Status);
@@ -578,6 +604,11 @@ public sealed class AgentOrchestrationServiceTests
             Assert.False(run.ApplySucceeded);
             Assert.Contains("cannot be applied", run.ApplyRiskGateMessage, StringComparison.OrdinalIgnoreCase);
             Assert.NotEmpty(run.ApplyAuditIds);
+            Assert.NotEmpty(run.SafetyReportId);
+            var safetyReport = await harness.SafetyService.GetLatestForRunAsync(run.Id);
+            Assert.NotNull(safetyReport);
+            Assert.True(safetyReport!.BlocksAutoApply);
+            Assert.True(safetyReport.RequiresManualApproval);
             Assert.Empty(await harness.QueueService.GetPendingAsync(10));
             Assert.False(run.CommitAttempted);
             Assert.False(run.PushAttempted);
@@ -760,7 +791,7 @@ public sealed class AgentOrchestrationServiceTests
             timelineService,
             gitSyncService);
 
-        return new TestHarness(service, approvalQueueService);
+        return new TestHarness(service, approvalQueueService, safetyService);
     }
 
     private static string BuildPatchOperationsJson(params PatchOperationFixture[] operations)
@@ -807,15 +838,31 @@ public sealed class AgentOrchestrationServiceTests
             </Project>
             """);
 
-        var programPath = Path.Combine(root, "Program.cs");
-        var programText = validProgram
+        var entryPointPath = Path.Combine(root, "EntryPoint.cs");
+        var entryPointText = validProgram
             ? """
-              Console.WriteLine("Hello from orchestration tests");
+              namespace AiBox.DevPortal.Tests;
+
+              public static class EntryPoint
+              {
+                  public static void Main()
+                  {
+                      Console.WriteLine("Hello from orchestration tests");
+                  }
+              }
               """
             : """
-              Console.WriteLine("Broken build"
+              namespace AiBox.DevPortal.Tests;
+
+              public static class EntryPoint
+              {
+                  public static void Main()
+                  {
+                      Console.WriteLine("Broken build"
+                  }
+              }
               """;
-        File.WriteAllText(programPath, programText);
+        File.WriteAllText(entryPointPath, entryPointText);
     }
 
     private static void InitializeGitRepository(string root, bool withPreCommitHook = false)
@@ -881,7 +928,10 @@ public sealed class AgentOrchestrationServiceTests
 
     private sealed record PatchOperationFixture(string FilePath, string NewText);
 
-    private sealed record TestHarness(AgentOrchestrationService Service, HumanApprovalQueueService QueueService);
+    private sealed record TestHarness(
+        AgentOrchestrationService Service,
+        HumanApprovalQueueService QueueService,
+        AgentOrchestrationSafetyService SafetyService);
 
     private sealed class QueueHandler(string[] responses) : HttpMessageHandler
     {
