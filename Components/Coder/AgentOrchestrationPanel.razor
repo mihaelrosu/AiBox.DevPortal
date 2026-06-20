@@ -36,6 +36,13 @@
             </RadzenAlert>
         }
 
+        @if (!string.IsNullOrWhiteSpace(retryResultMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Lighter">
+                @retryResultMessage
+            </RadzenAlert>
+        }
+
         <RadzenRow Gap="0.75rem">
             <RadzenColumn Size="12" SizeMD="4">
                 <RadzenFormField Text="Task name" Style="width: 100%;">
@@ -178,6 +185,15 @@
                                               ButtonStyle="ButtonStyle.Success"
                                               Click="@ResumeSelectedRunAsync"
                                               Disabled="@(!CanResumeSelectedRun())" />
+                                @if (CanRetrySelectedRun())
+                                {
+                                    <RadzenButton Text="Retry failed step"
+                                                  Icon="replay"
+                                                  Size="ButtonSize.Small"
+                                                  ButtonStyle="ButtonStyle.Danger"
+                                                  Click="@RetrySelectedRunAsync"
+                                                  Disabled="@isBusy" />
+                                }
                             </RadzenStack>
                         </RadzenStack>
 
@@ -288,7 +304,7 @@
                             </RadzenStack>
                         </RadzenCard>
 
-                        <AgentOrchestrationTimelinePanel RunId="@selectedRun.Id" />
+                        <AgentOrchestrationTimelinePanel @key="timelineRefreshToken" RunId="@selectedRun.Id" />
 
                         <RadzenRow Gap="0.75rem">
                             <RadzenColumn Size="12" SizeMD="4">
@@ -409,7 +425,9 @@
     private bool isBusy;
     private bool isLoading = true;
     private string statusMessage = string.Empty;
+    private string retryResultMessage = string.Empty;
     private string errorMessage = string.Empty;
+    private int timelineRefreshToken;
 
     protected override async Task OnInitializedAsync()
     {
@@ -420,6 +438,7 @@
     {
         isLoading = true;
         errorMessage = string.Empty;
+        retryResultMessage = string.Empty;
 
         try
         {
@@ -437,6 +456,7 @@
             selectedCheckpoint = null;
             selectedRunId = string.Empty;
             statusMessage = string.Empty;
+            retryResultMessage = string.Empty;
         }
         finally
         {
@@ -449,6 +469,7 @@
         isBusy = true;
         errorMessage = string.Empty;
         statusMessage = string.Empty;
+        retryResultMessage = string.Empty;
 
         try
         {
@@ -472,6 +493,7 @@
         isBusy = true;
         errorMessage = string.Empty;
         statusMessage = string.Empty;
+        retryResultMessage = string.Empty;
 
         try
         {
@@ -502,6 +524,7 @@
         isBusy = true;
         errorMessage = string.Empty;
         statusMessage = string.Empty;
+        retryResultMessage = string.Empty;
 
         try
         {
@@ -529,6 +552,7 @@
         isBusy = true;
         errorMessage = string.Empty;
         statusMessage = string.Empty;
+        retryResultMessage = string.Empty;
 
         try
         {
@@ -556,6 +580,7 @@
         isBusy = true;
         errorMessage = string.Empty;
         statusMessage = string.Empty;
+        retryResultMessage = string.Empty;
 
         try
         {
@@ -583,6 +608,7 @@
         isBusy = true;
         errorMessage = string.Empty;
         statusMessage = string.Empty;
+        retryResultMessage = string.Empty;
 
         try
         {
@@ -617,6 +643,7 @@
         isBusy = true;
         errorMessage = string.Empty;
         statusMessage = string.Empty;
+        retryResultMessage = string.Empty;
         var selectedTaskName = selectedRun.TaskName;
 
         try
@@ -645,6 +672,7 @@
         isBusy = true;
         errorMessage = string.Empty;
         statusMessage = string.Empty;
+        retryResultMessage = string.Empty;
         var selectedTaskName = selectedRun.TaskName;
 
         try
@@ -656,6 +684,41 @@
         catch (Exception exception)
         {
             errorMessage = $"Unable to resume orchestration: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task RetrySelectedRunAsync()
+    {
+        if (selectedRun is null || !CanRetrySelectedRun())
+        {
+            return;
+        }
+
+        isBusy = true;
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        try
+        {
+            var retriedRun = await AgentOrchestrationService.RetryFailedStepAsync(new AgentOrchestrationRetryRequest
+            {
+                RunId = selectedRun.Id,
+                RequestedBy = "UI"
+            });
+
+            var resultMessage = $"Retry completed. Run status is {retriedRun.Status}.";
+            selectedRunId = retriedRun.Id;
+            timelineRefreshToken++;
+            await LoadAsync();
+            retryResultMessage = resultMessage;
+        }
+        catch (Exception exception)
+        {
+            retryResultMessage = $"Unable to retry failed step: {exception.Message}";
         }
         finally
         {
@@ -738,6 +801,11 @@
     private bool CanResumeSelectedRun()
     {
         return selectedRun is not null && selectedRun.Status == AgentOrchestrationStatus.Paused;
+    }
+
+    private bool CanRetrySelectedRun()
+    {
+        return selectedRun is not null && selectedRun.Status == AgentOrchestrationStatus.Failed;
     }
 
     private static string GetStatusText(AgentOrchestrationStatus status)

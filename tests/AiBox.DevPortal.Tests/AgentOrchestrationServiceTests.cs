@@ -45,7 +45,8 @@ public sealed class AgentOrchestrationServiceTests
             var run = await harness.Service.RunOrchestrationAsync(
                 "Implement orchestration",
                 "Create: Models/OrchestrationExample.cs",
-                commitAndSync: true);
+                commitAndSync: true,
+                approveHighRiskApply: true);
 
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Status);
             Assert.True(run.ApplySucceeded);
@@ -104,7 +105,8 @@ public sealed class AgentOrchestrationServiceTests
             var run = await harness.Service.RunOrchestrationAsync(
                 "Skip git sync",
                 "Create: Models/OrchestrationExample.cs",
-                commitAndSync: false);
+                commitAndSync: false,
+                approveHighRiskApply: true);
 
             Assert.Equal(AgentOrchestrationStatus.Completed, run.Status);
             Assert.False(run.CommitAttempted);
@@ -859,7 +861,8 @@ public sealed class AgentOrchestrationServiceTests
             var run = await harness.Service.RunOrchestrationAsync(
                 "Commit failure",
                 "Create: Models/OrchestrationExample.cs",
-                commitAndSync: true);
+                commitAndSync: true,
+                approveHighRiskApply: true);
 
             Assert.Equal(AgentOrchestrationStatus.Failed, run.Status);
             Assert.True(run.ApplySucceeded);
@@ -872,6 +875,214 @@ public sealed class AgentOrchestrationServiceTests
             Assert.Equal(AgentOrchestrationStatus.Failed, run.Steps[5].Status);
             Assert.Contains("failed", run.Steps[5].ErrorMessage, StringComparison.OrdinalIgnoreCase);
             Assert.NotEmpty(run.ApplyAuditIds);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task RetryFailedStepAsync_GitSyncFailure_RetriesOnlyFailedStep()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            InitializeGitRepository(root, withPreCommitHook: true);
+            var harness = CreateHarness(
+                root,
+                BuildOllamaResponse(BuildPatchOperationsJson(
+                    new PatchOperationFixture(
+                        "Models/OrchestrationExample.cs",
+                        """
+                        namespace AiBox.DevPortal.Models;
+
+                        public sealed class OrchestrationExample
+                        {
+                            public string Message { get; set; } = "Hello";
+                        }
+                        """))),
+                BuildOllamaResponse("The patch looks good. Apply it."));
+
+            var failedRun = await harness.Service.RunOrchestrationAsync(
+                "Retry git sync",
+                "Create: Models/OrchestrationExample.cs",
+                commitAndSync: true,
+                approveHighRiskApply: true);
+
+            Assert.Equal(AgentOrchestrationStatus.Failed, failedRun.Status);
+            Assert.Equal(AgentOrchestrationStatus.Completed, failedRun.Steps[4].Status);
+            Assert.Equal(AgentOrchestrationStatus.Failed, failedRun.Steps[5].Status);
+
+            File.Delete(Path.Combine(root, ".git", "hooks", "pre-commit"));
+
+            var retriedRun = await harness.Service.RetryFailedStepAsync(new AgentOrchestrationRetryRequest
+            {
+                RunId = failedRun.Id,
+                RequestedBy = "tester",
+                Notes = "Retry git sync after removing the failing hook."
+            });
+
+            Assert.Equal(AgentOrchestrationStatus.Completed, retriedRun.Status);
+            Assert.True(retriedRun.CommitSucceeded);
+            Assert.True(retriedRun.PushSucceeded);
+            Assert.Equal(AgentOrchestrationStatus.Completed, retriedRun.Steps[0].Status);
+            Assert.Equal(AgentOrchestrationStatus.Completed, retriedRun.Steps[1].Status);
+            Assert.Equal(AgentOrchestrationStatus.Completed, retriedRun.Steps[2].Status);
+            Assert.Equal(AgentOrchestrationStatus.Completed, retriedRun.Steps[3].Status);
+            Assert.Equal(AgentOrchestrationStatus.Completed, retriedRun.Steps[4].Status);
+            Assert.Equal(AgentOrchestrationStatus.Completed, retriedRun.Steps[5].Status);
+
+            var events = await harness.TimelineService.GetByRunAsync(failedRun.Id);
+            Assert.Equal(1, events.Count(item => item.StepName == "Planner" && item.EventType == AgentOrchestrationTimelineEventType.StepStarted));
+            Assert.Equal(1, events.Count(item => item.StepName == "Patch Builder" && item.EventType == AgentOrchestrationTimelineEventType.StepStarted));
+            Assert.Equal(1, events.Count(item => item.StepName == "Verifier" && item.EventType == AgentOrchestrationTimelineEventType.StepStarted));
+            Assert.Equal(1, events.Count(item => item.StepName == "Reviewer" && item.EventType == AgentOrchestrationTimelineEventType.StepStarted));
+            Assert.Equal(1, events.Count(item => item.StepName == "Apply" && item.EventType == AgentOrchestrationTimelineEventType.StepStarted));
+            Assert.Equal(2, events.Count(item => item.StepName == "Git Sync" && item.EventType == AgentOrchestrationTimelineEventType.StepStarted));
+            Assert.Contains(events, item => item.EventType == AgentOrchestrationTimelineEventType.RetryRequested);
+            Assert.Contains(events, item => item.EventType == AgentOrchestrationTimelineEventType.RetryCompleted);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task RetryFailedStepAsync_GitSyncFailure_CanFailAgain()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            InitializeGitRepository(root, withPreCommitHook: true);
+            var harness = CreateHarness(
+                root,
+                BuildOllamaResponse(BuildPatchOperationsJson(
+                    new PatchOperationFixture(
+                        "Models/OrchestrationExample.cs",
+                        """
+                        namespace AiBox.DevPortal.Models;
+
+                        public sealed class OrchestrationExample
+                        {
+                            public string Message { get; set; } = "Hello";
+                        }
+                        """))),
+                BuildOllamaResponse("The patch looks good. Apply it."));
+
+            var failedRun = await harness.Service.RunOrchestrationAsync(
+                "Retry git sync failure",
+                "Create: Models/OrchestrationExample.cs",
+                commitAndSync: true,
+                approveHighRiskApply: true);
+
+            var retriedRun = await harness.Service.RetryFailedStepAsync(new AgentOrchestrationRetryRequest
+            {
+                RunId = failedRun.Id,
+                RequestedBy = "tester"
+            });
+
+            Assert.Equal(AgentOrchestrationStatus.Failed, retriedRun.Status);
+            Assert.Equal(AgentOrchestrationStatus.Completed, retriedRun.Steps[4].Status);
+            Assert.Equal(AgentOrchestrationStatus.Failed, retriedRun.Steps[5].Status);
+
+            var events = await harness.TimelineService.GetByRunAsync(failedRun.Id);
+            Assert.Contains(events, item => item.EventType == AgentOrchestrationTimelineEventType.RetryRequested);
+            Assert.Contains(events, item => item.EventType == AgentOrchestrationTimelineEventType.RetryFailed);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task RetryFailedStepAsync_CompletedRunCannotRetry()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var harness = CreateHarness(root);
+
+            var run = await harness.Service.CreateRunAsync(
+                "Completed retry guard",
+                "Completed runs cannot retry",
+                commitAndSync: false);
+
+            run = await harness.Service.AddStepAsync(run.Id, "Planner", AgentMode.Planner);
+            var plannerStep = Assert.Single(run.Steps);
+            run = await harness.Service.CompleteStepAsync(run.Id, plannerStep.Id, "Planner completed.");
+
+            Assert.Equal(AgentOrchestrationStatus.Completed, run.Status);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.RetryFailedStepAsync(new AgentOrchestrationRetryRequest
+            {
+                RunId = run.Id
+            }));
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task RetryFailedStepAsync_RunningRunCannotRetry()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var harness = CreateHarness(root);
+
+            var run = await harness.Service.CreateRunAsync(
+                "Running retry guard",
+                "Running runs cannot retry",
+                commitAndSync: false);
+
+            run = await harness.Service.AddStepAsync(run.Id, "Planner", AgentMode.Planner);
+            var plannerStep = Assert.Single(run.Steps);
+            run = await harness.Service.StartStepAsync(run.Id, plannerStep.Id, "Planner started.");
+
+            Assert.Equal(AgentOrchestrationStatus.InProgress, run.Status);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.RetryFailedStepAsync(new AgentOrchestrationRetryRequest
+            {
+                RunId = run.Id
+            }));
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task RetryFailedStepAsync_NoFailedStepCannotRetry()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            var harness = CreateHarness(root);
+
+            var run = await harness.Service.CreateRunAsync(
+                "No failed step retry guard",
+                "Runs without a failed step cannot retry",
+                commitAndSync: false);
+
+            Assert.Equal(AgentOrchestrationStatus.Pending, run.Status);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.RetryFailedStepAsync(new AgentOrchestrationRetryRequest
+            {
+                RunId = run.Id
+            }));
         }
         finally
         {

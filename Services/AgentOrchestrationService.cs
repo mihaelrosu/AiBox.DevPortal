@@ -379,6 +379,77 @@ public sealed class AgentOrchestrationService(
         return Clone(run);
     }
 
+    public async Task<AgentOrchestrationRun> RetryFailedStepAsync(
+        AgentOrchestrationRetryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.RunId))
+        {
+            throw new ArgumentException("Run id is required.", nameof(request));
+        }
+
+        AgentOrchestrationRun run;
+        await FileLock.WaitAsync(cancellationToken);
+        try
+        {
+            run = (await LoadAsync(cancellationToken))
+                .FirstOrDefault(item => item.Id.Equals(request.RunId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException($"Run not found: {request.RunId}");
+        }
+        finally
+        {
+            FileLock.Release();
+        }
+
+        if (run.Status is AgentOrchestrationStatus.Completed or AgentOrchestrationStatus.InProgress)
+        {
+            throw new InvalidOperationException($"Run {run.Id} is {run.Status.ToString().ToLowerInvariant()} and cannot be retried.");
+        }
+
+        if (run.Status != AgentOrchestrationStatus.Failed)
+        {
+            throw new InvalidOperationException($"Run {run.Id} is {run.Status.ToString().ToLowerInvariant()} and cannot be retried.");
+        }
+
+        var failedStepIndex = run.Steps.FindIndex(step => step.Status == AgentOrchestrationStatus.Failed);
+        if (failedStepIndex < 0)
+        {
+            throw new InvalidOperationException($"Run {run.Id} does not have a failed step to retry.");
+        }
+
+        var failedStep = run.Steps[failedStepIndex];
+        await RecordRetryRequestedAsync(run, failedStep, request, cancellationToken);
+
+        try
+        {
+            if (failedStep.StepName.Equals("Apply", StringComparison.OrdinalIgnoreCase))
+            {
+                await RetryApplyStepAsync(run, failedStepIndex, cancellationToken);
+            }
+            else if (failedStep.StepName.Equals("Git Sync", StringComparison.OrdinalIgnoreCase))
+            {
+                await HandleGitSyncStepAsync(run, failedStep, cancellationToken);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Retry is not supported for failed step '{failedStep.StepName}'.");
+            }
+
+            await RecordRetryCompletedAsync(run, failedStep, request, cancellationToken);
+            return Clone(run);
+        }
+        catch (Exception exception)
+        {
+            await RecordRetryFailedAsync(run, failedStep, request, exception.Message, cancellationToken);
+            run.Status = AgentOrchestrationStatus.Failed;
+            run.CompletedAtUtc = DateTime.UtcNow;
+            await PersistRunAsync(run, cancellationToken);
+            return Clone(run);
+        }
+    }
+
     public async Task<AgentOrchestrationRun> RunOrchestrationAsync(
         string taskName,
         string userRequest,
@@ -1010,6 +1081,54 @@ public sealed class AgentOrchestrationService(
         return gitSyncResult;
     }
 
+    private async Task RetryApplyStepAsync(
+        AgentOrchestrationRun run,
+        int failedStepIndex,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(run.CheckpointSliceId) || string.IsNullOrWhiteSpace(run.CheckpointPatchPackageId))
+        {
+            throw new InvalidOperationException($"Run {run.Id} does not have a persisted apply checkpoint to retry.");
+        }
+
+        var applyStep = run.Steps[failedStepIndex];
+        var slice = BuildCheckpointSlice(run);
+        var package = await patchPackageService.GetByIdAsync(run.CheckpointPatchPackageId, cancellationToken)
+            ?? throw new InvalidOperationException($"Patch package not found: {run.CheckpointPatchPackageId}");
+
+        var paused = await HandleApplyStepAsync(
+            run,
+            applyStep,
+            slice,
+            package,
+            approvalGranted: run.ApproveHighRiskApply,
+            cancellationToken);
+
+        if (paused)
+        {
+            throw new InvalidOperationException("Retry paused waiting for human approval.");
+        }
+
+        if (run.CommitAndSync)
+        {
+            var gitStep = run.Steps.ElementAtOrDefault(failedStepIndex + 1)
+                ?? throw new InvalidOperationException("Git Sync step is missing from the orchestration run.");
+
+            await HandleGitSyncStepAsync(run, gitStep, cancellationToken);
+            return;
+        }
+
+        var nextStep = run.Steps.ElementAtOrDefault(failedStepIndex + 1);
+        if (nextStep is not null && nextStep.StepName.Equals("Git Sync", StringComparison.OrdinalIgnoreCase))
+        {
+            await MarkStepSkippedAsync(run, nextStep, "Git sync skipped because CommitAndSync is false.", cancellationToken);
+        }
+
+        run.Status = AgentOrchestrationStatus.Completed;
+        run.CompletedAtUtc = DateTime.UtcNow;
+        await PersistRunAsync(run, cancellationToken);
+    }
+
     private async Task<HumanApprovalRequest> GetOrCreateApprovalRequestAsync(
         AgentOrchestrationRun run,
         AgentOrchestrationSafetyReport safetyReport,
@@ -1487,6 +1606,73 @@ public sealed class AgentOrchestrationService(
             Message = message,
             Severity = AgentOrchestrationTimelineSeverity.Error,
             RelatedEntityId = string.IsNullOrWhiteSpace(commitHash) ? run.Id : commitHash
+        }, cancellationToken);
+    }
+
+    private async Task RecordRetryRequestedAsync(
+        AgentOrchestrationRun run,
+        AgentOrchestrationStep step,
+        AgentOrchestrationRetryRequest request,
+        CancellationToken cancellationToken)
+    {
+        var message = string.IsNullOrWhiteSpace(request.Notes)
+            ? $"Retry requested for failed step '{step.StepName}'."
+            : $"Retry requested for failed step '{step.StepName}': {request.Notes.Trim()}";
+
+        await RecordTimelineEventAsync(new AgentOrchestrationTimelineEvent
+        {
+            RunId = run.Id,
+            TimestampUtc = DateTime.UtcNow,
+            EventType = AgentOrchestrationTimelineEventType.RetryRequested,
+            StepName = step.StepName,
+            Message = message,
+            Severity = AgentOrchestrationTimelineSeverity.Warning,
+            RelatedEntityId = step.Id
+        }, cancellationToken);
+    }
+
+    private async Task RecordRetryCompletedAsync(
+        AgentOrchestrationRun run,
+        AgentOrchestrationStep step,
+        AgentOrchestrationRetryRequest request,
+        CancellationToken cancellationToken)
+    {
+        var message = string.IsNullOrWhiteSpace(request.RequestedBy)
+            ? $"Retry completed for failed step '{step.StepName}'."
+            : $"Retry completed for failed step '{step.StepName}' by {request.RequestedBy.Trim()}.";
+
+        await RecordTimelineEventAsync(new AgentOrchestrationTimelineEvent
+        {
+            RunId = run.Id,
+            TimestampUtc = DateTime.UtcNow,
+            EventType = AgentOrchestrationTimelineEventType.RetryCompleted,
+            StepName = step.StepName,
+            Message = message,
+            Severity = AgentOrchestrationTimelineSeverity.Info,
+            RelatedEntityId = step.Id
+        }, cancellationToken);
+    }
+
+    private async Task RecordRetryFailedAsync(
+        AgentOrchestrationRun run,
+        AgentOrchestrationStep step,
+        AgentOrchestrationRetryRequest request,
+        string errorMessage,
+        CancellationToken cancellationToken)
+    {
+        var message = string.IsNullOrWhiteSpace(request.RequestedBy)
+            ? $"Retry failed for step '{step.StepName}': {errorMessage}"
+            : $"Retry failed for step '{step.StepName}' by {request.RequestedBy.Trim()}: {errorMessage}";
+
+        await RecordTimelineEventAsync(new AgentOrchestrationTimelineEvent
+        {
+            RunId = run.Id,
+            TimestampUtc = DateTime.UtcNow,
+            EventType = AgentOrchestrationTimelineEventType.RetryFailed,
+            StepName = step.StepName,
+            Message = message,
+            Severity = AgentOrchestrationTimelineSeverity.Error,
+            RelatedEntityId = step.Id
         }, cancellationToken);
     }
 
