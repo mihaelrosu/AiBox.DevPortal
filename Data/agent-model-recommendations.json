@@ -1,0 +1,52 @@
+[
+  {
+    "id": "c1a0331b81e24a04aa252c7c24f2214e",
+    "timestampUtc": "2026-06-20T16:33:03.4949308Z",
+    "agentRole": "planner",
+    "recommendedModel": "",
+    "score": 0,
+    "reason": "No benchmark or comparison data is available for this role.",
+    "sourceRunCount": 0,
+    "hasRecommendation": false
+  },
+  {
+    "id": "7c15d51e5b0c41b38c757bb7f5e56b49",
+    "timestampUtc": "2026-06-20T16:33:03.4949333Z",
+    "agentRole": "patchBuilder",
+    "recommendedModel": "",
+    "score": 0,
+    "reason": "No benchmark or comparison data is available for this role.",
+    "sourceRunCount": 0,
+    "hasRecommendation": false
+  },
+  {
+    "id": "5e8cc82b53fe4b128dcb3069b9ce6a72",
+    "timestampUtc": "2026-06-20T16:33:03.4949347Z",
+    "agentRole": "verifier",
+    "recommendedModel": "",
+    "score": 0,
+    "reason": "No benchmark or comparison data is available for this role.",
+    "sourceRunCount": 0,
+    "hasRecommendation": false
+  },
+  {
+    "id": "0f69d2c003f9436796e5e0fff54916c9",
+    "timestampUtc": "2026-06-20T16:33:03.4949361Z",
+    "agentRole": "reviewer",
+    "recommendedModel": "",
+    "score": 0,
+    "reason": "No benchmark or comparison data is available for this role.",
+    "sourceRunCount": 0,
+    "hasRecommendation": false
+  },
+  {
+    "id": "d3fb6bc1316147dba1ebd36c8ce07062",
+    "timestampUtc": "2026-06-20T16:33:03.4949375Z",
+    "agentRole": "toolRunner",
+    "recommendedModel": "",
+    "score": 0,
+    "reason": "No benchmark or comparison data is available for this role.",
+    "sourceRunCount": 0,
+    "hasRecommendation": false
+  }
+]

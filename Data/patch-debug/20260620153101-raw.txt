@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Services/ScheduledRunDispatcher.cs",
+      "operation": "insert_before",
+      "anchor": "private async Task DispatchDueRunsAsync(CancellationToken cancellationToken)",
+      "oldText": "",
+      "newText": "using var scope = scopeFactory.CreateScope();\nvar scheduledAgentRunService = scope.ServiceProvider.GetRequiredService<ScheduledAgentRunService>();",
+      "summary": "Inject IServiceScopeFactory and create a scope inside the processing method"
+    }
+  ]
+}
+```

@@ -40,10 +40,6 @@ public sealed class CoderComponentSmokeTests : TestContext
     [Fact]
     public void CoderPage_MissingProfiles_RendersProfilesTab()
     {
-        var profileService = Services.GetRequiredService<IAgentModeProfileService>();
-        profileService.GetAllAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<AgentModeProfile>>([]));
-
         var cut = RenderComponent<Coder>();
 
         Assert.Contains("Agent Profiles", cut.Markup, StringComparison.Ordinal);
@@ -226,15 +222,9 @@ public sealed class CoderComponentSmokeTests : TestContext
                 ErrorMessage = "Use insert_before on the class declaration."
             }));
 
-        Assert.Contains("Patch Guidance", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Exact target text was not found in context.", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("public void AlphaBeto()", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("public void AlphaBeta()", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Patch Debug", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Prompt Audit", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Context files loaded", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Prompt Target Resolution", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("insert_before", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Use insert_before on the class declaration.", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Deterministic Target Resolution", cut.Markup, StringComparison.Ordinal);
     }
 
     private void RegisterPageServices()

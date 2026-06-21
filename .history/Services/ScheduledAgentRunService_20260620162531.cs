@@ -8,6 +8,7 @@ public sealed class ScheduledAgentRunService(
     ExecutionPolicyProfileService executionPolicyProfileService)
 {
     private const string SchedulesFileName = "scheduled-agent-runs.json";
+    private const string ExecutionsFileName = "scheduled-agent-executions.json";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -314,11 +315,6 @@ public sealed class ScheduledAgentRunService(
         await JsonSerializer.SerializeAsync(stream, schedules, JsonOptions, cancellationToken);
     }
 
-    private string GetSchedulesPath()
-    {
-        return Path.Combine(environment.ContentRootPath, "Data", SchedulesFileName);
-    }
-
     private async Task<ScheduledAgentRun> ValidateAndNormalizeAsync(ScheduledAgentRun schedule, CancellationToken cancellationToken)
     {
         var name = schedule.Name?.Trim();
@@ -377,6 +373,11 @@ public sealed class ScheduledAgentRunService(
             IsRunning = schedule.IsRunning,
             LastError = schedule.LastError
         };
+    }
+
+    private string GetSchedulesPath()
+    {
+        return Path.Combine(environment.ContentRootPath, "Data", SchedulesFileName);
     }
 
     private static ScheduledAgentRun Clone(ScheduledAgentRun schedule)

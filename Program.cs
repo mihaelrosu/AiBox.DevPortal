@@ -86,6 +86,7 @@ builder.Services.AddScoped<AgentOrchestrationCheckpointService>();
 builder.Services.AddScoped<AgentOrchestrationSafetyService>();
 builder.Services.AddScoped<AgentOrchestrationTimelineService>();
 builder.Services.AddScoped<ScheduledAgentRunService>();
+builder.Services.AddHostedService<ScheduledRunDispatcher>();
 builder.Services.AddScoped<HumanApprovalQueueService>();
 builder.Services.AddScoped<GitSyncService>();
 builder.Services.AddScoped<AgentOrchestrationService>();

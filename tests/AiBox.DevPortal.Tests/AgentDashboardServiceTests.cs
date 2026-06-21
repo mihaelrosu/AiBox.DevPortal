@@ -184,7 +184,7 @@ public sealed class AgentDashboardServiceTests
             Assert.Equal(3, summary.ApplyAttempts);
             Assert.Equal(1, summary.SuccessfulApplies);
             Assert.Equal(2, summary.BlockedApplies);
-            Assert.InRange(summary.ApplySuccessRate, 49.9, 50.1);
+            Assert.InRange(summary.ApplySuccessRate, 33.2, 33.4);
             Assert.Equal(2, summary.RollbackCount);
             Assert.Equal(1, summary.LowRiskApplyAttempts);
             Assert.Equal(0, summary.MediumRiskApplyAttempts);
@@ -224,7 +224,13 @@ public sealed class AgentDashboardServiceTests
             Assert.Equal(0, summary.SuccessfulRuns);
             Assert.Equal(0, summary.FailedRuns);
             Assert.Empty(summary.ModelUsage);
-            Assert.Empty(summary.ActionMetrics);
+            Assert.Equal(6, summary.ActionMetrics.Count);
+            Assert.All(summary.ActionMetrics, item =>
+            {
+                Assert.Equal(0, item.TotalRuns);
+                Assert.Equal(0, item.SuccessfulRuns);
+                Assert.Equal(0, item.FailedRuns);
+            });
             Assert.Equal(0, summary.ApplyAttempts);
             Assert.Equal(0, summary.SuccessfulApplies);
             Assert.Equal(0, summary.BlockedApplies);

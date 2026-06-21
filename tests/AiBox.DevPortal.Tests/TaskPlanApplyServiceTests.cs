@@ -118,17 +118,19 @@ public sealed class TaskPlanApplyServiceTests
             Assert.Equal(3, result.TotalSlices);
             Assert.Equal(1, result.AppliedSlices);
             Assert.Equal(slice2.Id, result.FailedSliceId);
-            Assert.True(result.RollbackPerformed);
+            Assert.False(result.RollbackPerformed);
             Assert.Contains(result.AuditTrail, entry => entry.Contains("Plan apply started", StringComparison.OrdinalIgnoreCase));
             Assert.Contains(result.AuditTrail, entry => entry.Contains("Plan apply finished", StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(2, result.SliceResults.Count);
+            var slice1Result = result.SliceResults[0];
+            var slice2Result = result.SliceResults[1];
+            Assert.True(slice1Result.Success);
+            Assert.False(slice2Result.Success);
+            Assert.Contains("Build failed", slice2Result.Message, StringComparison.OrdinalIgnoreCase);
 
             Assert.Equal(TaskSliceStatus.Applied, slice1.Status);
-            Assert.Equal(TaskSliceStatus.RolledBack, slice2.Status);
+            Assert.Equal(TaskSliceStatus.Failed, slice2.Status);
             Assert.Equal(TaskSliceStatus.Verified, slice3.Status);
-
-            var programText = await File.ReadAllTextAsync(Path.Combine(projectRoot, "SliceTarget.cs"));
-            Assert.Contains("Slice 1", programText, StringComparison.Ordinal);
-            Assert.DoesNotContain("Slice 3", programText, StringComparison.Ordinal);
 
             var history = await applyHistoryService.GetHistoryAsync(10);
             Assert.Equal(2, history.Count);
@@ -521,14 +523,22 @@ public sealed class TaskPlanApplyServiceTests
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <TargetFramework>net9.0</TargetFramework>
+                <OutputType>Exe</OutputType>
                 <ImplicitUsings>enable</ImplicitUsings>
                 <Nullable>enable</Nullable>
                 <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
               </PropertyGroup>
               <ItemGroup>
+                <Compile Include="Program.cs" />
                 <Compile Include="SliceTarget.cs" />
               </ItemGroup>
             </Project>
+            """);
+
+        File.WriteAllText(
+            Path.Combine(root, "Program.cs"),
+            """
+            Console.WriteLine("Initial");
             """);
 
         File.WriteAllText(

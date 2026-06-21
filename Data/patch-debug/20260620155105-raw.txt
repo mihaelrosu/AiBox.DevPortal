@@ -1,0 +1,13 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Models/ScheduledAgentExecution.cs",
+      "operation": "create",
+      "oldText": "",
+      "newText": "namespace AiBox.DevPortal.Models\n{\n    public sealed class ScheduledAgentExecution\n    {\n        public string Id { get; } = Guid.NewGuid().ToString(\"N\");\n        public string ScheduledRunId { get; set; } = string.Empty;\n        public string ScheduleName { get; set; } = string.Empty;\n        public string TaskName { get; set; } = string.Empty;\n        public DateTimeOffset StartedUtc { get; set; }\n        public DateTimeOffset? CompletedUtc { get; set; }\n        public bool Success { get; set; }\n        public string? Error { get; set; }\n        public long DurationMs { get; set; }\n    }\n}",
+      "summary": "Create a new file"
+    }
+  ]
+}
+```

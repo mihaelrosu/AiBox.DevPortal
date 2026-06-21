@@ -169,6 +169,122 @@ public sealed class ScheduledAgentRunServiceTests
         }
     }
 
+    [Fact]
+    public async Task GetDueRunsAsync_ReturnsDueSchedules()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var service = CreateService(root);
+            var dueSchedule = await service.CreateAsync(CreateValidSchedule("Safe", nextRunUtc: DateTime.UtcNow.AddMinutes(-5)));
+            await service.CreateAsync(CreateValidSchedule("Balanced", nextRunUtc: DateTime.UtcNow.AddMinutes(10)));
+
+            var dueRuns = await service.GetDueRunsAsync(DateTimeOffset.UtcNow);
+
+            var run = Assert.Single(dueRuns);
+            Assert.Equal(dueSchedule.Id, run.Id);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task GetDueRunsAsync_SkipsRunningSchedules()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var service = CreateService(root);
+            var runningSchedule = await service.CreateAsync(CreateValidSchedule("Safe", nextRunUtc: DateTime.UtcNow.AddMinutes(-5), isRunning: true));
+            await service.CreateAsync(CreateValidSchedule("Balanced", nextRunUtc: DateTime.UtcNow.AddMinutes(-1)));
+
+            var dueRuns = await service.GetDueRunsAsync(DateTimeOffset.UtcNow);
+
+            Assert.Single(dueRuns);
+            Assert.DoesNotContain(dueRuns, run => run.Id == runningSchedule.Id);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task MarkStartedAsync_SetsIsRunningTrue()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var service = CreateService(root);
+            var created = await service.CreateAsync(CreateValidSchedule("Safe", nextRunUtc: DateTime.UtcNow.AddMinutes(-5)));
+
+            var started = await service.MarkStartedAsync(created.Id, DateTimeOffset.UtcNow);
+
+            Assert.NotNull(started);
+            Assert.True(started!.IsRunning);
+            Assert.NotNull(started.LastStartedUtc);
+            Assert.NotNull(started.LastRunUtc);
+            Assert.Null(started.LastError);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task MarkCompletedAsync_SetsIsRunningFalse()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var service = CreateService(root);
+            var created = await service.CreateAsync(CreateValidSchedule("Safe", nextRunUtc: DateTime.UtcNow.AddMinutes(-5), isRunning: true));
+
+            var completed = await service.MarkCompletedAsync(created.Id, DateTimeOffset.UtcNow);
+
+            Assert.NotNull(completed);
+            Assert.False(completed!.IsRunning);
+            Assert.NotNull(completed.LastCompletedUtc);
+            Assert.NotNull(completed.LastRunUtc);
+            Assert.Null(completed.LastError);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task MarkFailedAsync_SetsIsRunningFalseAndStoresError()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var service = CreateService(root);
+            var created = await service.CreateAsync(CreateValidSchedule("Safe", nextRunUtc: DateTime.UtcNow.AddMinutes(-5), isRunning: true));
+
+            var failed = await service.MarkFailedAsync(created.Id, "boom", DateTimeOffset.UtcNow);
+
+            Assert.NotNull(failed);
+            Assert.False(failed!.IsRunning);
+            Assert.NotNull(failed.LastFailedUtc);
+            Assert.NotNull(failed.LastRunUtc);
+            Assert.Equal("boom", failed.LastError);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
     private static async Task AssertInvalidScheduleAsync(Action<ScheduledAgentRun> mutate, string expectedMessage)
     {
         var root = CreateTempProjectRoot();
@@ -190,7 +306,7 @@ public sealed class ScheduledAgentRunServiceTests
         }
     }
 
-    private static ScheduledAgentRun CreateValidSchedule(string policyName, bool enabled = true)
+    private static ScheduledAgentRun CreateValidSchedule(string policyName, bool enabled = true, DateTime? nextRunUtc = null, bool isRunning = false)
     {
         return new ScheduledAgentRun
         {
@@ -200,7 +316,9 @@ public sealed class ScheduledAgentRunServiceTests
             TaskName = "Implement orchestration",
             UserRequest = "Create a nightly orchestration run.",
             ExecutionPolicyName = policyName,
-            CommitAndSync = false
+            CommitAndSync = false,
+            NextRunUtc = nextRunUtc,
+            IsRunning = isRunning
         };
     }
 

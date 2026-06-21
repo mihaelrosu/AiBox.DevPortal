@@ -175,6 +175,7 @@ public sealed class TaskSliceRiskGateTests
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <TargetFramework>net9.0</TargetFramework>
+                <OutputType>Exe</OutputType>
                 <ImplicitUsings>enable</ImplicitUsings>
                 <Nullable>enable</Nullable>
                 <EnableDefaultCompileItems>false</EnableDefaultCompileItems>

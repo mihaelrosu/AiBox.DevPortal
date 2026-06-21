@@ -1,0 +1,141 @@
+{
+  "id": "986a45c563f54e4286186df7e4a94def",
+  "createdAt": "2026-06-20T15:51:05.1897491+00:00",
+  "updatedAt": "2026-06-20T15:51:42.8207973+00:00",
+  "backupFolder": "Data/patch-backups/20260620155142",
+  "appliedAt": "2026-06-20T15:51:42.8197505+00:00",
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Create Models/ScheduledAgentExecution.cs only.\n\nRequirements:\n- Namespace: AiBox.DevPortal.Models\n- public sealed class ScheduledAgentExecution\n- Properties:\n  - string Id = Guid.NewGuid().ToString(\u0022N\u0022)\n  - string ScheduledRunId = string.Empty\n  - string ScheduleName = string.Empty\n  - string TaskName = string.Empty\n  - DateTimeOffset StartedUtc\n  - DateTimeOffset? CompletedUtc\n  - bool Success\n  - string? Error\n  - long DurationMs\n\nDo not modify any existing files.\nBuild after creating the file.",
+  "model": "qwen2.5-coder:7b",
+  "patchText": "diff --git a/Models/ScheduledAgentExecution.cs b/Models/ScheduledAgentExecution.cs\nindex e69de29..6841884 100644\n--- a/Models/ScheduledAgentExecution.cs\n\u002B\u002B\u002B b/Models/ScheduledAgentExecution.cs\n@@ -0,0 \u002B1,15 @@\n\u002Bnamespace AiBox.DevPortal.Models\n\u002B{\n\u002B    public sealed class ScheduledAgentExecution\n\u002B    {\n\u002B        public string Id { get; } = Guid.NewGuid().ToString(\u0022N\u0022);\n\u002B        public string ScheduledRunId { get; set; } = string.Empty;\n\u002B        public string ScheduleName { get; set; } = string.Empty;\n\u002B        public string TaskName { get; set; } = string.Empty;\n\u002B        public DateTimeOffset StartedUtc { get; set; }\n\u002B        public DateTimeOffset? CompletedUtc { get; set; }\n\u002B        public bool Success { get; set; }\n\u002B        public string? Error { get; set; }\n\u002B        public long DurationMs { get; set; }\n\u002B    }\n\u002B}\n\\ No newline at end of file",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [
+    "Models/"
+  ],
+  "contextFilePaths": [
+    "Models/AGENTS.md"
+  ],
+  "intent": {
+    "goal": "Create Models/ScheduledAgentExecution",
+    "allowedFiles": [
+      "Models/AGENTS.md",
+      "Models/ScheduledAgentExecution.cs"
+    ],
+    "allowedPaths": [
+      "Models/AGENTS.md",
+      "Models/ScheduledAgentExecution.cs"
+    ],
+    "targetCreatedFiles": [
+      "Models/ScheduledAgentExecution.cs"
+    ],
+    "allowedCreateFolders": [
+      "Models/"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet build"
+  },
+  "intentValidation": {
+    "status": "partiallyMatches",
+    "detectedChangeType": "Update",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Models/AGENTS.md",
+      "Models/ScheduledAgentExecution.cs"
+    ],
+    "modifiedFiles": [
+      "Models/ScheduledAgentExecution.cs"
+    ],
+    "contextFiles": [
+      "Models/AGENTS.md"
+    ],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Models/ScheduledAgentExecution.cs",
+        "inContext": false,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [
+      "Expected Add but detected Update."
+    ],
+    "isBlocking": false
+  },
+  "status": "applied",
+  "statusMessage": "Applied with 0 backup file(s).",
+  "approvalGateResults": [
+    {
+      "gateKey": "patch-intent-partial",
+      "message": "Expected Add but detected Update.",
+      "filePath": "",
+      "passed": true,
+      "blocking": false,
+      "warning": true
+    },
+    {
+      "gateKey": "patch-has-files",
+      "message": "Patch contains 1 file change(s).",
+      "filePath": "",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "file-path-not-empty",
+      "message": "File path provided: Models/ScheduledAgentExecution.cs.",
+      "filePath": "Models/ScheduledAgentExecution.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "target-file-inside-project-root",
+      "message": "Models/ScheduledAgentExecution.cs resolves to /opt/ai-box/dev/projects/AiBox.DevPortal/Models/ScheduledAgentExecution.cs.",
+      "filePath": "Models/ScheduledAgentExecution.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "restricted-path",
+      "message": "Models/ScheduledAgentExecution.cs is not inside a restricted folder.",
+      "filePath": "Models/ScheduledAgentExecution.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    },
+    {
+      "gateKey": "original-content-match",
+      "message": "Models/ScheduledAgentExecution.cs matches the current file content.",
+      "filePath": "Models/ScheduledAgentExecution.cs",
+      "passed": true,
+      "blocking": false,
+      "warning": false
+    }
+  ],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Models/ScheduledAgentExecution.cs",
+      "oldContent": "",
+      "newContent": "namespace AiBox.DevPortal.Models\n{\n    public sealed class ScheduledAgentExecution\n    {\n        public string Id { get; } = Guid.NewGuid().ToString(\u0022N\u0022);\n        public string ScheduledRunId { get; set; } = string.Empty;\n        public string ScheduleName { get; set; } = string.Empty;\n        public string TaskName { get; set; } = string.Empty;\n        public DateTimeOffset StartedUtc { get; set; }\n        public DateTimeOffset? CompletedUtc { get; set; }\n        public bool Success { get; set; }\n        public string? Error { get; set; }\n        public long DurationMs { get; set; }\n    }\n}"
+    }
+  ]
+}
