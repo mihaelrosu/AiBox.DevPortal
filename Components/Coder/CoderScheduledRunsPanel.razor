@@ -1,0 +1,138 @@
+@using AiBox.DevPortal.Models
+@inject ScheduledAgentRunService ScheduledAgentRunService
+@inject Radzen.NotificationService NotificationService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Scheduled Runs" TextStyle="TextStyle.H5" />
+                <RadzenText Text="Review scheduled agent runs, check their latest state, and enable or disable them as needed."
+                            TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Size="ButtonSize.Small"
+                          Click="@RefreshAsync"
+                          Disabled="@isLoading" />
+        </RadzenStack>
+
+        <RadzenDataGrid Data="@runs"
+                        TItem="ScheduledAgentRun"
+                        AllowPaging="false"
+                        AllowSorting="true"
+                        AllowFiltering="false"
+                        AllowColumnResize="true"
+                        Density="Density.Compact"
+                        IsLoading="@isLoading"
+                        EmptyText="No scheduled runs configured.">
+            <Columns>
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Property="Name" Title="Name" />
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Property="TaskName" Title="TaskName" />
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Property="CronExpression" Title="CronExpression" Width="140px" />
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Title="Enabled" Width="110px">
+                    <Template Context="run">
+                        <RadzenBadge Text="@(run.Enabled ? "Enabled" : "Disabled")"
+                                     BadgeStyle="@(run.Enabled ? BadgeStyle.Success : BadgeStyle.Light)" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Title="IsRunning" Width="110px">
+                    <Template Context="run">
+                        <RadzenBadge Text="@(run.IsRunning ? "Yes" : "No")"
+                                     BadgeStyle="@(run.IsRunning ? BadgeStyle.Warning : BadgeStyle.Light)" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Title="NextRunUtc" Width="190px">
+                    <Template Context="run">@FormatDateTime(run.NextRunUtc)</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Title="LastRunUtc" Width="190px">
+                    <Template Context="run">@FormatDateTime(run.LastRunUtc)</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Title="LastError">
+                    <Template Context="run">
+                        <span>@(string.IsNullOrWhiteSpace(run.LastError) ? "—" : run.LastError)</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ScheduledAgentRun" Title="Actions" Width="140px">
+                    <Template Context="run">
+                        <RadzenButton Text="@(run.Enabled ? "Disable" : "Enable")"
+                                      Icon="@(run.Enabled ? "toggle_off" : "toggle_on")"
+                                      ButtonStyle="ButtonStyle.Light"
+                                      Size="ButtonSize.Small"
+                                      Click="@(async () => await ToggleEnabledAsync(run))"
+                                      Disabled="@isLoading" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private IReadOnlyList<ScheduledAgentRun> runs = [];
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            runs = (await ScheduledAgentRunService.GetAllAsync())
+                .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ToggleEnabledAsync(ScheduledAgentRun run)
+    {
+        try
+        {
+            var updated = run.Enabled
+                ? await ScheduledAgentRunService.DisableAsync(run.Id)
+                : await ScheduledAgentRunService.EnableAsync(run.Id);
+
+            if (updated is null)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Update skipped", "The selected schedule was no longer available.");
+                return;
+            }
+
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                run.Enabled ? "Schedule disabled" : "Schedule enabled",
+                updated.Name);
+
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Schedule update failed", exception.Message);
+        }
+    }
+
+    private static string FormatDateTime(DateTime? value)
+    {
+        return value.HasValue ? value.Value.ToString("yyyy-MM-dd HH:mm:ss") : "—";
+    }
+}

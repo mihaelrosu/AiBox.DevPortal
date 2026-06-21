@@ -152,6 +152,10 @@
             </RadzenStack>
         </RadzenTabsItem>
 
+        <RadzenTabsItem Text="Scheduled Runs" Icon="schedule">
+            <CoderScheduledRunsPanel />
+        </RadzenTabsItem>
+
         <RadzenTabsItem Text="Dashboard" Icon="dashboard">
             <RadzenStack Gap="1rem">
                 <RadzenCard>
@@ -363,6 +367,34 @@
                                    OnUseHistoryEntryAsContext="@UseHistoryEntryAsContextAsync"
                                    OnRestoreContext="@RestoreHistoryContextAsync"
                                    ContextRestoreResult="@contextRestoreResult" />
+            </RadzenStack>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Execution History" Icon="schedule">
+            <RadzenStack Gap="1rem">
+                <RadzenCard>
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Scheduled execution history" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="Review the latest scheduled agent executions and refresh the list as needed."
+                                    TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+
+                <CoderExecutionHistoryPanel />
+            </RadzenStack>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Scheduled Runs" Icon="event_repeat">
+            <RadzenStack Gap="1rem">
+                <RadzenCard>
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Manage scheduled runs" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="Inspect the configured schedules, review their latest status, and toggle them on or off."
+                                    TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+
+                <CoderScheduledRunsPanel />
             </RadzenStack>
         </RadzenTabsItem>
     </Tabs>
