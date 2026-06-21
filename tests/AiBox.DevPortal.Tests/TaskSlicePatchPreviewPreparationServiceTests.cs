@@ -122,4 +122,51 @@ public sealed class TaskSlicePatchPreviewPreparationServiceTests
         Assert.False(result.CanGenerate);
         Assert.Contains("id and title", result.FailureMessage, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task PreparePromptContextAsync_ExtractsModifyAndCreateTargetsFromPromptSections()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"slice-preview-prompt-context-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Components"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Docs"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Components", "Coder.razor"), "coder");
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Docs", "Readme.md"), "readme");
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "appsettings.json"), "{}");
+
+            var result = await service.PreparePromptContextAsync(
+                """
+                Create:
+                - Services/NewFeature.cs
+
+                Modify:
+                - Components/Coder.razor
+
+                Files:
+                - Docs/Readme.md
+
+                Context:
+                - appsettings.json
+                """,
+                projectRoot);
+
+            Assert.True(result.Prepared);
+            Assert.Contains("Context prepared from task prompt.", result.Message);
+            Assert.Equal(["Components/Coder.razor", "Docs/Readme.md", "appsettings.json"], result.SelectedFilePaths);
+            Assert.Equal(["Services/"], result.AllowedCreateFolders);
+            Assert.Equal(3, result.FileContexts.Count);
+            Assert.Contains(result.DebugDetails, detail => detail == "PromptCreateTargets count: 1");
+            Assert.Contains(result.DebugDetails, detail => detail == "PromptModifyTargets count: 1");
+            Assert.Contains(result.DebugDetails, detail => detail == "PromptContextTargets count: 2");
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
 }

@@ -57,6 +57,13 @@
                                                    OnUnlockContext="@UnlockContextAsync" />
                         </ContextContent>
                     </CoderPromptPanel>
+
+                    @if (!string.IsNullOrWhiteSpace(promptContextStatusMessage))
+                    {
+                        <RadzenCard Style="margin-top: 0.75rem;">
+                            <RadzenText Text="@promptContextStatusMessage" TextStyle="TextStyle.Body2" />
+                        </RadzenCard>
+                    }
                 </CoderProjectSelector>
 
                 <RadzenStack Gap="0.5rem">
@@ -446,6 +453,7 @@
     private string selectedVerificationProfileId = "quick";
     private string? knowledgeIndexStatusMessage;
     private string? knowledgeIndexErrorMessage;
+    private string? promptContextStatusMessage;
     private string LastPatchRawResponse { get; set; } = string.Empty;
     private string LastPatchTaskText { get; set; } = string.Empty;
     private string LastPatchNormalizedResponse { get; set; } = string.Empty;
@@ -953,6 +961,7 @@
             return Task.CompletedTask;
         }
 
+        promptContextStatusMessage = null;
         ClearSelectedFiles();
 
         NotificationService.Notify(
@@ -970,6 +979,7 @@
             return Task.CompletedTask;
         }
 
+        promptContextStatusMessage = null;
         ClearSelectedFiles();
 
         NotificationService.Notify(
@@ -1004,12 +1014,62 @@
         ClearPatchDebug();
     }
 
+    private async Task PreparePromptContextFromTaskAsync(string taskText)
+    {
+        if (isContextLocked || string.IsNullOrWhiteSpace(request.ProjectPath) || string.IsNullOrWhiteSpace(taskText))
+        {
+            return;
+        }
+
+        error = null;
+        promptContextStatusMessage = null;
+        var preparation = await TaskSlicePatchPreviewPreparationService.PreparePromptContextAsync(
+            taskText,
+            request.ProjectPath);
+
+        if (!preparation.Prepared)
+        {
+            return;
+        }
+
+        var applied = false;
+
+        if (selectedFiles.Count == 0 && preparation.FileContexts.Count > 0)
+        {
+            selectedFiles = preparation.SelectedFilePaths
+                .Select(CreateSuggestedFileSearchItem)
+                .ToList();
+            selectedFilePaths = preparation.SelectedFilePaths.ToList();
+            fileContexts = preparation.FileContexts.ToList();
+            request.FileContexts = fileContexts.ToList();
+            applied = true;
+        }
+
+        if (request.AllowedCreateFolders.Count == 0 && preparation.AllowedCreateFolders.Count > 0)
+        {
+            request.AllowedCreateFolders = preparation.AllowedCreateFolders.ToList();
+            applied = true;
+        }
+
+        if (!applied)
+        {
+            return;
+        }
+
+        promptContextStatusMessage = preparation.Message;
+        NotificationService.Notify(
+            NotificationSeverity.Info,
+            "Context prepared from task prompt",
+            preparation.Message);
+    }
+
     private void ClearLoadedContext()
     {
         contextLoadVersion++;
         isLoadingContext = false;
         fileContexts = [];
         request.FileContexts = [];
+        promptContextStatusMessage = null;
         patchPreview = null;
         ClearPlanTasks();
         applyResult = null;
@@ -1150,10 +1210,11 @@
         }
     }
 
-    private Task GeneratePatchPreviewAsync()
+    private async Task GeneratePatchPreviewAsync()
     {
         activePlanTaskId = null;
-        return GeneratePatchPreviewCoreAsync(request.Task, null, null);
+        await PreparePromptContextFromTaskAsync(request.Task);
+        await GeneratePatchPreviewCoreAsync(request.Task, null, null);
     }
 
     private async Task GenerateSlicePatchPreviewAsync(TaskPlanSlice slice)
@@ -2194,6 +2255,7 @@
             return;
         }
 
+        promptContextStatusMessage = null;
         selectedFiles = files.ToList();
         selectedFilePaths = selectedFiles
             .Select(file => file.RelativePath)

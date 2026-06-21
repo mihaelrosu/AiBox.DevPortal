@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using AiBox.DevPortal.Models;
 
 namespace AiBox.DevPortal.Services;
@@ -6,6 +7,56 @@ namespace AiBox.DevPortal.Services;
 public sealed class TaskSlicePatchPreviewPreparationService(
     ILocalCoderContextService localCoderContextService)
 {
+    public async Task<PromptContextPreparationResult> PreparePromptContextAsync(
+        string taskText,
+        string projectPath,
+        CancellationToken cancellationToken = default)
+    {
+        var debugDetails = new List<string>();
+        var extraction = ExtractPromptFileTargets(taskText);
+
+        debugDetails.Add($"PromptCreateTargets count: {extraction.CreateTargets.Count}");
+        debugDetails.Add($"PromptModifyTargets count: {extraction.ModifyTargets.Count}");
+        debugDetails.Add($"PromptContextTargets count: {extraction.ContextTargets.Count}");
+
+        if (extraction.CreateTargets.Count == 0
+            && extraction.ModifyTargets.Count == 0
+            && extraction.ContextTargets.Count == 0)
+        {
+            return new PromptContextPreparationResult(
+                false,
+                [],
+                [],
+                [],
+                debugDetails,
+                string.Empty);
+        }
+
+        var selectedFilePaths = extraction.ModifyTargets
+            .Concat(extraction.ContextTargets)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        IReadOnlyList<LocalCoderFileContext> loadedContexts = selectedFilePaths.Length == 0
+            ? []
+            : await TryLoadFileContextsAsync(projectPath, selectedFilePaths, cancellationToken);
+
+        var allowedCreateFolders = DeriveCreateFolders(extraction.CreateTargets);
+        var prepared = selectedFilePaths.Length > 0 || extraction.CreateTargets.Count > 0;
+
+        debugDetails.Add($"PromptSelectedFilePaths count: {selectedFilePaths.Length}");
+        debugDetails.Add($"PromptLoadedContexts count: {loadedContexts.Count}");
+        debugDetails.Add($"PromptAllowedCreateFolders count: {allowedCreateFolders.Count}");
+
+        return new PromptContextPreparationResult(
+            prepared,
+            selectedFilePaths,
+            loadedContexts,
+            allowedCreateFolders,
+            debugDetails,
+            prepared ? "Context prepared from task prompt." : string.Empty);
+    }
+
     public async Task<TaskSlicePatchPreviewPreparationResult> PrepareAsync(
         TaskPlanSlice slice,
         string projectPath,
@@ -267,6 +318,22 @@ public sealed class TaskSlicePatchPreviewPreparationService(
             .ToList();
     }
 
+    private static IReadOnlyList<string> DeriveCreateFolders(IEnumerable<string> filePaths)
+    {
+        return filePaths
+            .Select(path => (path ?? string.Empty).Replace('\\', '/').Trim())
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path =>
+            {
+                var lastSeparator = path.LastIndexOf('/');
+                return lastSeparator <= 0 ? string.Empty : $"{path[..lastSeparator]}/";
+            })
+            .Where(folder => !string.IsNullOrWhiteSpace(folder))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     private static bool ContainsInvalidSlicePath(IEnumerable<string> paths)
     {
         return paths.Any(path =>
@@ -280,6 +347,128 @@ public sealed class TaskSlicePatchPreviewPreparationService(
 
     private const string SlicePreviewMissingTargetsMessage =
         "This slice has no valid target files, related files, selected context files, or create targets. Add slice targets before generating a patch preview.";
+
+    private static PromptPathExtractionResult ExtractPromptFileTargets(string taskText)
+    {
+        var value = taskText ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return new PromptPathExtractionResult([], [], []);
+        }
+
+        var normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var createTargets = new List<string>();
+        var modifyTargets = new List<string>();
+        var contextTargets = new List<string>();
+        PromptSection? currentSection = null;
+
+        foreach (var rawLine in normalized.Split('\n'))
+        {
+            var trimmed = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                currentSection = null;
+                continue;
+            }
+
+            if (TryConsumePromptSectionHeader(trimmed, out var section, out var remainder))
+            {
+                currentSection = section;
+                AddPromptPaths(section, remainder, createTargets, modifyTargets, contextTargets);
+                continue;
+            }
+
+            if (currentSection is null)
+            {
+                continue;
+            }
+
+            AddPromptPaths(currentSection.Value, trimmed, createTargets, modifyTargets, contextTargets);
+        }
+
+        return new PromptPathExtractionResult(
+            createTargets.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            modifyTargets.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            contextTargets.Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+    }
+
+    private static void AddPromptPaths(
+        PromptSection section,
+        string text,
+        List<string> createTargets,
+        List<string> modifyTargets,
+        List<string> contextTargets)
+    {
+        foreach (Match match in PromptPathRegex().Matches(text ?? string.Empty))
+        {
+            var normalized = NormalizePromptPath(match.Groups["path"].Value);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                continue;
+            }
+
+            switch (section)
+            {
+                case PromptSection.Create:
+                    createTargets.Add(normalized);
+                    break;
+                case PromptSection.Modify:
+                    modifyTargets.Add(normalized);
+                    break;
+                case PromptSection.Files:
+                case PromptSection.Context:
+                    contextTargets.Add(normalized);
+                    break;
+            }
+        }
+    }
+
+    private static bool TryConsumePromptSectionHeader(string line, out PromptSection section, out string remainder)
+    {
+        var match = PromptSectionHeaderRegex().Match(line);
+        if (!match.Success)
+        {
+            section = default;
+            remainder = string.Empty;
+            return false;
+        }
+
+        section = match.Groups["section"].Value.ToLowerInvariant() switch
+        {
+            "create" => PromptSection.Create,
+            "modify" => PromptSection.Modify,
+            "files" => PromptSection.Files,
+            "context" => PromptSection.Context,
+            _ => default
+        };
+        remainder = match.Groups["rest"].Value.Trim();
+        return true;
+    }
+
+    private static string NormalizePromptPath(string path)
+    {
+        return (path ?? string.Empty).Replace('\\', '/').Trim().TrimStart('-').Trim();
+    }
+
+    private static Regex PromptSectionHeaderRegex()
+    {
+        return new Regex(@"^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?<section>create|modify|files|context)\s*:\s*(?<rest>.*)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    }
+
+    private static Regex PromptPathRegex()
+    {
+        return new Regex(@"(?<path>(?:[\w.\-]+[\\/])*(?:[\w.\-]+\.(?:cs|razor|csproj|json|md)))",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    }
+
+    private enum PromptSection
+    {
+        Create,
+        Modify,
+        Files,
+        Context
+    }
 }
 
 public sealed record TaskSlicePatchPreviewPreparationResult(
@@ -288,3 +477,16 @@ public sealed record TaskSlicePatchPreviewPreparationResult(
     IReadOnlyList<LocalCoderFileContext> FileContexts,
     IReadOnlyList<string> DebugDetails,
     string FailureMessage);
+
+internal sealed record PromptPathExtractionResult(
+    IReadOnlyList<string> CreateTargets,
+    IReadOnlyList<string> ModifyTargets,
+    IReadOnlyList<string> ContextTargets);
+
+public sealed record PromptContextPreparationResult(
+    bool Prepared,
+    IReadOnlyList<string> SelectedFilePaths,
+    IReadOnlyList<LocalCoderFileContext> FileContexts,
+    IReadOnlyList<string> AllowedCreateFolders,
+    IReadOnlyList<string> DebugDetails,
+    string Message);
