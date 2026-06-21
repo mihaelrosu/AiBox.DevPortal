@@ -1,6 +1,18 @@
+@using AiBox.DevPortal.Services.Browser
+
 @if (!string.IsNullOrWhiteSpace(Error))
 {
     <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true">@Error</RadzenAlert>
+    @if (HasDebugCopyContent && ValidationErrors.Count == 0)
+    {
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap" Class="mt-2">
+            <RadzenButton Text="Copy Debug"
+                          Icon="content_copy"
+                          Size="ButtonSize.Small"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@CopyDebugAsync" />
+        </RadzenStack>
+    }
 }
 
 @if (string.IsNullOrWhiteSpace(Error) &&
@@ -35,7 +47,21 @@
 {
     <RadzenCard>
         <RadzenStack Gap="0.75rem">
-                    <RadzenText Text="Patch Debug" TextStyle="TextStyle.H5" />
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.SpaceBetween"
+                         Gap="0.5rem"
+                         Wrap="FlexWrap.Wrap">
+                <RadzenText Text="Patch Debug" TextStyle="TextStyle.H5" />
+                @if (HasDebugCopyContent)
+                {
+                    <RadzenButton Text="Copy Debug"
+                                  Icon="content_copy"
+                                  Size="ButtonSize.Small"
+                                  ButtonStyle="ButtonStyle.Light"
+                                  Click="@CopyDebugAsync" />
+                }
+            </RadzenStack>
                     @if (RepairSummary is not null)
                     {
                         <div>
@@ -627,7 +653,17 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
     [Parameter] public EventCallback OnClearSuggestedTarget { get; set; }
     [Parameter] public EventCallback OnRegenerateWithSuggestedTarget { get; set; }
     [Parameter] public EventCallback OnFixPatchPreview { get; set; }
+
+    [Inject] private IClipboardService ClipboardService { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+
     public bool CanRegenerateWithSuggestedTarget => SelectedSuggestedTarget is not null;
+
+    private bool HasDebugCopyContent => !string.IsNullOrWhiteSpace(Error)
+        || ValidationErrors.Count > 0
+        || !string.IsNullOrWhiteSpace(RawResponse)
+        || !string.IsNullOrWhiteSpace(NormalizedResponse)
+        || !string.IsNullOrWhiteSpace(NormalizedDiff);
 
     private static BadgeStyle CategoryBadgeStyle(PatchValidationCategory category) => category switch
     {
@@ -710,6 +746,58 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
         <= 2 => BadgeStyle.Warning,
         _ => BadgeStyle.Danger
     };
+
+    private async Task CopyDebugAsync()
+    {
+        var debugText = BuildDebugCopyText();
+        if (string.IsNullOrWhiteSpace(debugText))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Copy debug unavailable", "There is no debug text to copy.");
+            return;
+        }
+
+        try
+        {
+            await ClipboardService.CopyTextAsync(debugText);
+            NotificationService.Notify(NotificationSeverity.Success, "Debug copied", "The patch debug text was copied to the clipboard.");
+        }
+        catch (Exception exception)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Copy failed", exception.Message);
+        }
+    }
+
+    private string BuildDebugCopyText()
+    {
+        var sections = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(Error))
+        {
+            sections.Add($"Error:{Environment.NewLine}{Error.Trim()}");
+        }
+
+        if (ValidationErrors.Count > 0)
+        {
+            sections.Add($"Validation Errors:{Environment.NewLine}{string.Join(Environment.NewLine, ValidationErrors.Select(errorText => $"- {errorText}"))}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(RawResponse))
+        {
+            sections.Add($"Raw Model Response:{Environment.NewLine}{RawResponse.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(NormalizedResponse))
+        {
+            sections.Add($"Normalized Response:{Environment.NewLine}{NormalizedResponse.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(NormalizedDiff))
+        {
+            sections.Add($"Normalized Diff:{Environment.NewLine}{NormalizedDiff.Trim()}");
+        }
+
+        return string.Join($"{Environment.NewLine}{Environment.NewLine}", sections);
+    }
 
     private static string GetSelectedContextFolder(PatchScopeFileResult file)
     {
