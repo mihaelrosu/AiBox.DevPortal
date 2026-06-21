@@ -99,6 +99,66 @@ public sealed class ScheduledAgentExecutionService(IWebHostEnvironment environme
         }
     }
 
+    public async Task<ScheduledAgentExecution?> MarkCompletedAsync(string executionId, DateTimeOffset completedUtc, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(executionId))
+        {
+            throw new ArgumentException("Execution id is required.", nameof(executionId));
+        }
+
+        await FileLock.WaitAsync(cancellationToken);
+        try
+        {
+            var executions = await LoadAsync(cancellationToken);
+            var index = executions.FindIndex(item => item.Id.Equals(executionId, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                return null;
+            }
+
+            executions[index].CompletedUtc = completedUtc;
+            executions[index].Success = true;
+            executions[index].Error = null;
+            await SaveAsync(executions, cancellationToken);
+            return Clone(executions[index]);
+        }
+        finally
+        {
+            FileLock.Release();
+        }
+    }
+
+    public async Task<ScheduledAgentExecution?> MarkFailedAsync(string executionId, string error, DateTimeOffset completedUtc, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(executionId))
+        {
+            throw new ArgumentException("Execution id is required.", nameof(executionId));
+        }
+
+        var normalizedError = string.IsNullOrWhiteSpace(error) ? "Scheduled run failed." : error.Trim();
+
+        await FileLock.WaitAsync(cancellationToken);
+        try
+        {
+            var executions = await LoadAsync(cancellationToken);
+            var index = executions.FindIndex(item => item.Id.Equals(executionId, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                return null;
+            }
+
+            executions[index].CompletedUtc = completedUtc;
+            executions[index].Success = false;
+            executions[index].Error = normalizedError;
+            await SaveAsync(executions, cancellationToken);
+            return Clone(executions[index]);
+        }
+        finally
+        {
+            FileLock.Release();
+        }
+    }
+
     private async Task<List<ScheduledAgentExecution>> LoadAsync(CancellationToken cancellationToken)
     {
         var path = GetExecutionsPath();

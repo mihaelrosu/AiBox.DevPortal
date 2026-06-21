@@ -1,3 +1,5 @@
+using AiBox.DevPortal.Models;
+
 namespace AiBox.DevPortal.Services;
 
 public sealed class ScheduledRunDispatcher : BackgroundService
@@ -34,6 +36,7 @@ public sealed class ScheduledRunDispatcher : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var scheduledRunService = scope.ServiceProvider.GetRequiredService<ScheduledAgentRunService>();
+        var scheduledExecutionService = scope.ServiceProvider.GetRequiredService<ScheduledAgentExecutionService>();
 
         var nowUtc = DateTimeOffset.UtcNow;
         var dueRuns = await scheduledRunService.GetDueRunsAsync(nowUtc, cancellationToken);
@@ -45,6 +48,8 @@ public sealed class ScheduledRunDispatcher : BackgroundService
                 continue;
             }
 
+            ScheduledAgentExecution? execution = null;
+
             try
             {
                 var started = await scheduledRunService.MarkStartedAsync(run.Id, nowUtc, cancellationToken);
@@ -55,6 +60,15 @@ public sealed class ScheduledRunDispatcher : BackgroundService
 
                 _logger.LogInformation("Scheduled run {RunId} started.", run.Id);
 
+                execution = await scheduledExecutionService.CreateAsync(new ScheduledAgentExecution
+                {
+                    ScheduledRunId = run.Id,
+                    ScheduleName = run.Name,
+                    TaskName = run.TaskName,
+                    StartedUtc = nowUtc,
+                    Success = true
+                }, cancellationToken);
+
                 var completed = await scheduledRunService.MarkCompletedAsync(
                     run.Id,
                     DateTimeOffset.UtcNow,
@@ -63,6 +77,11 @@ public sealed class ScheduledRunDispatcher : BackgroundService
                 {
                     continue;
                 }
+
+                await scheduledExecutionService.MarkCompletedAsync(
+                    execution!.Id,
+                    DateTimeOffset.UtcNow,
+                    cancellationToken);
 
                 _logger.LogInformation("Scheduled run {RunId} completed.", run.Id);
             }
@@ -81,6 +100,22 @@ public sealed class ScheduledRunDispatcher : BackgroundService
                 catch (Exception markFailureException)
                 {
                     _logger.LogError(markFailureException, "Failed to record failure for scheduled run {RunId}.", run.Id);
+                }
+
+                if (execution is not null)
+                {
+                    try
+                    {
+                        await scheduledExecutionService.MarkFailedAsync(
+                            execution!.Id,
+                            exception.Message,
+                            DateTimeOffset.UtcNow,
+                            cancellationToken);
+                    }
+                    catch (Exception markExecutionFailureException)
+                    {
+                        _logger.LogError(markExecutionFailureException, "Failed to record execution failure for scheduled run {RunId}.", run.Id);
+                    }
                 }
             }
         }

@@ -99,6 +99,54 @@ public sealed class ScheduledAgentExecutionServiceTests
     }
 
     [Fact]
+    public async Task MarkCompletedAsync_UpdatesExecution()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var service = CreateService(root);
+            var created = await service.CreateAsync(CreateValidExecution(Guid.NewGuid().ToString("N")));
+
+            var completedUtc = DateTimeOffset.UtcNow;
+            var updated = await service.MarkCompletedAsync(created.Id, completedUtc);
+
+            Assert.NotNull(updated);
+            Assert.Equal(completedUtc, updated!.CompletedUtc);
+            Assert.True(updated.Success);
+            Assert.Null(updated.Error);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task MarkFailedAsync_UpdatesExecution()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var service = CreateService(root);
+            var created = await service.CreateAsync(CreateValidExecution(Guid.NewGuid().ToString("N")));
+
+            var completedUtc = DateTimeOffset.UtcNow;
+            var updated = await service.MarkFailedAsync(created.Id, "boom", completedUtc);
+
+            Assert.NotNull(updated);
+            Assert.Equal(completedUtc, updated!.CompletedUtc);
+            Assert.False(updated.Success);
+            Assert.Equal("boom", updated.Error);
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
     public async Task PersistedExecution_SurvivesCreatingNewServiceInstance()
     {
         var root = CreateTempProjectRoot();
