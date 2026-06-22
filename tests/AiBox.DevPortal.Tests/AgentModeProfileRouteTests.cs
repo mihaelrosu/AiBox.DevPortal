@@ -27,7 +27,10 @@ public sealed class AgentModeProfileRouteTests
 
         LocalCoderRequest? routedRequest = null;
         context.CoderConsoleService
-            .CreatePlanAsync(Arg.Do<LocalCoderRequest>(request => routedRequest = request), Arg.Any<AgentModeProfile>())
+            .CreatePlanAsync(
+                Arg.Do<LocalCoderRequest>(request => routedRequest = request),
+                Arg.Any<AgentModeProfile>(),
+                Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(new ConsoleLocalCoderTask
             {
                 ProjectPath = context.Root,
@@ -63,7 +66,8 @@ public sealed class AgentModeProfileRouteTests
             .GeneratePatchPreviewAsync(
                 Arg.Do<LocalCoderRequest>(request => routedRequest = request),
                 Arg.Any<AgentModeProfile>(),
-                Arg.Any<PatchPreviewRepairContext?>())
+                Arg.Any<PatchPreviewRepairContext?>(),
+                Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(new LocalCoderPatchPreview
             {
                 ProjectPath = context.Root,
@@ -94,6 +98,42 @@ public sealed class AgentModeProfileRouteTests
     }
 
     [Fact]
+    public async Task GeneratePatchPreviewAsync_AllowsCreateOnlyTaskWithoutSelectedFiles()
+    {
+        await using var context = CreateContext(healthyRoute: true);
+
+        var profile = await context.ProfileService.GetByModeAsync(AgentMode.PatchBuilder);
+        Assert.NotNull(profile);
+
+        LocalCoderRequest? routedRequest = null;
+        context.CoderConsoleService
+            .GeneratePatchPreviewAsync(
+                Arg.Do<LocalCoderRequest>(request => routedRequest = request),
+                Arg.Any<AgentModeProfile>(),
+                Arg.Any<PatchPreviewRepairContext?>(),
+                Arg.Any<AgentModelRoute?>())
+            .Returns(Task.FromResult(new LocalCoderPatchPreview
+            {
+                ProjectPath = context.Root,
+                Model = "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+                Task = "Create Models/TestFeature.cs",
+                PatchText = "diff --git a/Models/TestFeature.cs b/Models/TestFeature.cs"
+            }));
+
+        var result = await context.Runner.GeneratePatchPreviewAsync(new LocalCoderRequest
+        {
+            ProjectPath = context.Root,
+            Task = "Create Models/TestFeature.cs",
+            Model = "legacy-model"
+        }, profile);
+
+        Assert.NotNull(routedRequest);
+        Assert.Empty(routedRequest!.FileContexts);
+        Assert.Equal("qwen2.5-coder-7b-instruct-q4_k_m.gguf", routedRequest.Model);
+        Assert.Equal("qwen2.5-coder-7b-instruct-q4_k_m.gguf", result.Model);
+    }
+
+    [Fact]
     public async Task GeneratePatchPreviewAsync_PolicyRequiresApproval_MarksPreview()
     {
         await using var context = CreateContext(healthyRoute: true);
@@ -105,7 +145,8 @@ public sealed class AgentModeProfileRouteTests
             .GeneratePatchPreviewAsync(
                 Arg.Any<LocalCoderRequest>(),
                 Arg.Any<AgentModeProfile>(),
-                Arg.Any<PatchPreviewRepairContext?>())
+                Arg.Any<PatchPreviewRepairContext?>(),
+                Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(new LocalCoderPatchPreview
             {
                 ProjectPath = context.Root,

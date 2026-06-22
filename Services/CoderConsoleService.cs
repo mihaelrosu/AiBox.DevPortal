@@ -98,7 +98,10 @@ public sealed class CoderConsoleService(
         return await localCoderContextService.LoadAsync(rootPath, relativePaths);
     }
 
-    public async Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile? profile = null)
+    public async Task<ConsoleLocalCoderTask> CreatePlanAsync(
+        LocalCoderRequest request,
+        AgentModeProfile? profile = null,
+        AgentModelRoute? route = null)
     {
         ValidateProjectPath(request.ProjectPath);
 
@@ -117,33 +120,28 @@ public sealed class CoderConsoleService(
 
         var prompt = BuildCreatePlanPrompt(request, fileContextText, profile, agentInstructionsText);
 
-        var ollamaRequest = new OllamaGenerateRequest
-        {
-            Model = string.IsNullOrWhiteSpace(request.Model)
-                ? configuration["AiBox:LocalCoder:DefaultModel"] ?? "qwen2.5-coder:7b"
-                : request.Model,
-            Prompt = prompt,
-            Stream = false
-        };
-
-        using var response = await httpClient.PostAsJsonAsync("/api/generate", ollamaRequest);
-        response.EnsureSuccessStatusCode();
-
-        var result = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
+        var model = string.IsNullOrWhiteSpace(request.Model)
+            ? configuration["AiBox:LocalCoder:DefaultModel"] ?? "qwen2.5-coder:7b"
+            : request.Model;
+        var resultText = await GenerateTextAsync(model, prompt, route);
 
         var task = new ConsoleLocalCoderTask
         {
             ProjectPath = request.ProjectPath,
-            Model = ollamaRequest.Model,
+            Model = model,
             Task = request.Task,
-            Plan = result?.Response?.Trim() ?? string.Empty
+            Plan = resultText
         };
 
         await SaveTaskAsync(task);
         return task;
     }
 
-    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile? profile = null, PatchPreviewRepairContext? repairContext = null)
+    public async Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(
+        LocalCoderRequest request,
+        AgentModeProfile? profile = null,
+        PatchPreviewRepairContext? repairContext = null,
+        AgentModelRoute? route = null)
     {
         ValidateProjectPath(request.ProjectPath);
 
@@ -280,20 +278,10 @@ public sealed class CoderConsoleService(
                 profile,
                 agentInstructionsText);
 
-        var ollamaRequest = new OllamaGenerateRequest
-        {
-            Model = string.IsNullOrWhiteSpace(request.Model)
-                ? configuration["AiBox:LocalCoder:DefaultModel"] ?? "qwen2.5-coder:7b"
-                : request.Model,
-            Prompt = prompt,
-            Stream = false
-        };
-
-        using var response = await httpClient.PostAsJsonAsync("/api/generate", ollamaRequest);
-        response.EnsureSuccessStatusCode();
-
-        var result = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
-        var rawResponse = result?.Response ?? string.Empty;
+        var model = string.IsNullOrWhiteSpace(request.Model)
+            ? configuration["AiBox:LocalCoder:DefaultModel"] ?? "qwen2.5-coder:7b"
+            : request.Model;
+        var rawResponse = await GenerateTextAsync(model, prompt, route);
         var normalizedResponse = NormalizePatchPreviewModelResponse(rawResponse);
         var finalRawResponse = rawResponse;
         var finalNormalizedResponse = normalizedResponse;
@@ -427,7 +415,7 @@ public sealed class CoderConsoleService(
         var patchPreview = new LocalCoderPatchPreview
         {
             ProjectPath = request.ProjectPath,
-            Model = ollamaRequest.Model,
+            Model = model,
             Task = request.Task,
             FileContexts = request.FileContexts.ToArray(),
             FileChanges = editResult.FileChanges,
@@ -454,6 +442,73 @@ public sealed class CoderConsoleService(
             RecordPatchPreviewRepaired();
         }
         return patchPreview;
+    }
+
+    private async Task<string> GenerateTextAsync(string model, string prompt, AgentModelRoute? route)
+    {
+        if (IsOpenAiCompatibleRoute(route))
+        {
+            var request = new ChatCompletionRequest
+            {
+                Model = model,
+                Messages =
+                [
+                    new ChatCompletionMessage
+                    {
+                        Role = "user",
+                        Content = prompt
+                    }
+                ],
+                MaxTokens = 8_000,
+                Stream = false
+            };
+
+            using var response = await httpClient.PostAsJsonAsync(GetRouteEndpoint(route), request);
+            response.EnsureSuccessStatusCode();
+
+            var completion = await response.Content.ReadFromJsonAsync<ChatCompletionResponse>();
+            return completion?.Choices.FirstOrDefault()?.Message?.Content?.Trim() ?? string.Empty;
+        }
+
+        var ollamaRequest = new OllamaGenerateRequest
+        {
+            Model = model,
+            Prompt = prompt,
+            Stream = false
+        };
+
+        using var ollamaResponse = await httpClient.PostAsJsonAsync(GetOllamaEndpoint(route), ollamaRequest);
+        ollamaResponse.EnsureSuccessStatusCode();
+
+        var result = await ollamaResponse.Content.ReadFromJsonAsync<OllamaGenerateResponse>();
+        return result?.Response?.Trim() ?? string.Empty;
+    }
+
+    private static bool IsOpenAiCompatibleRoute(AgentModelRoute? route)
+    {
+        return route is not null
+               && (route.Provider.Contains("llama.cpp", StringComparison.OrdinalIgnoreCase)
+                   || route.BaseUrl.Contains("/v1/chat/completions", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string GetRouteEndpoint(AgentModelRoute? route)
+    {
+        if (route is null || string.IsNullOrWhiteSpace(route.BaseUrl))
+        {
+            throw new InvalidOperationException("A model route endpoint is required.");
+        }
+
+        return route.BaseUrl;
+    }
+
+    private static string GetOllamaEndpoint(AgentModelRoute? route)
+    {
+        if (route is not null && route.Provider.Contains("Ollama", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(route.BaseUrl))
+        {
+            return route.BaseUrl.TrimEnd('/') + "/api/generate";
+        }
+
+        return "/api/generate";
     }
 
     public PatchPreviewMetricsSnapshot GetPatchPreviewMetrics()
@@ -1172,6 +1227,11 @@ public sealed class CoderConsoleService(
         Relevant AGENTS.md files:
         {{agentInstructionsText}}
 
+        If no files are selected, plan from the task text and AGENTS.md context instead of failing.
+        Keep nullable reference usage consistent with the project.
+        If you introduce a new service, include the required dependency injection registration.
+        Prefer valid Razor expressions when the plan references UI changes.
+
         Produce:
         1. Short diagnosis.
         2. Files likely involved.
@@ -1366,6 +1426,10 @@ public sealed class CoderConsoleService(
 
         Relevant AGENTS.md files:
         {{agentInstructionsText}}
+
+        Keep nullable reference usage consistent with the project.
+        Use valid Razor expressions for any UI edits.
+        If you introduce a new service, include the required dependency injection registration.
 
         Generate the smallest safe patch operation set possible.
         """;
@@ -3378,6 +3442,42 @@ public sealed class CoderConsoleService(
     {
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class ChatCompletionRequest
+    {
+        [JsonPropertyName("model")]
+        public string Model { get; set; } = string.Empty;
+
+        [JsonPropertyName("messages")]
+        public List<ChatCompletionMessage> Messages { get; set; } = [];
+
+        [JsonPropertyName("max_tokens")]
+        public int MaxTokens { get; set; }
+
+        [JsonPropertyName("stream")]
+        public bool Stream { get; set; }
+    }
+
+    private sealed class ChatCompletionMessage
+    {
+        [JsonPropertyName("role")]
+        public string Role { get; set; } = string.Empty;
+
+        [JsonPropertyName("content")]
+        public string Content { get; set; } = string.Empty;
+    }
+
+    private sealed class ChatCompletionResponse
+    {
+        [JsonPropertyName("choices")]
+        public List<ChatCompletionChoice> Choices { get; set; } = [];
+    }
+
+    private sealed class ChatCompletionChoice
+    {
+        [JsonPropertyName("message")]
+        public ChatCompletionMessage? Message { get; set; }
     }
 
     private sealed class OllamaGenerateRequest

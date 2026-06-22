@@ -1,0 +1,56 @@
+[
+  {
+    "id": "0208815e352349ab898720d7842779a3",
+    "runId": "453d03c8e69b45748652c0025197aa10",
+    "timestamp": "2026-06-22T10:35:42.4972751+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "6df184282d6445028bb7b43863dedf35",
+    "runId": "453d03c8e69b45748652c0025197aa10",
+    "timestamp": "2026-06-22T10:35:44.4972751+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "No editable source files selected and no valid create targets were detected.",
+    "referenceId": "453d03c8e69b45748652c0025197aa10"
+  },
+  {
+    "id": "d2d12b80435642af8c71e5bb28167be8",
+    "runId": "f28fa8a0b5c44598a0570129e6a5ea3e",
+    "timestamp": "2026-06-22T10:36:27.2113129+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "3bebb5b4243c4229b9e9d6df725148ca",
+    "runId": "f28fa8a0b5c44598a0570129e6a5ea3e",
+    "timestamp": "2026-06-22T10:36:29.2113129+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "Patch preview validation failed:\n- Patch preview may break Razor markup by changing closing tag type.",
+    "referenceId": "f28fa8a0b5c44598a0570129e6a5ea3e"
+  },
+  {
+    "id": "9d03520716544f0ea29b096cfada2f9c",
+    "runId": "ee0cd96b4c1747c5bff8c6f5c9febe7e",
+    "timestamp": "2026-06-22T10:58:25.3083608+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "c0761c33112b47588a6f5dfbab477269",
+    "runId": "ee0cd96b4c1747c5bff8c6f5c9febe7e",
+    "timestamp": "2026-06-22T10:58:27.3083608+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "Patch preview validation failed:\n- Anchor not found for insert_after in file \u0027Components/Pages/Coder.razor\u0027: \u003CRadzenText Text=\u0022Current time\u0022 TextStyle=\u0022TextStyle.Body2\u0022 /\u003E\n- Response status code does not indicate success: 404 (Not Found).",
+    "referenceId": "ee0cd96b4c1747c5bff8c6f5c9febe7e"
+  }
+]

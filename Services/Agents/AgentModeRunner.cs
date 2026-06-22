@@ -41,7 +41,7 @@ public sealed class AgentModeRunner(
 
         try
         {
-            var result = await coderConsoleService.CreatePlanAsync(routedRequest, profile);
+            var result = await coderConsoleService.CreatePlanAsync(routedRequest, profile, route);
             await RecordAsync(
                 AgentActionProfiles.CreatePlanActionKey,
                 profile,
@@ -130,7 +130,7 @@ public sealed class AgentModeRunner(
         LocalCoderPatchPreview result;
         try
         {
-            result = await coderConsoleService.GeneratePatchPreviewAsync(routedRequest, profile, repairContext);
+            result = await coderConsoleService.GeneratePatchPreviewAsync(routedRequest, profile, repairContext, route);
         }
         catch (Exception exception)
         {

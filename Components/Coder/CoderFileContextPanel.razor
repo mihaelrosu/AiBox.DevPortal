@@ -19,6 +19,9 @@
                     <RadzenButton Text="Lock Context" Icon="lock" ButtonStyle="ButtonStyle.Light"
                                   Click="@OnLockContext" Disabled="@IsLoading" />
                 }
+                <RadzenButton Text="Detect Context" Icon="auto_fix_high" ButtonStyle="ButtonStyle.Secondary"
+                              Click="@OnDetectContext"
+                              Disabled="@(IsLoading || IsLocked || SelectedFiles.Count > 0 || string.IsNullOrWhiteSpace(CurrentTaskText) || !OnDetectContext.HasDelegate)" />
                 <RadzenButton Text="Preview Context" Icon="description" ButtonStyle="ButtonStyle.Primary"
                               Click="@TogglePreview"
                               Disabled="@(IsLoading || string.IsNullOrWhiteSpace(ProjectPath) || SelectedFiles.Count == 0)" />
@@ -260,6 +263,7 @@
     [Parameter] public IReadOnlyList<LocalCoderFileContext> FileContexts { get; set; } = [];
     [Parameter] public bool IsLoading { get; set; }
     [Parameter] public bool IsLocked { get; set; }
+    [Parameter] public string CurrentTaskText { get; set; } = string.Empty;
     [Parameter] public PatchScopeMode AllowedPatchScope { get; set; } = PatchScopeMode.ContextFilesOnly;
     [Parameter] public EventCallback<PatchScopeMode> AllowedPatchScopeChanged { get; set; }
     [Parameter] public IReadOnlyList<string> AllowedPatchFolders { get; set; } = [];
@@ -268,6 +272,7 @@
     [Parameter] public EventCallback<IReadOnlyList<string>> AllowedCreateFoldersChanged { get; set; }
     [Parameter] public EventCallback<IReadOnlyList<FileSearchItem>> SelectedFilesChanged { get; set; }
     [Parameter] public EventCallback<IReadOnlyList<FileSearchItem>> OnLoadPreset { get; set; }
+    [Parameter] public EventCallback OnDetectContext { get; set; }
     [Parameter] public EventCallback OnClearAll { get; set; }
     [Parameter] public EventCallback OnClearContext { get; set; }
     [Parameter] public EventCallback OnLockContext { get; set; }

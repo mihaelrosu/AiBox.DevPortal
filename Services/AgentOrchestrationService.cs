@@ -12,6 +12,7 @@ public sealed class AgentOrchestrationService(
     TaskSlicePatchPreviewPreparationService patchPreviewPreparationService,
     ICoderConsoleService coderConsoleService,
     IAgentModeProfileService agentModeProfileService,
+    AgentModelRouteService agentModelRouteService,
     TaskSliceVerificationService taskSliceVerificationService,
     ILocalCoderPatchService localCoderPatchService,
     ILocalCoderReviewService localCoderReviewService,
@@ -1306,7 +1307,8 @@ public sealed class AgentOrchestrationService(
             }).AllowedCreateFolders.ToList()
         };
 
-        return await coderConsoleService.GeneratePatchPreviewAsync(request);
+        var route = await ResolveRequiredPatchBuilderRouteAsync(cancellationToken);
+        return await coderConsoleService.GeneratePatchPreviewAsync(request, null, null, route);
     }
 
     private async Task<LocalCoderResult> RunReviewAsync(
@@ -1926,6 +1928,26 @@ public sealed class AgentOrchestrationService(
             .OrderByDescending(item => item.TimestampUtc)
             .Select(item => item.Id)
             .ToArray();
+    }
+
+    private async Task<AgentModelRoute> ResolveRequiredPatchBuilderRouteAsync(CancellationToken cancellationToken)
+    {
+        var profile = await agentModeProfileService.GetByModeAsync(AgentMode.PatchBuilder, cancellationToken)
+            ?? throw new InvalidOperationException("Patch builder profile is not configured.");
+
+        if (string.IsNullOrWhiteSpace(profile.ModelRouteId))
+        {
+            throw new InvalidOperationException("Patch builder profile does not have a configured model route.");
+        }
+
+        var routes = await agentModelRouteService.GetAllAsync(cancellationToken);
+        var route = routes.FirstOrDefault(item => item.Id.Equals(profile.ModelRouteId, StringComparison.OrdinalIgnoreCase));
+        if (route is null || string.IsNullOrWhiteSpace(route.BaseUrl))
+        {
+            throw new InvalidOperationException($"Model route '{profile.ModelRouteId}' was not found.");
+        }
+
+        return route;
     }
 
     private sealed record StepOutcome(string Message, string Details);

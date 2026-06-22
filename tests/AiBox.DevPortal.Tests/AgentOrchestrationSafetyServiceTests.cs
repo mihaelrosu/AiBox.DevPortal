@@ -231,6 +231,7 @@ public sealed class AgentOrchestrationSafetyServiceTests
             patchPreviewPreparationService,
             coderConsoleService,
             profileService,
+            new AgentModelRouteService(environment),
             taskSliceVerificationService,
             localCoderPatchService,
             localCoderReviewService,

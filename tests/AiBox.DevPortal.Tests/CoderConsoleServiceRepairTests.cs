@@ -741,6 +741,81 @@ public sealed class CoderConsoleServiceRepairTests
         }
     }
 
+    [Fact]
+    public async Task CreatePlanAsync_UsesProvidedChatRouteEndpoint()
+    {
+        var requests = new List<Uri>();
+        var handler = new RouteCapturingHandler(
+            requests,
+            """
+            {
+              "choices": [
+                {
+                  "message": {
+                    "role": "assistant",
+                    "content": "Plan"
+                  }
+                }
+              ]
+            }
+            """);
+
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:11434")
+        };
+
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-route-test-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["AiBox:LocalCoder:DefaultModel"] = "test-model",
+                    ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
+                })
+                .Build();
+
+            var environment = Substitute.For<IWebHostEnvironment>();
+            environment.ContentRootPath.Returns(projectRoot);
+
+            var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
+            var contextService = Substitute.For<ILocalCoderContextService>();
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
+
+            var result = await service.CreatePlanAsync(
+                new LocalCoderRequest
+                {
+                    ProjectPath = projectRoot,
+                    Model = "legacy-model",
+                    Task = "Create a plan"
+                },
+                null,
+                new AgentModelRoute
+                {
+                    Id = "llamacpp-local-coder",
+                    Name = "llama.cpp / DevPortal Local Coder",
+                    Provider = "llama.cpp",
+                    BaseUrl = "http://localhost:8082/v1/chat/completions",
+                    Model = "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+                });
+
+            Assert.Equal("Plan", result.Plan);
+            Assert.Single(requests);
+            Assert.Equal("http://localhost:8082/v1/chat/completions", requests[0].ToString());
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
     private sealed class QueueHandler : HttpMessageHandler
     {
         private readonly Queue<string> responses = new();
@@ -758,6 +833,38 @@ public sealed class CoderConsoleServiceRepairTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             requests.Add(await request.Content!.ReadAsStringAsync(cancellationToken));
+            if (responses.Count == 0)
+            {
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                {
+                    Content = new StringContent("No more responses configured", Encoding.UTF8, "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responses.Dequeue(), Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
+    private sealed class RouteCapturingHandler : HttpMessageHandler
+    {
+        private readonly Queue<string> responses = new();
+        private readonly List<Uri> requests;
+
+        public RouteCapturingHandler(List<Uri> requests, params string[] responses)
+        {
+            this.requests = requests;
+            foreach (var response in responses)
+            {
+                this.responses.Enqueue(response);
+            }
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            requests.Add(request.RequestUri!);
             if (responses.Count == 0)
             {
                 return new HttpResponseMessage(HttpStatusCode.InternalServerError)

@@ -10,8 +10,15 @@ public interface ICoderConsoleService
     Task<IReadOnlyList<string>> GetOllamaModelsAsync();
     Task<IReadOnlyList<ProjectFileItem>> GetProjectFilesAsync(string projectPath);
     Task<IReadOnlyList<LocalCoderFileContext>> ReadFileContextsAsync(string projectPath, IReadOnlyList<string> relativePaths);
-    Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile? profile = null);
-    Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile? profile = null, PatchPreviewRepairContext? repairContext = null);
+    Task<ConsoleLocalCoderTask> CreatePlanAsync(
+        LocalCoderRequest request,
+        AgentModeProfile? profile = null,
+        AgentModelRoute? route = null);
+    Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(
+        LocalCoderRequest request,
+        AgentModeProfile? profile = null,
+        PatchPreviewRepairContext? repairContext = null,
+        AgentModelRoute? route = null);
     Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview);
     PatchPreviewMetricsSnapshot GetPatchPreviewMetrics();
     Task<LocalCoderPatchRollbackResult> RollbackPatchAsync(LocalCoderPatchApplyResult applyResult, string projectPath);

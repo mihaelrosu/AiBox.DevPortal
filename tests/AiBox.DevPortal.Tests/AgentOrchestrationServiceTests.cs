@@ -125,6 +125,48 @@ public sealed class AgentOrchestrationServiceTests
     }
 
     [Fact]
+    public async Task RunOrchestrationAsync_UsesAgentModelRouteForPatchPreview()
+    {
+        var root = CreateTempProjectRoot();
+        var requestUris = new List<Uri>();
+
+        try
+        {
+            WriteProjectFile(root, validProgram: true);
+            InitializeGitRepository(root);
+            var harness = CreateHarness(
+                root,
+                requestUris,
+                BuildOllamaResponse(BuildPatchOperationsJson(
+                    new PatchOperationFixture(
+                        "Models/OrchestrationExample.cs",
+                        """
+                        namespace AiBox.DevPortal.Models;
+
+                        public sealed class OrchestrationExample
+                        {
+                            public string Message { get; set; } = "Hello";
+                        }
+                        """))),
+                BuildOllamaResponse("The patch looks good. Apply it."));
+
+            var run = await harness.Service.RunOrchestrationAsync(
+                "Implement orchestration",
+                "Create: Models/OrchestrationExample.cs",
+                commitAndSync: false,
+                approveHighRiskApply: true);
+
+            Assert.Equal(AgentOrchestrationStatus.Completed, run.Status);
+            Assert.NotEmpty(requestUris);
+            Assert.Equal("http://localhost:8082/v1/chat/completions", requestUris[0].ToString());
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
+    [Fact]
     public async Task RunOrchestrationAsync_PlannerFailure_FailsEarly()
     {
         var root = CreateTempProjectRoot();
@@ -1090,9 +1132,9 @@ public sealed class AgentOrchestrationServiceTests
         }
     }
 
-    private static TestHarness CreateHarness(string root, params string[] responses)
+    private static TestHarness CreateHarness(string root, List<Uri>? requestUris = null, params string[] responses)
     {
-        var handler = new QueueHandler(responses);
+        var handler = new QueueHandler(requestUris, responses);
         var httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri("http://localhost")
@@ -1163,6 +1205,7 @@ public sealed class AgentOrchestrationServiceTests
             patchPreviewPreparationService,
             coderConsoleService,
             profileService,
+            new AgentModelRouteService(environment),
             taskSliceVerificationService,
             localCoderPatchService,
             localCoderReviewService,
@@ -1321,12 +1364,14 @@ public sealed class AgentOrchestrationServiceTests
         AgentOrchestrationCheckpointService CheckpointService,
         AgentOrchestrationTimelineService TimelineService);
 
-    private sealed class QueueHandler(string[] responses) : HttpMessageHandler
+    private sealed class QueueHandler(List<Uri>? requestUris, string[] responses) : HttpMessageHandler
     {
         private readonly Queue<string> responses = new(responses);
+        private readonly List<Uri>? requestUris = requestUris;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            requestUris?.Add(request.RequestUri ?? new Uri("http://localhost/"));
             if (responses.Count == 0)
             {
                 throw new InvalidOperationException("No more queued responses are available.");

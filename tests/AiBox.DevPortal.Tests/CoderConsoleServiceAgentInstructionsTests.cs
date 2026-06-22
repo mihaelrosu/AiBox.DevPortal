@@ -24,6 +24,7 @@ public sealed class CoderConsoleServiceAgentInstructionsTests
 
         Assert.Contains("Relevant AGENTS.md files:", prompt, StringComparison.Ordinal);
         Assert.Contains("FILE: AGENTS.md", prompt, StringComparison.Ordinal);
+        Assert.Contains("If no files are selected, plan from the task text and AGENTS.md context instead of failing.", prompt, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -46,5 +47,8 @@ public sealed class CoderConsoleServiceAgentInstructionsTests
 
         Assert.Contains("Relevant AGENTS.md files:", prompt, StringComparison.Ordinal);
         Assert.Contains("FILE: AGENTS.md", prompt, StringComparison.Ordinal);
+        Assert.Contains("Keep nullable reference usage consistent with the project.", prompt, StringComparison.Ordinal);
+        Assert.Contains("Use valid Razor expressions for any UI edits.", prompt, StringComparison.Ordinal);
+        Assert.Contains("If you introduce a new service, include the required dependency injection registration.", prompt, StringComparison.Ordinal);
     }
 }

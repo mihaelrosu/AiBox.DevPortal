@@ -10,18 +10,22 @@ public sealed class TaskSlicePatchPreviewPreparationService(
     public async Task<PromptContextPreparationResult> PreparePromptContextAsync(
         string taskText,
         string projectPath,
+        bool includeNoMatchMessage = false,
         CancellationToken cancellationToken = default)
     {
         var debugDetails = new List<string>();
         var extraction = ExtractPromptFileTargets(taskText);
+        var inferredCreateFolders = InferCreateFolders(taskText);
 
         debugDetails.Add($"PromptCreateTargets count: {extraction.CreateTargets.Count}");
         debugDetails.Add($"PromptModifyTargets count: {extraction.ModifyTargets.Count}");
         debugDetails.Add($"PromptContextTargets count: {extraction.ContextTargets.Count}");
+        debugDetails.Add($"PromptInferredCreateFolders count: {inferredCreateFolders.Count}");
 
         if (extraction.CreateTargets.Count == 0
             && extraction.ModifyTargets.Count == 0
-            && extraction.ContextTargets.Count == 0)
+            && extraction.ContextTargets.Count == 0
+            && inferredCreateFolders.Count == 0)
         {
             return new PromptContextPreparationResult(
                 false,
@@ -29,7 +33,7 @@ public sealed class TaskSlicePatchPreviewPreparationService(
                 [],
                 [],
                 debugDetails,
-                string.Empty);
+                includeNoMatchMessage ? "No context files were detected from the task." : string.Empty);
         }
 
         var selectedFilePaths = extraction.ModifyTargets
@@ -41,12 +45,16 @@ public sealed class TaskSlicePatchPreviewPreparationService(
             ? []
             : await TryLoadFileContextsAsync(projectPath, selectedFilePaths, cancellationToken);
 
-        var allowedCreateFolders = DeriveCreateFolders(extraction.CreateTargets);
-        var prepared = selectedFilePaths.Length > 0 || extraction.CreateTargets.Count > 0;
+        var allowedCreateFolders = DeriveCreateFolders(extraction.CreateTargets)
+            .Concat(inferredCreateFolders)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var prepared = selectedFilePaths.Length > 0 || extraction.CreateTargets.Count > 0 || allowedCreateFolders.Length > 0;
 
         debugDetails.Add($"PromptSelectedFilePaths count: {selectedFilePaths.Length}");
         debugDetails.Add($"PromptLoadedContexts count: {loadedContexts.Count}");
-        debugDetails.Add($"PromptAllowedCreateFolders count: {allowedCreateFolders.Count}");
+        debugDetails.Add($"PromptAllowedCreateFolders count: {allowedCreateFolders.Length}");
 
         return new PromptContextPreparationResult(
             prepared,
@@ -378,18 +386,51 @@ public sealed class TaskSlicePatchPreviewPreparationService(
                 continue;
             }
 
-            if (currentSection is null)
+            var sectionToUse = currentSection ?? InferPromptSection(trimmed);
+            if (sectionToUse is null)
             {
                 continue;
             }
 
-            AddPromptPaths(currentSection.Value, trimmed, createTargets, modifyTargets, contextTargets);
+            AddPromptPaths(sectionToUse.Value, trimmed, createTargets, modifyTargets, contextTargets);
         }
 
         return new PromptPathExtractionResult(
             createTargets.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
             modifyTargets.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
             contextTargets.Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+    }
+
+    private static IReadOnlyList<string> InferCreateFolders(string taskText)
+    {
+        var value = (taskText ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var folders = new List<string>();
+
+        foreach (var rawLine in value.Split('\n'))
+        {
+            var lowered = rawLine.ToLowerInvariant();
+            if (!ContainsAny(lowered, "create", "new ", "add ", "scaffold", "generate", "implement"))
+            {
+                continue;
+            }
+
+            if (ContainsAny(lowered, "model", "models"))
+            {
+                folders.Add("Models/");
+            }
+
+            if (ContainsAny(lowered, "service", "services"))
+            {
+                folders.Add("Services/");
+            }
+
+            if (ContainsAny(lowered, "card", "component", "page", "razor", "ui"))
+            {
+                folders.Add("Components/Pages/");
+            }
+        }
+
+        return folders.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     private static void AddPromptPaths(
@@ -443,6 +484,38 @@ public sealed class TaskSlicePatchPreviewPreparationService(
         };
         remainder = match.Groups["rest"].Value.Trim();
         return true;
+    }
+
+    private static PromptSection? InferPromptSection(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return null;
+        }
+
+        var hasPath = PromptPathRegex().IsMatch(line);
+        if (!hasPath)
+        {
+            return null;
+        }
+
+        var lowered = line.ToLowerInvariant();
+        if (ContainsAny(lowered, "create", "new ", "add ", "scaffold", "generate"))
+        {
+            return PromptSection.Create;
+        }
+
+        if (ContainsAny(lowered, "modify", "update", "change", "edit", "fix", "refactor", "patch", "implement", "remove", "delete", "rename", "replace", "adjust"))
+        {
+            return PromptSection.Modify;
+        }
+
+        return PromptSection.Context;
+    }
+
+    private static bool ContainsAny(string value, params string[] terms)
+    {
+        return terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string NormalizePromptPath(string path)

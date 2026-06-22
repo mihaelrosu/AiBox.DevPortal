@@ -1,0 +1,28 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Models/TestFeature.cs",
+      "operation": "create",
+      "oldText": "",
+      "newText": "namespace AiBox.DevPortal.Models\n{\n    public class TestFeature\n    {\n        public string Name { get; set; }\n    }\n}",
+      "summary": "Create a new file"
+    },
+    {
+      "filePath": "Services/TestFeatureService.cs",
+      "operation": "create",
+      "oldText": "",
+      "newText": "using AiBox.DevPortal.Models;\n\nnamespace AiBox.DevPortal.Services\n{\n    public class TestFeatureService\n    {\n        public TestFeature GetTestFeature()\n        {\n            return new TestFeature { Name = \"Example Feature\" };\n        }\n    }\n}",
+      "summary": "Create a new file"
+    },
+    {
+      "filePath": "Components/Pages/Coder.razor",
+      "operation": "insert_after",
+      "anchor": "<RadzenStack Gap=\"0.5rem\">",
+      "oldText": "",
+      "newText": "            <RadzenCard>\n                <RadzenText Text=\"Current Time: @DateTime.Now\" />\n            </RadzenCard>",
+      "summary": "Insert content after an existing anchor"
+    }
+  ]
+}
+```

@@ -140,6 +140,7 @@
                                       OnReviewDiff="@ReviewSelectedPatchAsync">
                         <ContextContent>
                             <CoderFileContextPanel ProjectPath="@request.ProjectPath"
+                                                   CurrentTaskText="@request.Task"
                                                    StatusText="@GetProjectFilesStatusText()"
                                                    SelectedFiles="@selectedFiles"
                                                    FileContexts="@fileContexts"
@@ -152,6 +153,7 @@
                                                    AllowedCreateFolders="@request.AllowedCreateFolders"
                                                    AllowedCreateFoldersChanged="@(value => request.AllowedCreateFolders = value.ToList())"
                                                    SelectedFilesChanged="@OnSelectedFilesChanged"
+                                                   OnDetectContext="@DetectContextFromTaskAsync"
                                                    OnLoadPreset="@LoadPresetAsync"
                                                    OnClearAll="@ClearSelectedFilesAsync"
                                                    OnClearContext="@ClearContextAsync"
@@ -1582,7 +1584,12 @@
         ClearPatchDebug();
     }
 
-    private async Task PreparePromptContextFromTaskAsync(string taskText)
+    private async Task DetectContextFromTaskAsync()
+    {
+        await PreparePromptContextFromTaskAsync(request.Task, includeNoMatchMessage: true);
+    }
+
+    private async Task PreparePromptContextFromTaskAsync(string taskText, bool includeNoMatchMessage = false)
     {
         if (isContextLocked || string.IsNullOrWhiteSpace(request.ProjectPath) || string.IsNullOrWhiteSpace(taskText))
         {
@@ -1593,16 +1600,12 @@
         promptContextStatusMessage = null;
         var preparation = await TaskSlicePatchPreviewPreparationService.PreparePromptContextAsync(
             taskText,
-            request.ProjectPath);
-
-        if (!preparation.Prepared)
-        {
-            return;
-        }
+            request.ProjectPath,
+            includeNoMatchMessage: includeNoMatchMessage);
 
         var applied = false;
 
-        if (selectedFiles.Count == 0 && preparation.FileContexts.Count > 0)
+        if (selectedFiles.Count == 0 && preparation.SelectedFilePaths.Count > 0)
         {
             selectedFiles = preparation.SelectedFilePaths
                 .Select(CreateSuggestedFileSearchItem)
@@ -1613,22 +1616,50 @@
             applied = true;
         }
 
-        if (request.AllowedCreateFolders.Count == 0 && preparation.AllowedCreateFolders.Count > 0)
+        if (preparation.AllowedCreateFolders.Count > 0)
         {
-            request.AllowedCreateFolders = preparation.AllowedCreateFolders.ToList();
-            applied = true;
+            var mergedCreateFolders = request.AllowedCreateFolders
+                .Concat(preparation.AllowedCreateFolders)
+                .Where(folder => !string.IsNullOrWhiteSpace(folder))
+                .Select(folder => folder.EndsWith('/') ? folder : $"{folder}/")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!mergedCreateFolders.SequenceEqual(request.AllowedCreateFolders, StringComparer.OrdinalIgnoreCase))
+            {
+                request.AllowedCreateFolders = mergedCreateFolders;
+                applied = true;
+            }
         }
 
         if (!applied)
         {
+            if (includeNoMatchMessage)
+            {
+                promptContextStatusMessage = preparation.Message;
+                NotificationService.Notify(
+                    NotificationSeverity.Info,
+                    "No context detected",
+                    preparation.Message);
+            }
             return;
         }
 
-        promptContextStatusMessage = preparation.Message;
+        promptContextStatusMessage = BuildDetectedContextMessage(preparation);
         NotificationService.Notify(
             NotificationSeverity.Info,
             "Context prepared from task prompt",
-            preparation.Message);
+            promptContextStatusMessage);
+    }
+
+    private static string BuildDetectedContextMessage(PromptContextPreparationResult preparation)
+    {
+        var fileCount = preparation.SelectedFilePaths.Count;
+        var createFolderCount = preparation.AllowedCreateFolders.Count;
+        var fileLabel = fileCount == 1 ? "context file" : "context files";
+        var folderLabel = createFolderCount == 1 ? "create folder" : "create folders";
+        return $"Detected {fileCount} {fileLabel} and {createFolderCount} {folderLabel}.";
     }
 
     private void ClearLoadedContext()
@@ -1676,12 +1707,12 @@
         try
         {
             var profile = GetRequiredProfile(AgentActionProfiles.ForCreatePlan());
-            if (!await EnsureFileContextLoadedAsync())
+            if (selectedFilePaths.Count > 0 && !await EnsureFileContextLoadedAsync())
             {
                 await SaveHistoryEntryAsync(
                     LocalCoderHistoryActionType.CreatePlan,
                     success: false,
-                    "Select files before creating a plan.");
+                    "Failed to load selected files before creating a plan.");
                 return;
             }
 
@@ -1701,7 +1732,9 @@
             NotificationService.Notify(
                 NotificationSeverity.Success,
                 "Plan created",
-                $"Local coder generated a plan with {request.FileContexts.Count} file context(s).");
+                request.FileContexts.Count == 0
+                    ? "Local coder generated a plan from the task prompt."
+                    : $"Local coder generated a plan with {request.FileContexts.Count} file context(s).");
         }
         catch (Exception exception)
         {
@@ -2119,7 +2152,7 @@
         try
         {
             var profile = GetRequiredProfile(AgentActionProfiles.ForGeneratePatchPreview());
-            if (taskPlanSlice is null && !await EnsureFileContextLoadedAsync())
+            if (taskPlanSlice is null && selectedFilePaths.Count > 0 && !await EnsureFileContextLoadedAsync())
             {
                 if (planTask is not null)
                 {
@@ -3026,7 +3059,7 @@
             NotificationService.Notify(
                 NotificationSeverity.Warning,
                 "No files selected",
-                "Select files before creating a plan or patch preview.");
+                "Select files before generating a patch preview.");
 
             return false;
         }

@@ -169,4 +169,130 @@ public sealed class TaskSlicePatchPreviewPreparationServiceTests
             }
         }
     }
+
+    [Fact]
+    public async Task PreparePromptContextAsync_DetectsExplicitExistingFilePathsFromTaskText()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"slice-preview-explicit-paths-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Components", "Pages"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Services"));
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Components", "Pages", "Coder.razor"), "@page \"/coder\"");
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Services", "TestFeatureService.cs"), "namespace Demo.Services;");
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, "Models", "TestFeature.cs"), "namespace Demo.Models;");
+
+            var result = await service.PreparePromptContextAsync(
+                """
+                Update Components/Pages/Coder.razor, Services/TestFeatureService.cs, and Models/TestFeature.cs.
+                """,
+                projectRoot);
+
+            Assert.True(result.Prepared);
+            Assert.Equal(
+                ["Components/Pages/Coder.razor", "Services/TestFeatureService.cs", "Models/TestFeature.cs"],
+                result.SelectedFilePaths);
+            Assert.Equal(3, result.FileContexts.Count);
+            Assert.Empty(result.AllowedCreateFolders);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task PreparePromptContextAsync_DetectsCreateFoldersFromCreatePrompt()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"slice-preview-create-folders-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+
+            var result = await service.PreparePromptContextAsync(
+                """
+                Create Models/X.cs and Services/X.cs.
+                """,
+                projectRoot);
+
+            Assert.True(result.Prepared);
+            Assert.Empty(result.SelectedFilePaths);
+            Assert.Equal(["Models/", "Services/"], result.AllowedCreateFolders);
+            Assert.Empty(result.FileContexts);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task PreparePromptContextAsync_DetectsCommonCreateFoldersFromKeywordTaskText()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"slice-preview-keyword-folders-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+
+            var result = await service.PreparePromptContextAsync(
+                """
+                Create model
+                Create service
+                Add current time card
+                """,
+                projectRoot);
+
+            Assert.True(result.Prepared);
+            Assert.Empty(result.SelectedFilePaths);
+            Assert.Equal(["Components/Pages/", "Models/", "Services/"], result.AllowedCreateFolders);
+            Assert.Empty(result.FileContexts);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task PreparePromptContextAsync_CommandOnlyTaskDoesNotRequireFiles()
+    {
+        var result = await service.PreparePromptContextAsync(
+            """
+            dotnet build
+            dotnet test --no-restore
+            """,
+            string.Empty);
+
+        Assert.False(result.Prepared);
+        Assert.Empty(result.SelectedFilePaths);
+        Assert.Empty(result.AllowedCreateFolders);
+    }
+
+    [Fact]
+    public async Task PreparePromptContextAsync_ReturnsClearMessageWhenNothingDetected()
+    {
+        var result = await service.PreparePromptContextAsync(
+            """
+            dotnet build
+            dotnet test --no-restore
+            """,
+            string.Empty,
+            includeNoMatchMessage: true);
+
+        Assert.False(result.Prepared);
+        Assert.Equal("No context files were detected from the task.", result.Message);
+    }
 }

@@ -270,6 +270,7 @@ public sealed class ScheduledRunDispatcherTests
             patchPreviewPreparationService,
             coderConsoleService,
             profileService,
+            new AgentModelRouteService(environment),
             taskSliceVerificationService,
             localCoderPatchService,
             localCoderReviewService,
