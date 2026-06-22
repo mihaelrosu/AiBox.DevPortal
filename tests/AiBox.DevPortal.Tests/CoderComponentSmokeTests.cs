@@ -32,12 +32,12 @@ public sealed class CoderComponentSmokeTests : TestContext
         var cut = RenderComponent<Coder>();
 
         Assert.Contains("Local Coder", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Stable Local Model Routing", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Agent profile", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Configured model routes:", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Select context and describe the work", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("File Context", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Scheduled Runs", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Patch Safety Snapshots", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Patch Apply Audit", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Task slices", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Agent run timeline", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Latest 25 timeline items", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("0 files", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("0 characters", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("~0 tokens", cut.Markup, StringComparison.Ordinal);
@@ -49,7 +49,7 @@ public sealed class CoderComponentSmokeTests : TestContext
     {
         var cut = RenderComponent<Coder>();
 
-        Assert.Contains("Agent Profiles", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("No default coder route", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -269,6 +269,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddScoped<AgentModelRouteService>();
         Services.AddScoped<AgentModelRouteHealthCheckService>();
         Services.AddScoped<AgentExecutionPolicyService>();
+        Services.AddScoped<AgentRunTimelineService>();
         Services.AddScoped<PatchSafetySnapshotService>();
         Services.AddScoped<ScheduledAgentRunService>();
         Services.AddScoped<AgentOrchestrationService>();

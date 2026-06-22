@@ -304,7 +304,18 @@ public sealed class ScheduledRunDispatcherTests
         return JsonSerializer.Serialize(new
         {
             response = responseText,
-            done = true
+            done = true,
+            choices = new[]
+            {
+                new
+                {
+                    message = new
+                    {
+                        role = "assistant",
+                        content = responseText
+                    }
+                }
+            }
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
 

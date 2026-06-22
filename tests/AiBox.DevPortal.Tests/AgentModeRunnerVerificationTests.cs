@@ -8,6 +8,7 @@ using AiBox.DevPortal.Services;
 using AiBox.DevPortal.Services.Agents;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using NSubstitute;
 using Xunit;
 
@@ -21,7 +22,7 @@ public sealed class AgentModeRunnerVerificationTests
         await using var context = CreateContext();
 
         var profile = CreateToolRunnerProfile();
-        var preview = CreatePreview(context.Root, "A.cs", verificationCommands: ["dotnet test"]);
+        var preview = CreatePreview(context.Root, "A.cs", verificationCommands: new[] { "dotnet test" });
 
         context.CoderConsoleService
             .ApplyPatchPreviewAsync(Arg.Any<LocalCoderPatchPreview>())
@@ -30,12 +31,13 @@ public sealed class AgentModeRunnerVerificationTests
                 Applied = true,
                 VerificationPassed = true,
                 Message = "Applied",
-                ChangedFiles = ["A.cs"]
+                ChangedFiles = new[] { "A.cs" }
             }));
 
         context.CoderConsoleService
             .VerifyProjectAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>?>())
-            .Returns(Task.FromResult<IReadOnlyList<CommandRunResult>>([
+            .Returns(Task.FromResult<IReadOnlyList<CommandRunResult>>(new[]
+            {
                 new CommandRunResult
                 {
                     Command = "dotnet test",
@@ -43,7 +45,7 @@ public sealed class AgentModeRunnerVerificationTests
                     Output = "verification ok",
                     Error = string.Empty
                 }
-            ]));
+            }));
 
         var result = await context.Runner.ApplyPatchPreviewAsync(preview, profile);
 
@@ -56,7 +58,7 @@ public sealed class AgentModeRunnerVerificationTests
 
         await context.CoderConsoleService.Received(1).VerifyProjectAsync(
             preview.ProjectPath,
-            Arg.Is<IReadOnlyList<string>?>(commands => commands is not null && commands.SequenceEqual(["dotnet test"])));
+            Arg.Is<IReadOnlyList<string>?>(commands => AreExpectedCommands(commands, "dotnet test")));
 
         var audit = Assert.Single(await context.AuditService.GetLatestAsync(10));
         Assert.True(audit.Success);
@@ -81,7 +83,7 @@ public sealed class AgentModeRunnerVerificationTests
                 Applied = true,
                 VerificationPassed = true,
                 Message = "Applied",
-                ChangedFiles = ["A.cs"]
+                ChangedFiles = new[] { "A.cs" }
             }));
 
         context.CoderConsoleService
@@ -89,7 +91,8 @@ public sealed class AgentModeRunnerVerificationTests
             .Returns(callInfo =>
             {
                 WriteFile(context.Root, "A.cs", "after");
-                return Task.FromResult<IReadOnlyList<CommandRunResult>>([
+                return Task.FromResult<IReadOnlyList<CommandRunResult>>(new[]
+                {
                     new CommandRunResult
                     {
                         Command = "dotnet build",
@@ -97,7 +100,7 @@ public sealed class AgentModeRunnerVerificationTests
                         Output = string.Empty,
                         Error = "build failed"
                     }
-                ]);
+                });
             });
 
         var result = await context.Runner.ApplyPatchPreviewAsync(preview, profile);
@@ -155,7 +158,7 @@ public sealed class AgentModeRunnerVerificationTests
                 Applied = true,
                 VerificationPassed = true,
                 Message = "Applied",
-                ChangedFiles = ["A.cs"]
+                ChangedFiles = new[] { "A.cs" }
             }));
 
         context.CoderConsoleService
@@ -163,7 +166,8 @@ public sealed class AgentModeRunnerVerificationTests
             .Returns(callInfo =>
             {
                 WriteFile(context.Root, "A.cs", "after");
-                return Task.FromResult<IReadOnlyList<CommandRunResult>>([
+                return Task.FromResult<IReadOnlyList<CommandRunResult>>(new[]
+                {
                     new CommandRunResult
                     {
                         Command = "dotnet build",
@@ -171,7 +175,7 @@ public sealed class AgentModeRunnerVerificationTests
                         Output = string.Empty,
                         Error = "build failed"
                     }
-                ]);
+                });
             });
 
         var result = await context.Runner.ApplyPatchPreviewAsync(preview, profile);
@@ -226,16 +230,18 @@ public sealed class AgentModeRunnerVerificationTests
                 Applied = true,
                 VerificationPassed = true,
                 Message = "Applied",
-                ChangedFiles = ["A.cs"]
+                ChangedFiles = new[] { "A.cs" }
             }));
 
         context.CoderConsoleService
             .VerifyProjectAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>?>())
             .Returns(callInfo =>
             {
+                context.Environment.ContentRootPath = Path.Combine(Path.GetTempPath(), $"agent-mode-restore-failure-{Guid.NewGuid():N}");
                 WriteFile(context.Root, "A.cs", "after");
-                DeleteLatestSnapshotDirectory(context.Root);
-                return Task.FromResult<IReadOnlyList<CommandRunResult>>([
+                DeleteLatestSnapshotDirectoryAndMetadata(context.Root);
+                return Task.FromResult<IReadOnlyList<CommandRunResult>>(new[]
+                {
                     new CommandRunResult
                     {
                         Command = "dotnet build",
@@ -243,7 +249,7 @@ public sealed class AgentModeRunnerVerificationTests
                         Output = string.Empty,
                         Error = "build failed"
                     }
-                ]);
+                });
             });
 
         var result = await context.Runner.ApplyPatchPreviewAsync(preview, profile);
@@ -288,7 +294,7 @@ public sealed class AgentModeRunnerVerificationTests
             .Returns(callInfo => Task.FromResult(callInfo.Arg<AgentRunRecord>()));
 
         var runner = new AgentModeRunner(coderConsoleService, historyService, instructionService, routeService, healthService, policyService, snapshotService, auditService, timelineService);
-        return new RunnerContext(root, runner, coderConsoleService, policyService, auditService);
+        return new RunnerContext(root, runner, coderConsoleService, policyService, auditService, environment);
     }
 
     private static AgentModeProfile CreateToolRunnerProfile(string policyId = "ToolRunner")
@@ -320,6 +326,11 @@ public sealed class AgentModeRunnerVerificationTests
         await policyService.SaveAsync(policies);
     }
 
+    private static bool AreExpectedCommands(IReadOnlyList<string>? commands, params string[] expectedCommands)
+    {
+        return commands is not null && commands.SequenceEqual(expectedCommands);
+    }
+
     private static LocalCoderPatchPreview CreatePreview(string root, string relativePath, IReadOnlyList<string>? verificationCommands = null)
     {
         return new LocalCoderPatchPreview
@@ -337,7 +348,7 @@ public sealed class AgentModeRunnerVerificationTests
                     NewContent = "after"
                 }
             ],
-            VerificationCommands = verificationCommands ?? []
+            VerificationCommands = verificationCommands ?? Array.Empty<string>()
         };
     }
 
@@ -346,7 +357,7 @@ public sealed class AgentModeRunnerVerificationTests
         File.WriteAllText(Path.Combine(root, relativePath), content);
     }
 
-    private static void DeleteLatestSnapshotDirectory(string root)
+    private static void DeleteLatestSnapshotDirectoryAndMetadata(string root)
     {
         var path = Path.Combine(root, "Data", "patch-safety-snapshots.json");
         if (!File.Exists(path))
@@ -354,7 +365,7 @@ public sealed class AgentModeRunnerVerificationTests
             return;
         }
 
-        var snapshots = JsonSerializer.Deserialize<List<PatchSafetySnapshot>>(File.ReadAllText(path)) ?? [];
+        var snapshots = JsonSerializer.Deserialize<List<PatchSafetySnapshot>>(File.ReadAllText(path)) ?? new List<PatchSafetySnapshot>();
         var latestSnapshot = snapshots.LastOrDefault();
         if (latestSnapshot is null || string.IsNullOrWhiteSpace(latestSnapshot.SnapshotDirectory))
         {
@@ -365,6 +376,8 @@ public sealed class AgentModeRunnerVerificationTests
         {
             Directory.Delete(latestSnapshot.SnapshotDirectory, recursive: true);
         }
+
+        File.Delete(path);
     }
 
     private static void InitializeGitRepository(string root)
@@ -410,7 +423,8 @@ public sealed class AgentModeRunnerVerificationTests
         AgentModeRunner Runner,
         ICoderConsoleService CoderConsoleService,
         AgentExecutionPolicyService PolicyService,
-        PatchApplyAuditService AuditService) : IAsyncDisposable
+        PatchApplyAuditService AuditService,
+        TestWebHostEnvironment Environment) : IAsyncDisposable
     {
         public ValueTask DisposeAsync()
         {
@@ -431,5 +445,18 @@ public sealed class AgentModeRunnerVerificationTests
         public string EnvironmentName { get; set; } = Environments.Development;
         public string ContentRootPath { get; set; } = contentRootPath;
         public IFileProvider ContentRootFileProvider { get; set; } = new PhysicalFileProvider(contentRootPath);
+    }
+
+    private sealed class TestHttpClientFactory(bool healthy = true) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(new TestHandler(healthy));
+    }
+
+    private sealed class TestHandler(bool healthy) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new HttpResponseMessage(healthy ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable));
+        }
     }
 }

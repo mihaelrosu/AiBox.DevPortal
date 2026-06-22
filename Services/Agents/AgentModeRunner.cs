@@ -155,6 +155,11 @@ public sealed class AgentModeRunner(
             throw;
         }
 
+        if (result is null)
+        {
+            throw new InvalidOperationException("Patch preview generation returned no result.");
+        }
+
         result.Id = timelineRunId;
 
         try

@@ -10,790 +10,819 @@
 @inject PatchSafetySnapshotService PatchSafetySnapshotService
 @inject PatchApplyAuditService PatchApplyAuditService
 @inject AgentRunTimelineService AgentRunTimelineService
+
 <PageTitle>Local Coder</PageTitle>
+
 <RadzenStack Gap="1rem">
-<RadzenText Text="Local Coder" TextStyle="TextStyle.H4" />
-<RadzenCard>
-    <RadzenStack Gap="0.5rem">
-        <RadzenText Text="Stable Local Model Routing" TextStyle="TextStyle.H6" />
-        <RadzenText Text="DevPortal Local Coder should use a dedicated llama.cpp endpoint. Do not depend on Ollama's currently loaded model."
-                    TextStyle="TextStyle.Body2" />
+    <RadzenCard>
+        <RadzenStack Gap="0.75rem">
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.SpaceBetween"
+                         Gap="1rem"
+                         Wrap="FlexWrap.Wrap">
+                <RadzenStack Gap="0.15rem">
+                    <RadzenText Text="Local Coder" TextStyle="TextStyle.H4" />
+                    <RadzenText Text="Plan, generate, approve, apply, verify, and review local coding work."
+                                TextStyle="TextStyle.Body2" />
+                </RadzenStack>
 
-        <RadzenFormField Text="Agent profile" Style="width: 100%;">
-            <RadzenDropDown TValue="string"
-                            Data="@agentModeProfiles"
-                            TextProperty="Name"
-                            ValueProperty="Id"
-                            @bind-Value="@selectedAgentModeProfileId"
-                            Style="width: 100%;" />
-        </RadzenFormField>
-
-        @if (GetSelectedAgentModeProfile() is { } selectedAgentProfile)
-        {
-            <RadzenCard Style="margin: 0;">
-                <RadzenStack Gap="0.25rem">
-                    <RadzenText Text="@($"Selected profile: {selectedAgentProfile.Name}")" TextStyle="TextStyle.Body2" />
-                    @if (GetSelectedAgentModeProfileRoute(selectedAgentProfile) is { } selectedRoute)
+                <RadzenStack Orientation="Orientation.Horizontal"
+                             Gap="0.5rem"
+                             Wrap="FlexWrap.Wrap"
+                             AlignItems="AlignItems.Center">
+                    <RadzenBadge Text="@GetConfiguredModelRoutesText()" BadgeStyle="BadgeStyle.Info" />
+                    @if (defaultCoderRoute is not null)
                     {
-                        <RadzenText Text="@($"Route name: {selectedRoute.Name}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Provider: {selectedRoute.Provider}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Base URL: {selectedRoute.BaseUrl}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Model: {selectedRoute.Model}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Expected output format: {selectedRoute.ExpectedOutputFormat}")" TextStyle="TextStyle.Body2" />
-                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                            <RadzenButton Text="Check Route"
-                                          Icon="health_and_safety"
-                                          ButtonStyle="ButtonStyle.Light"
-                                          Size="ButtonSize.Small"
-                                          Click="@CheckSelectedRouteAsync"
-                                          Disabled="@isCheckingSelectedRoute" />
-                        </RadzenStack>
-                    }
-                    else if (string.IsNullOrWhiteSpace(selectedAgentProfile.ModelRouteId))
-                    {
-                        <RadzenText Text="This profile does not require a model route." TextStyle="TextStyle.Body2" />
+                        <RadzenBadge Text="@defaultCoderRoute.Name" BadgeStyle="BadgeStyle.Success" />
                     }
                     else
                     {
-                        <RadzenText Text="@($"Route id '{selectedAgentProfile.ModelRouteId}' was not found.")" TextStyle="TextStyle.Body2" />
+                        <RadzenBadge Text="No default coder route" BadgeStyle="BadgeStyle.Warning" />
                     }
                 </RadzenStack>
-            </RadzenCard>
+            </RadzenStack>
 
-            @if (GetSelectedAgentModeProfilePolicy(selectedAgentProfile) is { } selectedPolicy)
+            @if (!string.IsNullOrWhiteSpace(error))
             {
-                <RadzenCard Style="margin: 0;">
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="@($"Selected policy: {selectedPolicy.Name}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Policy id: {selectedPolicy.Id}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Description: {selectedPolicy.Description}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Model calls allowed: {(selectedPolicy.AllowModelCalls ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Tool calls allowed: {(selectedPolicy.AllowToolCalls ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Shell commands allowed: {(selectedPolicy.AllowShellCommands ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Patch generation allowed: {(selectedPolicy.AllowPatchGeneration ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Patch apply allowed: {(selectedPolicy.AllowPatchApply ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Require human approval: {(selectedPolicy.RequireHumanApproval ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Max files changed: {selectedPolicy.MaxFilesChanged}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Max patch operations: {selectedPolicy.MaxPatchOperations}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Max execution minutes: {selectedPolicy.MaxExecutionMinutes}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Allowed directories: {FormatDirectoryList(selectedPolicy.AllowedDirectories)}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Blocked directories: {FormatDirectoryList(selectedPolicy.BlockedDirectories)}")" TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(selectedRouteHealthMessage))
-            {
-                <RadzenAlert AlertStyle="@(selectedRouteHealthIsHealthy == true ? AlertStyle.Success : AlertStyle.Danger)" Shade="Shade.Lighter">
-                    @selectedRouteHealthMessage
+                <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter">
+                    @error
                 </RadzenAlert>
             }
-        }
 
-        @if (defaultCoderRoute is not null)
-        {
-            <RadzenStack Gap="0.25rem">
-                @foreach (var line in GetDefaultCoderRouteSummaryLines())
-                {
-                    <RadzenText Text="@line" TextStyle="TextStyle.Body2" />
-                }
-            </RadzenStack>
-        }
-        else
-        {
-            <RadzenText Text="No default coder route is configured yet." TextStyle="TextStyle.Body2" />
-        }
+            <RadzenTabs Style="width: 100%;" @bind-SelectedIndex="@selectedTabIndex">
+                <Tabs>
+                    <RadzenTabsItem Text="Work" Icon="edit_note">
+                        <RadzenStack Gap="1rem">
+                            <RadzenCard>
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="1. Select context and describe the work" TextStyle="TextStyle.H6" />
+                                    <RadzenText Text="Use this tab for normal daily work: select project, pick files, write task, decompose, create plan, or generate patch preview."
+                                                TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
 
-        <RadzenText Text="@GetConfiguredModelRoutesText()" TextStyle="TextStyle.Caption" />
-    </RadzenStack>
-</RadzenCard>
-<RadzenTabs Style="width: 100%;" @bind-SelectedIndex="@selectedTabIndex">
-    <Tabs>
-        <RadzenTabsItem Text="Work" Icon="edit_note">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Plan and prepare changes" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Select a project and files, describe the task, then create a plan or generate a patch preview."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
+                            <CoderProjectSelector ProjectPath="@request.ProjectPath"
+                                                  ProjectPathChanged="@OnProjectPathChanged"
+                                                  WorkspaceRoots="@workspaceRoots"
+                                                  IsLoading="@isLoading"
+                                                  OnRefresh="@LoadAsync">
+                                <CoderPromptPanel Task="@request.Task"
+                                                  TaskChanged="@(value => request.Task = value)"
+                                                  IsLoading="@isLoading"
+                                                  IsPlanning="@isPlanning"
+                                                  IsGeneratingPatch="@isGeneratingPatch"
+                                                  CanVerifyProject="@(!isRunningCommand && !isVerifying && !string.IsNullOrWhiteSpace(request.ProjectPath))"
+                                                  CanReviewDiff="@CanReviewSelectedPatch()"
+                                                  OnCreatePlan="@CreatePlanAsync"
+                                                  OnGeneratePatchPreview="@GeneratePatchPreviewAsync"
+                                                  OnVerifyProject="@VerifyProjectAsync"
+                                                  OnReviewDiff="@ReviewSelectedPatchAsync">
+                                    <ContextContent>
+                                        <CoderFileContextPanel ProjectPath="@request.ProjectPath"
+                                                               CurrentTaskText="@request.Task"
+                                                               StatusText="@GetProjectFilesStatusText()"
+                                                               SelectedFiles="@selectedFiles"
+                                                               FileContexts="@fileContexts"
+                                                               IsLoading="@(isLoading || isLoadingContext)"
+                                                               IsLocked="@isContextLocked"
+                                                               AllowedPatchScope="@request.AllowedPatchScope"
+                                                               AllowedPatchScopeChanged="@(value => request.AllowedPatchScope = value)"
+                                                               AllowedPatchFolders="@request.AllowedPatchFolders"
+                                                               AllowedPatchFoldersChanged="@(value => request.AllowedPatchFolders = value.ToList())"
+                                                               AllowedCreateFolders="@request.AllowedCreateFolders"
+                                                               AllowedCreateFoldersChanged="@(value => request.AllowedCreateFolders = value.ToList())"
+                                                               SelectedFilesChanged="@OnSelectedFilesChanged"
+                                                               OnDetectContext="@DetectContextFromTaskAsync"
+                                                               OnLoadPreset="@LoadPresetAsync"
+                                                               OnClearAll="@ClearSelectedFilesAsync"
+                                                               OnClearContext="@ClearContextAsync"
+                                                               OnLockContext="@LockContextAsync"
+                                                               OnUnlockContext="@UnlockContextAsync" />
+                                    </ContextContent>
+                                </CoderPromptPanel>
 
-                <CoderProjectSelector ProjectPath="@request.ProjectPath"
-                                      ProjectPathChanged="@OnProjectPathChanged"
-                                      WorkspaceRoots="@workspaceRoots"
-                                      IsLoading="@isLoading"
-                                      OnRefresh="@LoadAsync">
-                    <CoderPromptPanel Models="@models"
-                                      Model="@request.Model"
-                                      ModelChanged="@(value => request.Model = value)"
-                                      Task="@request.Task"
-                                      TaskChanged="@(value => request.Task = value)"
-                                      IsLoading="@isLoading"
-                                      IsPlanning="@isPlanning"
-                                      IsGeneratingPatch="@isGeneratingPatch"
-                                      CanVerifyProject="@(!isRunningCommand && !isVerifying && !string.IsNullOrWhiteSpace(request.ProjectPath))"
-                                      CanReviewDiff="@CanReviewSelectedPatch()"
-                                      OnCreatePlan="@CreatePlanAsync"
-                                      OnGeneratePatchPreview="@GeneratePatchPreviewAsync"
-                                      OnVerifyProject="@VerifyProjectAsync"
-                                      OnReviewDiff="@ReviewSelectedPatchAsync">
-                        <ContextContent>
-                            <CoderFileContextPanel ProjectPath="@request.ProjectPath"
-                                                   CurrentTaskText="@request.Task"
-                                                   StatusText="@GetProjectFilesStatusText()"
-                                                   SelectedFiles="@selectedFiles"
-                                                   FileContexts="@fileContexts"
-                                                   IsLoading="@(isLoading || isLoadingContext)"
-                                                   IsLocked="@isContextLocked"
-                                                   AllowedPatchScope="@request.AllowedPatchScope"
-                                                   AllowedPatchScopeChanged="@(value => request.AllowedPatchScope = value)"
-                                                   AllowedPatchFolders="@request.AllowedPatchFolders"
-                                                   AllowedPatchFoldersChanged="@(value => request.AllowedPatchFolders = value.ToList())"
-                                                   AllowedCreateFolders="@request.AllowedCreateFolders"
-                                                   AllowedCreateFoldersChanged="@(value => request.AllowedCreateFolders = value.ToList())"
-                                                   SelectedFilesChanged="@OnSelectedFilesChanged"
-                                                   OnDetectContext="@DetectContextFromTaskAsync"
-                                                   OnLoadPreset="@LoadPresetAsync"
-                                                   OnClearAll="@ClearSelectedFilesAsync"
-                                                   OnClearContext="@ClearContextAsync"
-                                                   OnLockContext="@LockContextAsync"
-                                                   OnUnlockContext="@UnlockContextAsync" />
-                        </ContextContent>
-                    </CoderPromptPanel>
-
-                    @if (!string.IsNullOrWhiteSpace(promptContextStatusMessage))
-                    {
-                        <RadzenCard Style="margin-top: 0.75rem;">
-                            <RadzenText Text="@promptContextStatusMessage" TextStyle="TextStyle.Body2" />
-                        </RadzenCard>
-                    }
-                </CoderProjectSelector>
-
-                <RadzenStack Gap="0.5rem">
-                    <RadzenButton Text="Decompose Task" Icon="call_split" ButtonStyle="ButtonStyle.Light"
-                                  Click="@DecomposeTask"
-                                  Disabled="@string.IsNullOrWhiteSpace(request.Task)" />
-                    <TaskPlanPreviewPanel Plan="@taskPlanPreview"
-                                          IsGeneratingPatch="@isGeneratingPatch"
-                                          IsVerifyingSlice="@isVerifyingSlice"
-                                          IsRollingBack="@isRollingBackSlice"
-                                          IsApplyingSlice="@isApplyingSlice"
-                                          IsApplyingPlan="@isApplyingPlan"
-                                          IsApprovalBusy="@isApprovalBusy"
-                                          PlanApplyResult="@planApplyResult"
-                                          HighRiskApplyApprovals="@highRiskApplyApprovals"
-                                          SliceApprovals="@sliceApprovals"
-                                          SliceRiskAnalyses="@sliceRiskAnalyses"
-                                          SliceVerificationLoopResults="@sliceVerificationLoopResults"
-                                          SliceStatusMessages="@sliceStatusMessages"
-                                          OnApplyRequested="@ApplySliceAsync"
-                                          OnApplyPlanRequested="@ApplyPlanAsync"
-                                          OnApproveRequested="@ApproveSliceAsync"
-                                          OnHighRiskApplyApprovalRequested="@ToggleHighRiskApplyApprovalAsync"
-                                          OnGeneratePatchRequested="@GenerateSlicePatchPreviewAsync"
-                                          OnRejectRequested="@RejectSliceAsync"
-                                          OnRollbackRequested="@RollbackSliceAsync" />
-
-                    @if (GetCurrentSliceBuildVerificationResults().Count > 0)
-                    {
-                        <RadzenCard>
-                            <RadzenStack Gap="0.75rem">
-                                <RadzenText Text="Apply Build Verification" TextStyle="TextStyle.H5" />
-
-                                @foreach (var entry in GetCurrentSliceBuildVerificationResults())
+                                @if (!string.IsNullOrWhiteSpace(promptContextStatusMessage))
                                 {
-                                    <RadzenCard Style="margin: 0;">
-                                        <RadzenStack Gap="0.35rem">
-                                            <RadzenText Text="@GetSliceTitle(entry.Key)" TextStyle="TextStyle.Body1" />
-
-                                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                                <RadzenBadge Text="@GetBuildStatusText(entry.Value.Success)"
-                                                             BadgeStyle="@GetBuildStatusStyle(entry.Value.Success)" />
-                                                <RadzenText Text="@($"Exit code: {entry.Value.ExitCode}")" TextStyle="TextStyle.Body2" />
-                                                <RadzenText Text="@($"Verified at UTC: {entry.Value.VerifiedAtUtc:O}")" TextStyle="TextStyle.Caption" />
-                                            </RadzenStack>
-
-                                            <RadzenText Text="Build output" TextStyle="TextStyle.Caption" />
-                                            <pre class="coder-output">@GetBuildOutputPreview(entry.Value.Output)</pre>
-                                        </RadzenStack>
-                                    </RadzenCard>
+                                    <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Lighter" Style="margin-top: 0.75rem;">
+                                        @promptContextStatusMessage
+                                    </RadzenAlert>
                                 }
-                            </RadzenStack>
-                        </RadzenCard>
-                    }
+                            </CoderProjectSelector>
 
-                    <TaskSliceApplyHistoryPanel Items="@applyHistoryItems" />
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenStack Orientation="Orientation.Horizontal"
-                                         AlignItems="AlignItems.Center"
-                                         JustifyContent="JustifyContent.SpaceBetween"
-                                         Gap="0.5rem"
-                                         Wrap="FlexWrap.Wrap">
-                                <RadzenText Text="Patch Safety Snapshots" TextStyle="TextStyle.H6" />
-                                <RadzenButton Text="Refresh"
-                                              Icon="refresh"
-                                              ButtonStyle="ButtonStyle.Light"
-                                              Size="ButtonSize.Small"
-                                              Click="@LoadPatchSafetySnapshotsAsync"
-                                              Disabled="@isLoadingPatchSafetySnapshots" />
-                            </RadzenStack>
-
-                            @if (patchSafetySnapshots.Count == 0)
-                            {
-                                <RadzenText Text="No patch safety snapshots available yet." TextStyle="TextStyle.Body2" />
-                            }
-                            else
-                            {
-                                <RadzenDataGrid Data="@patchSafetySnapshots"
-                                                TItem="PatchSafetySnapshot"
-                                                AllowPaging="false"
-                                                AllowSorting="false"
-                                                AllowFiltering="false"
-                                                Density="Density.Compact">
-                                    <Columns>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="CreatedAt" Title="Created" Width="170px">
-                                            <Template Context="item">
-                                                @item.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="PatchPreviewId" Title="Preview" Width="180px" />
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Success" Width="90px">
-                                            <Template Context="item">
-                                                <RadzenBadge Text="@GetPatchSafetySnapshotSuccessText(item)"
-                                                             BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="Message" Title="Message">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Target Files" Width="120px">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.TargetFiles.Count.ToString()" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Restore" Width="110px">
-                                            <Template Context="item">
-                                                <RadzenButton Text="Restore"
-                                                              Icon="restore"
-                                                              Size="ButtonSize.Small"
-                                                              ButtonStyle="ButtonStyle.Secondary"
-                                                              Click="@(() => RestorePatchSafetySnapshotAsync(item.Id))"
-                                                              Disabled="@isRestoringPatchSafetySnapshot" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                    </Columns>
-                                </RadzenDataGrid>
-                            }
-
-                            @if (patchSafetySnapshotRestoreResult is not null)
-                            {
-                                <RadzenAlert AlertStyle="@(patchSafetySnapshotRestoreResult.Success ? AlertStyle.Success : AlertStyle.Danger)"
-                                             Shade="Shade.Lighter">
-                                    <RadzenStack Gap="0.25rem">
-                                        <RadzenText Text="@patchSafetySnapshotRestoreResult.Message" TextStyle="TextStyle.Body2" />
-                                        <RadzenText Text="@($"Restored: {patchSafetySnapshotRestoreResult.RestoredFiles.Count}, Skipped: {patchSafetySnapshotRestoreResult.SkippedFiles.Count}")"
-                                                    TextStyle="TextStyle.Caption" />
+                            <RadzenCard>
+                                <RadzenStack Gap="0.75rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal"
+                                                 AlignItems="AlignItems.Center"
+                                                 JustifyContent="JustifyContent.SpaceBetween"
+                                                 Gap="0.5rem"
+                                                 Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Task slices" TextStyle="TextStyle.H6" />
+                                        <RadzenButton Text="Decompose Task"
+                                                      Icon="call_split"
+                                                      ButtonStyle="ButtonStyle.Light"
+                                                      Click="@DecomposeTask"
+                                                      Disabled="@string.IsNullOrWhiteSpace(request.Task)" />
                                     </RadzenStack>
-                                </RadzenAlert>
+
+                                    <TaskPlanPreviewPanel Plan="@taskPlanPreview"
+                                                          IsGeneratingPatch="@isGeneratingPatch"
+                                                          IsVerifyingSlice="@isVerifyingSlice"
+                                                          IsRollingBack="@isRollingBackSlice"
+                                                          IsApplyingSlice="@isApplyingSlice"
+                                                          IsApplyingPlan="@isApplyingPlan"
+                                                          IsApprovalBusy="@isApprovalBusy"
+                                                          PlanApplyResult="@planApplyResult"
+                                                          HighRiskApplyApprovals="@highRiskApplyApprovals"
+                                                          SliceApprovals="@sliceApprovals"
+                                                          SliceRiskAnalyses="@sliceRiskAnalyses"
+                                                          SliceVerificationLoopResults="@sliceVerificationLoopResults"
+                                                          SliceStatusMessages="@sliceStatusMessages"
+                                                          OnApplyRequested="@ApplySliceAsync"
+                                                          OnApplyPlanRequested="@ApplyPlanAsync"
+                                                          OnApproveRequested="@ApproveSliceAsync"
+                                                          OnHighRiskApplyApprovalRequested="@ToggleHighRiskApplyApprovalAsync"
+                                                          OnGeneratePatchRequested="@GenerateSlicePatchPreviewAsync"
+                                                          OnRejectRequested="@RejectSliceAsync"
+                                                          OnRollbackRequested="@RollbackSliceAsync" />
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            @if (GetCurrentSliceBuildVerificationResults().Count > 0)
+                            {
+                                <RadzenCard>
+                                    <RadzenStack Gap="0.75rem">
+                                        <RadzenText Text="Apply build verification" TextStyle="TextStyle.H6" />
+
+                                        @foreach (var entry in GetCurrentSliceBuildVerificationResults())
+                                        {
+                                            <RadzenCard Style="margin: 0;">
+                                                <RadzenStack Gap="0.35rem">
+                                                    <RadzenText Text="@GetSliceTitle(entry.Key)" TextStyle="TextStyle.Body1" />
+                                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                                        <RadzenBadge Text="@GetBuildStatusText(entry.Value.Success)"
+                                                                     BadgeStyle="@GetBuildStatusStyle(entry.Value.Success)" />
+                                                        <RadzenText Text="@($"Exit code: {entry.Value.ExitCode}")" TextStyle="TextStyle.Body2" />
+                                                        <RadzenText Text="@($"Verified UTC: {entry.Value.VerifiedAtUtc:O}")" TextStyle="TextStyle.Caption" />
+                                                    </RadzenStack>
+                                                    <pre class="coder-output">@GetBuildOutputPreview(entry.Value.Output)</pre>
+                                                </RadzenStack>
+                                            </RadzenCard>
+                                        }
+                                    </RadzenStack>
+                                </RadzenCard>
                             }
                         </RadzenStack>
-                    </RadzenCard>
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenStack Orientation="Orientation.Horizontal"
-                                         AlignItems="AlignItems.Center"
-                                         JustifyContent="JustifyContent.SpaceBetween"
-                                         Gap="0.5rem"
-                                         Wrap="FlexWrap.Wrap">
-                                <RadzenText Text="Patch Apply Audit" TextStyle="TextStyle.H6" />
-                                <RadzenButton Text="Refresh"
-                                              Icon="refresh"
-                                              ButtonStyle="ButtonStyle.Light"
-                                              Size="ButtonSize.Small"
-                                              Click="@LoadPatchApplyAuditAsync"
-                                              Disabled="@isLoadingPatchApplyAudit" />
-                            </RadzenStack>
+                    </RadzenTabsItem>
 
-                            @if (patchApplyAuditEntries.Count == 0)
+                    <RadzenTabsItem Text="Plan" Icon="assignment">
+                        <RadzenStack Gap="1rem">
+                            <RadzenCard>
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="2. Review generated plan" TextStyle="TextStyle.H6" />
+                                    <RadzenText Text="Use this tab after Create Plan. Execute one plan task at a time."
+                                                TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            @if (currentTask is null)
                             {
-                                <RadzenText Text="No patch apply audit entries available yet." TextStyle="TextStyle.Body2" />
+                                <RadzenCard>
+                                    <RadzenText Text="Create a plan from the Work tab to see tasks here." TextStyle="TextStyle.Body1" />
+                                </RadzenCard>
                             }
                             else
                             {
-                                <RadzenDataGrid Data="@patchApplyAuditEntries"
-                                                TItem="PatchApplyAuditItem"
-                                                AllowPaging="false"
-                                                AllowSorting="false"
-                                                AllowFiltering="false"
-                                                Density="Density.Compact">
-                                    <Columns>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Timestamp" Title="UTC" Width="170px">
-                                            <Template Context="item">
-                                                @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Action" Title="Action" Width="130px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="PatchPreviewId" Title="Preview" Width="180px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="ProfileId" Title="Profile" Width="130px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="PolicyId" Title="Policy" Width="130px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="ModelRouteId" Title="Route" Width="180px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Approved" Width="150px">
-                                            <Template Context="item">
-                                                <RadzenText Text="@GetPatchApplyAuditApprovalText(item)" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Success" Width="90px">
-                                            <Template Context="item">
-                                                <RadzenBadge Text="@GetPatchApplyAuditSuccessText(item)"
-                                                             BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Verification" Width="150px">
-                                            <Template Context="item">
-                                                <RadzenText Text="@GetPatchApplyAuditVerificationText(item)" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Restore" Width="150px">
-                                            <Template Context="item">
-                                                <RadzenBadge Text="@GetPatchApplyAuditRestoreText(item)"
-                                                             BadgeStyle="@GetPatchApplyAuditRestoreBadgeStyle(item)" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Files" Width="90px">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.ChangedFiles.Count.ToString()" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Message" Title="Message">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                    </Columns>
-                                </RadzenDataGrid>
-                            }
-                        </RadzenStack>
-                    </RadzenCard>
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenStack Orientation="Orientation.Horizontal"
-                                         AlignItems="AlignItems.Center"
-                                         JustifyContent="JustifyContent.SpaceBetween"
-                                         Gap="0.5rem"
-                                         Wrap="FlexWrap.Wrap">
-                                <RadzenText Text="Agent Run Timeline" TextStyle="TextStyle.H6" />
-                                <RadzenButton Text="Refresh"
-                                              Icon="refresh"
-                                              ButtonStyle="ButtonStyle.Light"
-                                              Size="ButtonSize.Small"
-                                              Click="@LoadAgentRunTimelineAsync"
-                                              Disabled="@isLoadingAgentRunTimeline" />
-                            </RadzenStack>
+                                <RadzenCard>
+                                    <RadzenStack Gap="0.75rem">
+                                        <RadzenText Text="Plan output" TextStyle="TextStyle.H6" />
+                                        <pre class="coder-output">@currentTask.Plan</pre>
+                                    </RadzenStack>
+                                </RadzenCard>
 
-                            @if (!string.IsNullOrWhiteSpace(currentTimelineRunId))
-                            {
-                                <RadzenText Text="@($"Current run: {currentTimelineRunId}")" TextStyle="TextStyle.Body2" />
-                                @if (currentAgentRunTimelineItems.Count == 0)
-                                {
-                                    <RadzenText Text="No timeline items were recorded for the current run yet." TextStyle="TextStyle.Body2" />
-                                }
-                                else
-                                {
-                                    <RadzenDataGrid Data="@currentAgentRunTimelineItems"
-                                                    TItem="AgentRunTimelineItem"
-                                                    AllowPaging="false"
-                                                    AllowSorting="false"
-                                                    AllowFiltering="false"
-                                                    Density="Density.Compact">
-                                        <Columns>
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Timestamp" Title="UTC" Width="170px">
-                                                <Template Context="item">
-                                                    @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
-                                                </Template>
-                                            </RadzenDataGridColumn>
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Stage" Title="Stage" Width="180px" />
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Status" Title="Status" Width="120px" />
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="ReferenceId" Title="Reference" Width="180px" />
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Message" Title="Message">
-                                                <Template Context="item">
-                                                    <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
-                                                </Template>
-                                            </RadzenDataGridColumn>
-                                        </Columns>
-                                    </RadzenDataGrid>
-                                }
-                            }
-                            else
-                            {
-                                <RadzenText Text="No current run is selected yet." TextStyle="TextStyle.Body2" />
-                            }
-
-                            <RadzenText Text="Latest 25 timeline items" TextStyle="TextStyle.Body2" />
-                            @if (latestAgentRunTimelineItems.Count == 0)
-                            {
-                                <RadzenText Text="No agent run timeline items available yet." TextStyle="TextStyle.Body2" />
-                            }
-                            else
-                            {
-                                <RadzenDataGrid Data="@latestAgentRunTimelineItems"
-                                                TItem="AgentRunTimelineItem"
-                                                AllowPaging="false"
-                                                AllowSorting="false"
-                                                AllowFiltering="false"
-                                                Density="Density.Compact">
-                                    <Columns>
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Timestamp" Title="UTC" Width="170px">
-                                            <Template Context="item">
-                                                @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="RunId" Title="Run" Width="180px" />
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Stage" Title="Stage" Width="180px" />
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Status" Title="Status" Width="120px" />
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="ReferenceId" Title="Reference" Width="180px" />
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Message" Title="Message">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                    </Columns>
-                                </RadzenDataGrid>
-                            }
-                        </RadzenStack>
-                    </RadzenCard>
-                    <TaskSliceApplyAuditPanel Items="@applyAuditEntries"
-                                              IsBusy="@isRollingBackSlice"
-                                              OnRollbackRequested="@RollbackApplyAuditAsync" />
-                </RadzenStack>
-            </RadzenStack>
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Knowledge" Icon="menu_book">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Project knowledge index" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Rebuild and inspect the current project knowledge index for the selected project."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-
-                <CoderKnowledgePanel ProjectPath="@request.ProjectPath"
-                                     Index="@projectKnowledgeIndex"
-                                     SelectedFilePaths="@selectedFilePaths"
-                                     CurrentTaskText="@request.Task"
-                                     StatusMessage="@knowledgeIndexStatusMessage"
-                                     ErrorMessage="@knowledgeIndexErrorMessage"
-                                     IsRebuilding="@isRebuildingKnowledgeIndex"
-                                     OnRebuildIndex="@RebuildProjectKnowledgeIndexAsync"
-                                     OnAddSuggestedFiles="@AddSuggestedFilesAsync" />
-
-                <ProjectHistoryPanel />
-                <TaskSliceHistoryPanel History="@sliceExecutionHistory" />
-            </RadzenStack>
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Scheduled Runs" Icon="schedule">
-            <CoderScheduledRunsPanel />
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Dashboard" Icon="dashboard">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Agent activity overview" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Review agent runs, pause and resume checkpoints, apply activity, routing recommendations, risk distribution, and rollback records in one place."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-
-                <AgentDashboardPanel />
-                <AgentModelRecommendationPanel />
-                <AgentProfilesPanel />
-                <AgentModelBenchmarkPanel />
-                <AgentModelComparisonPanel />
-                <AgentOrchestrationPanel />
-                <HumanApprovalQueuePanel />
-                <AgentOrchestrationSafetyPanel />
-            </RadzenStack>
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Plan" Icon="assignment">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Plan tasks and output" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Review the generated plan, then execute one task at a time from here."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-
-                @if (currentTask is null)
-                {
-                    <RadzenCard>
-                        <RadzenText Text="Create a plan from the Work tab to see tasks here." TextStyle="TextStyle.Body1" />
-                    </RadzenCard>
-                }
-                else
-                {
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenText Text="Plan" TextStyle="TextStyle.H5" />
-                            <pre class="coder-output">@currentTask.Plan</pre>
-                        </RadzenStack>
-                    </RadzenCard>
-
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                <RadzenText Text="Plan Tasks" TextStyle="TextStyle.H5" />
-                                <RadzenBadge Text="@($"{PendingPlanTaskCount()} pending")"
-                                             BadgeStyle="BadgeStyle.Info" />
-                            </RadzenStack>
-                            @foreach (var task in planTasks)
-                            {
-                                <RadzenCard Style="@PlanTaskCardStyle(task)">
-                                    <RadzenStack Gap="0.5rem">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                                     JustifyContent="JustifyContent.SpaceBetween" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                            <RadzenText Text="@PlanTaskTitle(task)" TextStyle="TextStyle.Body1" />
-                                            <RadzenBadge Text="@task.Status.ToString()" BadgeStyle="@PlanTaskStatusBadgeStyle(task.Status)" />
+                                <RadzenCard>
+                                    <RadzenStack Gap="0.75rem">
+                                        <RadzenStack Orientation="Orientation.Horizontal"
+                                                     AlignItems="AlignItems.Center"
+                                                     JustifyContent="JustifyContent.SpaceBetween"
+                                                     Gap="0.5rem"
+                                                     Wrap="FlexWrap.Wrap">
+                                            <RadzenText Text="Plan tasks" TextStyle="TextStyle.H6" />
+                                            <RadzenBadge Text="@($"{PendingPlanTaskCount()} pending")" BadgeStyle="BadgeStyle.Info" />
                                         </RadzenStack>
-                                        @if (!string.IsNullOrWhiteSpace(task.Description))
+
+                                        @foreach (var task in planTasks)
                                         {
-                                            <RadzenText Text="@task.Description" TextStyle="TextStyle.Body2" />
+                                            <RadzenCard Style="@PlanTaskCardStyle(task)">
+                                                <RadzenStack Gap="0.5rem">
+                                                    <RadzenStack Orientation="Orientation.Horizontal"
+                                                                 AlignItems="AlignItems.Center"
+                                                                 JustifyContent="JustifyContent.SpaceBetween"
+                                                                 Gap="0.5rem"
+                                                                 Wrap="FlexWrap.Wrap">
+                                                        <RadzenText Text="@PlanTaskTitle(task)" TextStyle="TextStyle.Body1" />
+                                                        <RadzenBadge Text="@task.Status.ToString()" BadgeStyle="@PlanTaskStatusBadgeStyle(task.Status)" />
+                                                    </RadzenStack>
+
+                                                    @if (!string.IsNullOrWhiteSpace(task.Description))
+                                                    {
+                                                        <RadzenText Text="@task.Description" TextStyle="TextStyle.Body2" />
+                                                    }
+
+                                                    @if (!string.IsNullOrWhiteSpace(task.StatusMessage))
+                                                    {
+                                                        <RadzenText Text="@task.StatusMessage" TextStyle="TextStyle.Caption" />
+                                                    }
+
+                                                    <RadzenButton Text="Select"
+                                                                  Icon="check"
+                                                                  ButtonStyle="ButtonStyle.Light"
+                                                                  Click="@(() => OnSelectedPlanTaskChangedAsync(task.Id))"
+                                                                  Disabled="@isLoading" />
+                                                </RadzenStack>
+                                            </RadzenCard>
                                         }
-                                        @if (!string.IsNullOrWhiteSpace(task.StatusMessage))
-                                        {
-                                            <RadzenText Text="@task.StatusMessage" TextStyle="TextStyle.Caption" />
-                                        }
+
                                         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                            <RadzenButton Text="Select" Icon="check" ButtonStyle="ButtonStyle.Light"
-                                                          Click="@(() => OnSelectedPlanTaskChangedAsync(task.Id))"
-                                                          Disabled="@isLoading" />
+                                            <RadzenButton Text="Execute Selected Task"
+                                                          Icon="play_arrow"
+                                                          ButtonStyle="ButtonStyle.Primary"
+                                                          Click="@ExecuteSelectedTaskAsync"
+                                                          Disabled="@(!CanExecuteSelectedPlanTask())" />
+                                            <RadzenButton Text="Execute Next Task"
+                                                          Icon="skip_next"
+                                                          ButtonStyle="ButtonStyle.Secondary"
+                                                          Click="@ExecuteNextTaskAsync"
+                                                          Disabled="@(!CanExecuteNextPlanTask())" />
                                         </RadzenStack>
                                     </RadzenStack>
                                 </RadzenCard>
                             }
-
-                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                <RadzenButton Text="Execute Selected Task" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
-                                              Click="@ExecuteSelectedTaskAsync"
-                                              Disabled="@(!CanExecuteSelectedPlanTask())" />
-                                <RadzenButton Text="Execute Next Task" Icon="skip_next" ButtonStyle="ButtonStyle.Secondary"
-                                              Click="@ExecuteNextTaskAsync"
-                                              Disabled="@(!CanExecuteNextPlanTask())" />
-                            </RadzenStack>
                         </RadzenStack>
-                    </RadzenCard>
-                }
-            </RadzenStack>
-        </RadzenTabsItem>
+                    </RadzenTabsItem>
 
-        <RadzenTabsItem Text="Agent Profiles" Icon="badge">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Action routing profiles" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Review which agent mode and model are assigned to each Local Coder action."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-                <AgentProfilesPanel />
-            </RadzenStack>
-        </RadzenTabsItem>
+                    <RadzenTabsItem Text="Patch Preview" Icon="difference">
+                        <RadzenStack Gap="1rem">
+                            <RadzenCard>
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="3. Review, approve, apply, or rollback patch" TextStyle="TextStyle.H6" />
+                                    <RadzenText Text="Patch previews must be approved before they can be applied."
+                                                TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
 
-        <RadzenTabsItem Text="Patch Preview" Icon="difference">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Review and approve changes" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Inspect generated diffs and approval results before applying or rolling back a patch."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-                @if (patchPreview is not null && patchPreview.RequiresApproval)
-                {
-                    <RadzenCard>
-                        <RadzenStack Gap="0.5rem">
-                            <RadzenStack Orientation="Orientation.Horizontal"
-                                         Gap="0.5rem"
-                                         Wrap="FlexWrap.Wrap"
-                                         AlignItems="AlignItems.Center">
-                                <RadzenBadge Text="Approval required" BadgeStyle="BadgeStyle.Warning" />
-                                @if (patchPreview.ApprovedAt is null)
-                                {
-                                    <RadzenBadge Text="Not approved" BadgeStyle="BadgeStyle.Light" />
-                                }
-                                else
-                                {
-                                    <RadzenBadge Text="Approved" BadgeStyle="BadgeStyle.Success" />
-                                }
-                            </RadzenStack>
-                            <RadzenText Text="@patchPreview.ApprovalReason" TextStyle="TextStyle.Body2" />
-                            @if (patchPreview.ApprovedAt is null)
+                            @if (patchPreview is not null && patchPreview.RequiresApproval)
                             {
-                                <RadzenButton Text="Approve Preview"
-                                              Icon="verified"
-                                              ButtonStyle="ButtonStyle.Success"
-                                              Size="ButtonSize.Small"
-                                              Click="@ApprovePatchPreviewAsync"
-                                              Disabled="@isApprovingPatchPreview" />
+                                <RadzenAlert AlertStyle="@(patchPreview.ApprovedAt is null ? AlertStyle.Warning : AlertStyle.Success)"
+                                             Shade="Shade.Lighter">
+                                    <RadzenStack Gap="0.5rem">
+                                        <RadzenStack Orientation="Orientation.Horizontal"
+                                                     Gap="0.5rem"
+                                                     Wrap="FlexWrap.Wrap"
+                                                     AlignItems="AlignItems.Center">
+                                            <RadzenBadge Text="Approval required" BadgeStyle="BadgeStyle.Warning" />
+                                            @if (patchPreview.ApprovedAt is null)
+                                            {
+                                                <RadzenBadge Text="Not approved" BadgeStyle="BadgeStyle.Light" />
+                                            }
+                                            else
+                                            {
+                                                <RadzenBadge Text="Approved" BadgeStyle="BadgeStyle.Success" />
+                                            }
+                                        </RadzenStack>
+
+                                        <RadzenText Text="@patchPreview.ApprovalReason" TextStyle="TextStyle.Body2" />
+
+                                        @if (patchPreview.ApprovedAt is null)
+                                        {
+                                            <RadzenButton Text="Approve Preview"
+                                                          Icon="verified"
+                                                          ButtonStyle="ButtonStyle.Success"
+                                                          Size="ButtonSize.Small"
+                                                          Click="@ApprovePatchPreviewAsync"
+                                                          Disabled="@isApprovingPatchPreview" />
+                                        }
+                                        else
+                                        {
+                                            <RadzenText Text="@($"Approved by {patchPreview.ApprovedBy} at {patchPreview.ApprovedAt:O}")"
+                                                        TextStyle="TextStyle.Body2" />
+                                        }
+                                    </RadzenStack>
+                                </RadzenAlert>
                             }
-                            else
+
+                            <CoderDiffViewer Error="@error"
+                                             ValidationErrors="@LastPatchValidationErrors"
+                                             OperationGrammarErrors="@LastPatchOperationGrammarErrors"
+                                             ReplaceDiagnostics="@LastPatchReplaceDiagnostics"
+                                             SuggestedTargetDiagnostics="@LastPatchSuggestedTargetDiagnostics"
+                                             SliceDebugDetails="@LastSlicePatchDebugDetails"
+                                             SelectedSuggestedTarget="@selectedSuggestedTarget"
+                                             ValidationGuidance="@LastPatchValidationGuidance"
+                                             RepairSummary="@(patchPreview?.RepairSummary ?? LastPatchRepairSummary)"
+                                             PromptAudit="@(patchPreview?.PromptAudit ?? LastPatchPromptAudit)"
+                                             PromptTargetResolution="@(patchPreview?.PromptTargetResolution ?? LastPatchPromptTargetResolution)"
+                                             PatchPreviewMetrics="@GetPatchPreviewMetrics()"
+                                             RawResponse="@LastPatchRawResponse"
+                                             NormalizedResponse="@LastPatchNormalizedResponse"
+                                             NormalizedDiff="@LastPatchNormalizedDiff"
+                                             PatchPreview="@patchPreview"
+                                             ApplyResult="@applyResult"
+                                             RollbackResult="@rollbackResult"
+                                             CanApplyPatch="@CanApplyPatchPreview()"
+                                             CanRollbackPatch="@CanRollbackPatch()"
+                                             IsRollingBack="@isRollingBack"
+                                             OnApplyPatch="@ApplyPatchAsync"
+                                             OnRollbackPatch="@RollbackPatchAsync"
+                                             OnUseSuggestedTarget="@SelectSuggestedTargetAsync"
+                                             OnClearSuggestedTarget="@ClearSuggestedTargetAsync"
+                                             OnRegenerateWithSuggestedTarget="@RegeneratePatchPreviewWithSuggestedTargetAsync"
+                                             OnFixPatchPreview="@FixPatchPreviewAsync" />
+
+                            @if (applyResult is not null)
                             {
-                                <RadzenText Text="@($"Approved by {patchPreview.ApprovedBy} at {patchPreview.ApprovedAt:O}")"
-                                            TextStyle="TextStyle.Body2" />
+                                <RadzenCard>
+                                    <RadzenStack Gap="0.35rem">
+                                        <RadzenText Text="Restore status" TextStyle="TextStyle.H6" />
+                                        <RadzenText Text="@($"Restore attempted: {applyResult.RestoreAttempted}")" TextStyle="TextStyle.Body2" />
+                                        <RadzenText Text="@($"Restore succeeded: {applyResult.RestoreSucceeded}")" TextStyle="TextStyle.Body2" />
+                                        @if (!string.IsNullOrWhiteSpace(applyResult.RestoreMessage))
+                                        {
+                                            <RadzenText Text="@($"Restore message: {applyResult.RestoreMessage}")" TextStyle="TextStyle.Body2" />
+                                        }
+                                    </RadzenStack>
+                                </RadzenCard>
                             }
+
+                            <RadzenCard>
+                                <RadzenStack Gap="0.75rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal"
+                                                 AlignItems="AlignItems.Center"
+                                                 JustifyContent="JustifyContent.SpaceBetween"
+                                                 Gap="0.5rem"
+                                                 Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Patch queue" TextStyle="TextStyle.H6" />
+                                        <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Lighter" Style="margin: 0;">
+                                            Patch previews must be approved before they can be applied.
+                                        </RadzenAlert>
+                                    </RadzenStack>
+
+                                    <CoderPatchQueuePanel PatchPackages="@patchPackages"
+                                                          SelectedPatchPackage="@selectedPatchPackage"
+                                                          CanReview="@CanReviewSelectedPatch()"
+                                                          CanApprove="@CanApproveSelectedPatch()"
+                                                          CanApply="@CanApplySelectedPatch()"
+                                                          CanVerify="@CanVerifySelectedPatch()"
+                                                          CanRollback="@CanRollbackSelectedPatch()"
+                                                          OnPatchSelected="@OnPatchPackageSelected"
+                                                          OnReview="@ReviewSelectedPatchAsync"
+                                                          OnApprove="@ApproveSelectedPatchAsync"
+                                                          OnApply="@ApplySelectedPatchAsync"
+                                                          OnVerify="@VerifySelectedPatchAsync"
+                                                          OnRollback="@RollbackSelectedPatchAsync" />
+                                </RadzenStack>
+                            </RadzenCard>
                         </RadzenStack>
-                    </RadzenCard>
-                }
-                <CoderDiffViewer Error="@error"
-                                 ValidationErrors="@LastPatchValidationErrors"
-                                 OperationGrammarErrors="@LastPatchOperationGrammarErrors"
-                                 ReplaceDiagnostics="@LastPatchReplaceDiagnostics"
-                                 SuggestedTargetDiagnostics="@LastPatchSuggestedTargetDiagnostics"
-                                 SliceDebugDetails="@LastSlicePatchDebugDetails"
-                                 SelectedSuggestedTarget="@selectedSuggestedTarget"
-                                 ValidationGuidance="@LastPatchValidationGuidance"
-                                 RepairSummary="@(patchPreview?.RepairSummary ?? LastPatchRepairSummary)"
-                                 PromptAudit="@(patchPreview?.PromptAudit ?? LastPatchPromptAudit)"
-                                 PromptTargetResolution="@(patchPreview?.PromptTargetResolution ?? LastPatchPromptTargetResolution)"
-                                 PatchPreviewMetrics="@GetPatchPreviewMetrics()"
-                                 RawResponse="@LastPatchRawResponse"
-                                 NormalizedResponse="@LastPatchNormalizedResponse"
-                                 NormalizedDiff="@LastPatchNormalizedDiff"
-                                 PatchPreview="@patchPreview"
-                                 ApplyResult="@applyResult"
-                                 RollbackResult="@rollbackResult"
-                                 CanApplyPatch="@CanApplyPatchPreview()"
-                                 CanRollbackPatch="@CanRollbackPatch()"
-                                 IsRollingBack="@isRollingBack"
-                                 OnApplyPatch="@ApplyPatchAsync"
-                                 OnRollbackPatch="@RollbackPatchAsync"
-                                 OnUseSuggestedTarget="@SelectSuggestedTargetAsync"
-                                 OnClearSuggestedTarget="@ClearSuggestedTargetAsync"
-                                 OnRegenerateWithSuggestedTarget="@RegeneratePatchPreviewWithSuggestedTargetAsync"
-                                 OnFixPatchPreview="@FixPatchPreviewAsync" />
-                @if (applyResult is not null)
-                {
-                    <RadzenCard>
-                        <RadzenStack Gap="0.35rem">
-                            <RadzenText Text="Restore Status" TextStyle="TextStyle.H6" />
-                            <RadzenText Text="@($"Restore attempted: {applyResult.RestoreAttempted}")" TextStyle="TextStyle.Body2" />
-                            <RadzenText Text="@($"Restore succeeded: {applyResult.RestoreSucceeded}")" TextStyle="TextStyle.Body2" />
-                            @if (!string.IsNullOrWhiteSpace(applyResult.RestoreMessage))
-                            {
-                                <RadzenText Text="@($"Restore message: {applyResult.RestoreMessage}")" TextStyle="TextStyle.Body2" />
-                            }
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Verify & Output" Icon="terminal">
+                        <RadzenStack Gap="1rem">
+                            <RadzenCard>
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="4. Verify, commit, build, and deploy" TextStyle="TextStyle.H6" />
+                                    <RadzenText Text="Run safe commands and inspect build, test, commit, and deployment output."
+                                                TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            <CoderExecutionPanel IsRunningCommand="@isRunningCommand"
+                                                 CanVerifyProject="@(!isRunningCommand && !isVerifying && !string.IsNullOrWhiteSpace(request.ProjectPath))"
+                                                 VerificationProfiles="@verificationProfiles"
+                                                 SelectedVerificationProfileId="@selectedVerificationProfileId"
+                                                 SelectedVerificationProfileIdChanged="@OnSelectedVerificationProfileChanged"
+                                                 CanCommitChanges="@CanCommitChanges()"
+                                                 CanBuildDeploy="@CanBuildDeploy()"
+                                                 CommitMessage="@commitMessage"
+                                                 CommitMessageChanged="@(value => commitMessage = value)"
+                                                 CommitResults="@commitResults"
+                                                 BuildDeployResults="@buildDeployResults"
+                                                 VerifyResults="@verifyResults"
+                                                 LastCommand="@lastCommand"
+                                                 OnRunCommand="@RunCommandAsync"
+                                                 OnVerifyProject="@VerifyProjectAsync"
+                                                 OnCommitChanges="@CommitChangesAsync"
+                                                 OnBuildDeploy="@BuildDeployAsync" />
                         </RadzenStack>
-                    </RadzenCard>
-                }
-                <CoderPatchQueuePanel PatchPackages="@patchPackages"
-                                      SelectedPatchPackage="@selectedPatchPackage"
-                                      CanReview="@CanReviewSelectedPatch()"
-                                      CanApprove="@CanApproveSelectedPatch()"
-                                      CanApply="@CanApplySelectedPatch()"
-                                      CanVerify="@CanVerifySelectedPatch()"
-                                      CanRollback="@CanRollbackSelectedPatch()"
-                                      OnPatchSelected="@OnPatchPackageSelected"
-                                      OnReview="@ReviewSelectedPatchAsync"
-                                      OnApprove="@ApproveSelectedPatchAsync"
-                                      OnApply="@ApplySelectedPatchAsync"
-                                      OnVerify="@VerifySelectedPatchAsync"
-                                      OnRollback="@RollbackSelectedPatchAsync" />
-            </RadzenStack>
-        </RadzenTabsItem>
+                    </RadzenTabsItem>
 
-        <RadzenTabsItem Text="Verify & Output" Icon="terminal">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Run and inspect project operations" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Run safe commands, verify the project, and review command, build, test, and deployment output."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-                <CoderExecutionPanel IsRunningCommand="@isRunningCommand"
-                                     CanVerifyProject="@(!isRunningCommand && !isVerifying && !string.IsNullOrWhiteSpace(request.ProjectPath))"
-                                     VerificationProfiles="@verificationProfiles"
-                                     SelectedVerificationProfileId="@selectedVerificationProfileId"
-                                     SelectedVerificationProfileIdChanged="@OnSelectedVerificationProfileChanged"
-                                     CanCommitChanges="@CanCommitChanges()"
-                                     CanBuildDeploy="@CanBuildDeploy()"
-                                     CommitMessage="@commitMessage"
-                                     CommitMessageChanged="@(value => commitMessage = value)"
-                                     CommitResults="@commitResults"
-                                     BuildDeployResults="@buildDeployResults"
-                                     VerifyResults="@verifyResults"
-                                     LastCommand="@lastCommand"
-                                     OnRunCommand="@RunCommandAsync"
-                                     OnVerifyProject="@VerifyProjectAsync"
-                                     OnCommitChanges="@CommitChangesAsync"
-                                     OnBuildDeploy="@BuildDeployAsync" />
-            </RadzenStack>
-        </RadzenTabsItem>
+                    <RadzenTabsItem Text="Knowledge" Icon="menu_book">
+                        <RadzenStack Gap="1rem">
+                            <RadzenCard>
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="Project knowledge" TextStyle="TextStyle.H6" />
+                                    <RadzenText Text="Rebuild the project knowledge index and add suggested files to context."
+                                                TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
 
-        <RadzenTabsItem Text="History" Icon="history">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Review previous activity" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Inspect agent runs and Local Coder tasks, or reuse a previous task as context."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-                <CoderHistoryPanel ShowAgentRunHistory="true"
-                                   AgentRunHistory="@agentRunHistory"
-                                   SelectedAgentRun="@selectedAgentRun"
-                                   OnAgentRunSelected="@OnAgentRunSelected"
-                                   ShowTaskHistory="true"
-                                   HistoryEntries="@historyEntries"
-                                   SelectedHistoryEntry="@selectedHistoryEntry"
-                                   IsLoadingHistory="@isLoadingHistory"
-                                   IsClearingHistory="@isClearingHistory"
-                                   OnClearHistory="@ClearHistoryAsync"
-                                   OnViewHistoryEntry="@ViewHistoryEntryAsync"
-                                   OnUseHistoryEntryAsContext="@UseHistoryEntryAsContextAsync"
-                                   OnRestoreContext="@RestoreHistoryContextAsync"
-                                   ContextRestoreResult="@contextRestoreResult" />
-            </RadzenStack>
-        </RadzenTabsItem>
+                            <CoderKnowledgePanel ProjectPath="@request.ProjectPath"
+                                                 Index="@projectKnowledgeIndex"
+                                                 SelectedFilePaths="@selectedFilePaths"
+                                                 CurrentTaskText="@request.Task"
+                                                 StatusMessage="@knowledgeIndexStatusMessage"
+                                                 ErrorMessage="@knowledgeIndexErrorMessage"
+                                                 IsRebuilding="@isRebuildingKnowledgeIndex"
+                                                 OnRebuildIndex="@RebuildProjectKnowledgeIndexAsync"
+                                                 OnAddSuggestedFiles="@AddSuggestedFilesAsync" />
 
-        <RadzenTabsItem Text="Execution History" Icon="schedule">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Scheduled execution history" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Review the latest scheduled agent executions and refresh the list as needed."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
+                            <ProjectHistoryPanel />
+                            <TaskSliceHistoryPanel History="@sliceExecutionHistory" />
+                        </RadzenStack>
+                    </RadzenTabsItem>
 
-                <CoderExecutionHistoryPanel />
-            </RadzenStack>
-        </RadzenTabsItem>
+                    <RadzenTabsItem Text="Dashboard" Icon="dashboard">
+                        <RadzenStack Gap="1rem">
+                            <RadzenCard>
+                                <RadzenStack Gap="0.75rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal"
+                                                 AlignItems="AlignItems.Center"
+                                                 JustifyContent="JustifyContent.SpaceBetween"
+                                                 Gap="0.5rem"
+                                                 Wrap="FlexWrap.Wrap">
+                                        <RadzenStack Gap="0.25rem">
+                                            <RadzenText Text="Agent dashboard and routing" TextStyle="TextStyle.H6" />
+                                            <RadzenText Text="Status, model routing, recommendations, orchestration, approvals, and safety."
+                                                        TextStyle="TextStyle.Body2" />
+                                        </RadzenStack>
+                                        <RadzenButton Text="Check Route"
+                                                      Icon="health_and_safety"
+                                                      ButtonStyle="ButtonStyle.Light"
+                                                      Size="ButtonSize.Small"
+                                                      Click="@CheckSelectedRouteAsync"
+                                                      Disabled="@isCheckingSelectedRoute" />
+                                    </RadzenStack>
 
-        <RadzenTabsItem Text="Scheduled Runs" Icon="event_repeat">
-            <RadzenStack Gap="1rem">
-                <RadzenCard>
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Manage scheduled runs" TextStyle="TextStyle.H6" />
-                        <RadzenText Text="Inspect the configured schedules, review their latest status, and toggle them on or off."
-                                    TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
+                                    <RadzenFormField Text="Agent profile" Style="width: 100%;">
+                                        <RadzenDropDown TValue="string"
+                                                        Data="@agentModeProfiles"
+                                                        TextProperty="Name"
+                                                        ValueProperty="Id"
+                                                        @bind-Value="@selectedAgentModeProfileId"
+                                                        Style="width: 100%;" />
+                                    </RadzenFormField>
 
-                <CoderScheduledRunsPanel />
-            </RadzenStack>
-        </RadzenTabsItem>
-    </Tabs>
-</RadzenTabs>
+                                    @if (GetSelectedAgentModeProfile() is { } selectedAgentProfile)
+                                    {
+                                        <RadzenCard Style="margin: 0;">
+                                            <RadzenStack Gap="0.35rem">
+                                                <RadzenText Text="@($"Selected profile: {selectedAgentProfile.Name}")" TextStyle="TextStyle.Body2" />
+
+                                                @if (GetSelectedAgentModeProfileRoute(selectedAgentProfile) is { } selectedRoute)
+                                                {
+                                                    <RadzenText Text="@($"Route: {selectedRoute.Name} / {selectedRoute.Provider} / {selectedRoute.Model}")"
+                                                                TextStyle="TextStyle.Body2" />
+                                                    <RadzenText Text="@($"Base URL: {selectedRoute.BaseUrl}")" TextStyle="TextStyle.Caption" />
+                                                    <RadzenText Text="@($"Expected output: {selectedRoute.ExpectedOutputFormat}")" TextStyle="TextStyle.Caption" />
+                                                }
+                                                else if (string.IsNullOrWhiteSpace(selectedAgentProfile.ModelRouteId))
+                                                {
+                                                    <RadzenText Text="This profile does not require a model route." TextStyle="TextStyle.Body2" />
+                                                }
+                                                else
+                                                {
+                                                    <RadzenText Text="@($"Route id '{selectedAgentProfile.ModelRouteId}' was not found.")" TextStyle="TextStyle.Body2" />
+                                                }
+
+                                                @if (GetSelectedAgentModeProfilePolicy(selectedAgentProfile) is { } selectedPolicy)
+                                                {
+                                                    <RadzenText Text="@($"Policy: {selectedPolicy.Name}")" TextStyle="TextStyle.Body2" />
+                                                    <RadzenText Text="@($"Model: {(selectedPolicy.AllowModelCalls ? "allowed" : "blocked")}, tools: {(selectedPolicy.AllowToolCalls ? "allowed" : "blocked")}, shell: {(selectedPolicy.AllowShellCommands ? "allowed" : "blocked")}, patch apply: {(selectedPolicy.AllowPatchApply ? "allowed" : "blocked")}")"
+                                                                TextStyle="TextStyle.Caption" />
+                                                    <RadzenText Text="@($"Max files: {selectedPolicy.MaxFilesChanged}, max operations: {selectedPolicy.MaxPatchOperations}, max minutes: {selectedPolicy.MaxExecutionMinutes}")"
+                                                                TextStyle="TextStyle.Caption" />
+                                                    <RadzenText Text="@($"Allowed: {FormatDirectoryList(selectedPolicy.AllowedDirectories)}")" TextStyle="TextStyle.Caption" />
+                                                    <RadzenText Text="@($"Blocked: {FormatDirectoryList(selectedPolicy.BlockedDirectories)}")" TextStyle="TextStyle.Caption" />
+                                                }
+                                            </RadzenStack>
+                                        </RadzenCard>
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(selectedRouteHealthMessage))
+                                    {
+                                        <RadzenAlert AlertStyle="@(selectedRouteHealthIsHealthy == true ? AlertStyle.Success : AlertStyle.Danger)" Shade="Shade.Lighter">
+                                            @selectedRouteHealthMessage
+                                        </RadzenAlert>
+                                    }
+
+                                    @if (defaultCoderRoute is not null)
+                                    {
+                                        <RadzenStack Gap="0.25rem">
+                                            @foreach (var line in GetDefaultCoderRouteSummaryLines())
+                                            {
+                                                <RadzenText Text="@line" TextStyle="TextStyle.Caption" />
+                                            }
+                                        </RadzenStack>
+                                    }
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            <AgentDashboardPanel />
+                            <AgentModelRecommendationPanel />
+                            <AgentProfilesPanel />
+                            <AgentModelBenchmarkPanel />
+                            <AgentModelComparisonPanel />
+                            <AgentOrchestrationPanel />
+                            <HumanApprovalQueuePanel />
+                            <AgentOrchestrationSafetyPanel />
+                        </RadzenStack>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="History" Icon="history">
+                        <RadzenStack Gap="1rem">
+                            <RadzenCard>
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="History, audits, snapshots, and timeline" TextStyle="TextStyle.H6" />
+                                    <RadzenText Text="Review previous activity, restore context, inspect apply audits, and restore patch safety snapshots."
+                                                TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            <CoderHistoryPanel ShowAgentRunHistory="true"
+                                               AgentRunHistory="@agentRunHistory"
+                                               SelectedAgentRun="@selectedAgentRun"
+                                               OnAgentRunSelected="@OnAgentRunSelected"
+                                               ShowTaskHistory="true"
+                                               HistoryEntries="@historyEntries"
+                                               SelectedHistoryEntry="@selectedHistoryEntry"
+                                               IsLoadingHistory="@isLoadingHistory"
+                                               IsClearingHistory="@isClearingHistory"
+                                               OnClearHistory="@ClearHistoryAsync"
+                                               OnViewHistoryEntry="@ViewHistoryEntryAsync"
+                                               OnUseHistoryEntryAsContext="@UseHistoryEntryAsContextAsync"
+                                               OnRestoreContext="@RestoreHistoryContextAsync"
+                                               ContextRestoreResult="@contextRestoreResult" />
+
+                            <TaskSliceApplyHistoryPanel Items="@applyHistoryItems" />
+
+                            <RadzenCard>
+                                <RadzenStack Gap="0.75rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal"
+                                                 AlignItems="AlignItems.Center"
+                                                 JustifyContent="JustifyContent.SpaceBetween"
+                                                 Gap="0.5rem"
+                                                 Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Patch safety snapshots" TextStyle="TextStyle.H6" />
+                                        <RadzenButton Text="Refresh"
+                                                      Icon="refresh"
+                                                      ButtonStyle="ButtonStyle.Light"
+                                                      Size="ButtonSize.Small"
+                                                      Click="@LoadPatchSafetySnapshotsAsync"
+                                                      Disabled="@isLoadingPatchSafetySnapshots" />
+                                    </RadzenStack>
+
+                                    @if (patchSafetySnapshots.Count == 0)
+                                    {
+                                        <RadzenText Text="No patch safety snapshots available yet." TextStyle="TextStyle.Body2" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenDataGrid Data="@patchSafetySnapshots"
+                                                        TItem="PatchSafetySnapshot"
+                                                        AllowPaging="false"
+                                                        AllowSorting="false"
+                                                        AllowFiltering="false"
+                                                        Density="Density.Compact">
+                                            <Columns>
+                                                <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="CreatedAt" Title="Created" Width="170px">
+                                                    <Template Context="item">
+                                                        @item.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="PatchPreviewId" Title="Preview" Width="180px" />
+                                                <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Success" Width="90px">
+                                                    <Template Context="item">
+                                                        <RadzenBadge Text="@GetPatchSafetySnapshotSuccessText(item)"
+                                                                     BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="Message" Title="Message">
+                                                    <Template Context="item">
+                                                        <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Target Files" Width="120px">
+                                                    <Template Context="item">
+                                                        <RadzenText Text="@item.TargetFiles.Count.ToString()" TextStyle="TextStyle.Body2" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Restore" Width="110px">
+                                                    <Template Context="item">
+                                                        <RadzenButton Text="Restore"
+                                                                      Icon="restore"
+                                                                      Size="ButtonSize.Small"
+                                                                      ButtonStyle="ButtonStyle.Secondary"
+                                                                      Click="@(() => RestorePatchSafetySnapshotAsync(item.Id))"
+                                                                      Disabled="@isRestoringPatchSafetySnapshot" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                            </Columns>
+                                        </RadzenDataGrid>
+                                    }
+
+                                    @if (patchSafetySnapshotRestoreResult is not null)
+                                    {
+                                        <RadzenAlert AlertStyle="@(patchSafetySnapshotRestoreResult.Success ? AlertStyle.Success : AlertStyle.Danger)"
+                                                     Shade="Shade.Lighter">
+                                            <RadzenStack Gap="0.25rem">
+                                                <RadzenText Text="@patchSafetySnapshotRestoreResult.Message" TextStyle="TextStyle.Body2" />
+                                                <RadzenText Text="@($"Restored: {patchSafetySnapshotRestoreResult.RestoredFiles.Count}, Skipped: {patchSafetySnapshotRestoreResult.SkippedFiles.Count}")"
+                                                            TextStyle="TextStyle.Caption" />
+                                            </RadzenStack>
+                                        </RadzenAlert>
+                                    }
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            <RadzenCard>
+                                <RadzenStack Gap="0.75rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal"
+                                                 AlignItems="AlignItems.Center"
+                                                 JustifyContent="JustifyContent.SpaceBetween"
+                                                 Gap="0.5rem"
+                                                 Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Patch apply audit" TextStyle="TextStyle.H6" />
+                                        <RadzenButton Text="Refresh"
+                                                      Icon="refresh"
+                                                      ButtonStyle="ButtonStyle.Light"
+                                                      Size="ButtonSize.Small"
+                                                      Click="@LoadPatchApplyAuditAsync"
+                                                      Disabled="@isLoadingPatchApplyAudit" />
+                                    </RadzenStack>
+
+                                    @if (patchApplyAuditEntries.Count == 0)
+                                    {
+                                        <RadzenText Text="No patch apply audit entries available yet." TextStyle="TextStyle.Body2" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenDataGrid Data="@patchApplyAuditEntries"
+                                                        TItem="PatchApplyAuditItem"
+                                                        AllowPaging="false"
+                                                        AllowSorting="false"
+                                                        AllowFiltering="false"
+                                                        Density="Density.Compact">
+                                            <Columns>
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Timestamp" Title="UTC" Width="170px">
+                                                    <Template Context="item">
+                                                        @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Action" Title="Action" Width="130px" />
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="PatchPreviewId" Title="Preview" Width="180px" />
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Approved" Width="150px">
+                                                    <Template Context="item">
+                                                        <RadzenText Text="@GetPatchApplyAuditApprovalText(item)" TextStyle="TextStyle.Body2" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Success" Width="90px">
+                                                    <Template Context="item">
+                                                        <RadzenBadge Text="@GetPatchApplyAuditSuccessText(item)"
+                                                                     BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Verification" Width="150px">
+                                                    <Template Context="item">
+                                                        <RadzenText Text="@GetPatchApplyAuditVerificationText(item)" TextStyle="TextStyle.Body2" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Restore" Width="150px">
+                                                    <Template Context="item">
+                                                        <RadzenBadge Text="@GetPatchApplyAuditRestoreText(item)"
+                                                                     BadgeStyle="@GetPatchApplyAuditRestoreBadgeStyle(item)" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Files" Width="90px">
+                                                    <Template Context="item">
+                                                        <RadzenText Text="@item.ChangedFiles.Count.ToString()" TextStyle="TextStyle.Body2" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Message" Title="Message">
+                                                    <Template Context="item">
+                                                        <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                            </Columns>
+                                        </RadzenDataGrid>
+                                    }
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            <RadzenCard>
+                                <RadzenStack Gap="0.75rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal"
+                                                 AlignItems="AlignItems.Center"
+                                                 JustifyContent="JustifyContent.SpaceBetween"
+                                                 Gap="0.5rem"
+                                                 Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Agent run timeline" TextStyle="TextStyle.H6" />
+                                        <RadzenButton Text="Refresh"
+                                                      Icon="refresh"
+                                                      ButtonStyle="ButtonStyle.Light"
+                                                      Size="ButtonSize.Small"
+                                                      Click="@LoadAgentRunTimelineAsync"
+                                                      Disabled="@isLoadingAgentRunTimeline" />
+                                    </RadzenStack>
+
+                                    @if (!string.IsNullOrWhiteSpace(currentTimelineRunId))
+                                    {
+                                        <RadzenText Text="@($"Current run: {currentTimelineRunId}")" TextStyle="TextStyle.Body2" />
+
+                                        @if (currentAgentRunTimelineItems.Count == 0)
+                                        {
+                                            <RadzenText Text="No timeline items were recorded for the current run yet." TextStyle="TextStyle.Body2" />
+                                        }
+                                        else
+                                        {
+                                            <RadzenDataGrid Data="@currentAgentRunTimelineItems"
+                                                            TItem="AgentRunTimelineItem"
+                                                            AllowPaging="false"
+                                                            AllowSorting="false"
+                                                            AllowFiltering="false"
+                                                            Density="Density.Compact">
+                                                <Columns>
+                                                    <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Timestamp" Title="UTC" Width="170px">
+                                                        <Template Context="item">
+                                                            @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                                        </Template>
+                                                    </RadzenDataGridColumn>
+                                                    <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Stage" Title="Stage" Width="180px" />
+                                                    <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Status" Title="Status" Width="120px" />
+                                                    <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="ReferenceId" Title="Reference" Width="180px" />
+                                                    <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Message" Title="Message" />
+                                                </Columns>
+                                            </RadzenDataGrid>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <RadzenText Text="No current run is selected yet." TextStyle="TextStyle.Body2" />
+                                    }
+
+                                    <RadzenText Text="Latest 25 timeline items" TextStyle="TextStyle.Body2" />
+
+                                    @if (latestAgentRunTimelineItems.Count == 0)
+                                    {
+                                        <RadzenText Text="No agent run timeline items available yet." TextStyle="TextStyle.Body2" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenDataGrid Data="@latestAgentRunTimelineItems"
+                                                        TItem="AgentRunTimelineItem"
+                                                        AllowPaging="false"
+                                                        AllowSorting="false"
+                                                        AllowFiltering="false"
+                                                        Density="Density.Compact">
+                                            <Columns>
+                                                <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Timestamp" Title="UTC" Width="170px">
+                                                    <Template Context="item">
+                                                        @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="RunId" Title="Run" Width="180px" />
+                                                <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Stage" Title="Stage" Width="180px" />
+                                                <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Status" Title="Status" Width="120px" />
+                                                <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="ReferenceId" Title="Reference" Width="180px" />
+                                                <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Message" Title="Message" />
+                                            </Columns>
+                                        </RadzenDataGrid>
+                                    }
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            <TaskSliceApplyAuditPanel Items="@applyAuditEntries"
+                                                      IsBusy="@isRollingBackSlice"
+                                                      OnRollbackRequested="@RollbackApplyAuditAsync" />
+                        </RadzenStack>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Scheduled" Icon="event_repeat">
+                        <RadzenStack Gap="1rem">
+                            <RadzenCard>
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="Scheduled runs and execution history" TextStyle="TextStyle.H6" />
+                                    <RadzenText Text="Manage configured schedules and review latest scheduled agent executions."
+                                                TextStyle="TextStyle.Body2" />
+                                </RadzenStack>
+                            </RadzenCard>
+
+                            <CoderScheduledRunsPanel />
+                            <CoderExecutionHistoryPanel />
+                        </RadzenStack>
+                    </RadzenTabsItem>
+                </Tabs>
+            </RadzenTabs>
+        </RadzenStack>
+    </RadzenCard>
 </RadzenStack>
 
 @code {

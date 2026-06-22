@@ -27,7 +27,7 @@ public sealed class AgentRunTimelineTests
         Assert.NotNull(toolRunnerProfile);
 
         context.CoderConsoleService
-            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>())
+            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>(), Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(new LocalCoderPatchPreview
             {
                 ProjectPath = context.Root,
@@ -188,12 +188,13 @@ public sealed class AgentRunTimelineTests
                 ]);
             });
 
-        var result = await context.Runner.ApplyPatchPreviewAsync(CreatePreview(context.Root, "timeline-auto-restore"), profile);
+        var preview = CreatePreview(context.Root, "timeline-auto-restore");
+        var result = await context.Runner.ApplyPatchPreviewAsync(preview, profile);
 
         Assert.True(result.RestoreAttempted);
         Assert.True(result.RestoreSucceeded);
 
-        var items = await context.TimelineService.GetByRunIdAsync(result.Id);
+        var items = await context.TimelineService.GetByRunIdAsync(preview.Id);
 
         Assert.Contains(items, item => item.Stage == "RestoreAttempted");
         Assert.Contains(items, item => item.Stage == "RestoreSucceeded");
@@ -237,8 +238,9 @@ public sealed class AgentRunTimelineTests
             .VerifyProjectAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>?>())
             .Returns(callInfo =>
             {
+                context.Environment.ContentRootPath = Path.Combine(Path.GetTempPath(), $"agent-run-timeline-restore-failure-{Guid.NewGuid():N}");
                 WriteFile(context.Root, "A.cs", "after");
-                DeleteLatestSnapshotDirectory(context.Root);
+                DeleteLatestSnapshotDirectoryAndMetadata(context.Root);
                 return Task.FromResult<IReadOnlyList<CommandRunResult>>([
                     new CommandRunResult
                     {
@@ -250,13 +252,14 @@ public sealed class AgentRunTimelineTests
                 ]);
             });
 
-        var result = await context.Runner.ApplyPatchPreviewAsync(CreatePreview(context.Root, "timeline-auto-restore-failed"), profile);
+        var preview = CreatePreview(context.Root, "timeline-auto-restore-failed");
+        var result = await context.Runner.ApplyPatchPreviewAsync(preview, profile);
 
         Assert.True(result.RestoreAttempted);
         Assert.False(result.RestoreSucceeded);
         Assert.NotEmpty(result.RestoreMessage);
 
-        var items = await context.TimelineService.GetByRunIdAsync(result.Id);
+        var items = await context.TimelineService.GetByRunIdAsync(preview.Id);
 
         Assert.Contains(items, item => item.Stage == "RestoreAttempted");
         Assert.Contains(items, item => item.Stage == "RestoreFailed");
@@ -344,7 +347,7 @@ public sealed class AgentRunTimelineTests
             .Returns(callInfo => Task.FromResult(callInfo.Arg<AgentRunRecord>()));
 
         var runner = new AgentModeRunner(coderConsoleService, historyService, instructionService, routeService, healthService, policyService, snapshotService, auditService, timelineService);
-        return new RunnerContext(root, runner, coderConsoleService, policyService, profileService, timelineService);
+        return new RunnerContext(root, runner, coderConsoleService, policyService, profileService, timelineService, environment);
     }
 
     private static LocalCoderRequest CreateRequest(string root)
@@ -387,6 +390,18 @@ public sealed class AgentRunTimelineTests
         };
     }
 
+    private static AgentModeProfile CreateToolRunnerProfile(string policyId = "ToolRunner")
+    {
+        return new AgentModeProfile
+        {
+            Id = "tool-runner",
+            Mode = AgentMode.ToolRunner,
+            Name = "Tool Runner",
+            PolicyId = policyId,
+            ModelRouteId = string.Empty
+        };
+    }
+
     private static async Task UpsertPolicyAsync(AgentExecutionPolicyService policyService, AgentExecutionPolicy policy)
     {
         var policies = (await policyService.GetAllAsync()).ToList();
@@ -409,7 +424,7 @@ public sealed class AgentRunTimelineTests
         File.WriteAllText(Path.Combine(root, relativePath), content);
     }
 
-    private static void DeleteLatestSnapshotDirectory(string root)
+    private static void DeleteLatestSnapshotDirectoryAndMetadata(string root)
     {
         var path = Path.Combine(root, "Data", "patch-safety-snapshots.json");
         if (!File.Exists(path))
@@ -428,6 +443,8 @@ public sealed class AgentRunTimelineTests
         {
             Directory.Delete(latestSnapshot.SnapshotDirectory, recursive: true);
         }
+
+        File.Delete(path);
     }
 
     private static void InitializeGitRepository(string root)
@@ -474,7 +491,8 @@ public sealed class AgentRunTimelineTests
         ICoderConsoleService CoderConsoleService,
         AgentExecutionPolicyService PolicyService,
         AgentModeProfileService ProfileService,
-        AgentRunTimelineService TimelineService) : IAsyncDisposable
+        AgentRunTimelineService TimelineService,
+        TestWebHostEnvironment Environment) : IAsyncDisposable
     {
         public ValueTask DisposeAsync()
         {

@@ -24,13 +24,13 @@ public sealed class AgentModeRunnerPolicyLimitTests
             "diff --git a/Models/Allowed.cs b/Models/Allowed.cs\n--- a/Models/Allowed.cs\n+++ b/Models/Allowed.cs\n@@ -1 +1 @@\n-old\n+new");
 
         context.CoderConsoleService
-            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>())
+            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>(), Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(preview));
 
         var result = await context.Runner.GeneratePatchPreviewAsync(CreateRequest("Update Models/Allowed.cs", "Models/Allowed.cs"), profile);
 
         Assert.Equal(preview.PatchText, result.PatchText);
-        await context.CoderConsoleService.Received(1).GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>());
+        await context.CoderConsoleService.Received(1).GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>(), Arg.Any<AgentModelRoute?>());
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class AgentModeRunnerPolicyLimitTests
             "diff --git a/Models/Two.cs b/Models/Two.cs\n--- a/Models/Two.cs\n+++ b/Models/Two.cs\n@@ -1 +1 @@\n-old\n+new");
 
         context.CoderConsoleService
-            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>())
+            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>(), Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(preview));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => context.Runner.GeneratePatchPreviewAsync(CreateRequest("Update multiple files", "Models/One.cs", "Models/Two.cs"), profile));
@@ -93,7 +93,7 @@ public sealed class AgentModeRunnerPolicyLimitTests
             "diff --git a/Models/Two.cs b/Models/Two.cs\n--- a/Models/Two.cs\n+++ b/Models/Two.cs\n@@ -1 +1 @@\n-old\n+new");
 
         context.CoderConsoleService
-            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>())
+            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>(), Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(preview));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => context.Runner.GeneratePatchPreviewAsync(CreateRequest("Update multiple files", "Models/One.cs", "Models/Two.cs"), profile));
@@ -126,7 +126,7 @@ public sealed class AgentModeRunnerPolicyLimitTests
             "diff --git a/Services/Secret/Hidden.cs b/Services/Secret/Hidden.cs\n--- a/Services/Secret/Hidden.cs\n+++ b/Services/Secret/Hidden.cs\n@@ -1 +1 @@\n-old\n+new");
 
         context.CoderConsoleService
-            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>())
+            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>(), Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(preview));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => context.Runner.GeneratePatchPreviewAsync(CreateRequest("Update Services/Secret/Hidden.cs", "Services/Secret/Hidden.cs"), profile));
@@ -159,7 +159,7 @@ public sealed class AgentModeRunnerPolicyLimitTests
             "diff --git a/Models/Blocked.cs b/Models/Blocked.cs\n--- a/Models/Blocked.cs\n+++ b/Models/Blocked.cs\n@@ -1 +1 @@\n-old\n+new");
 
         context.CoderConsoleService
-            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>())
+            .GeneratePatchPreviewAsync(Arg.Any<LocalCoderRequest>(), Arg.Any<AgentModeProfile>(), Arg.Any<PatchPreviewRepairContext?>(), Arg.Any<AgentModelRoute?>())
             .Returns(Task.FromResult(preview));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => context.Runner.GeneratePatchPreviewAsync(CreateRequest("Update Models/Blocked.cs", "Models/Blocked.cs"), profile));

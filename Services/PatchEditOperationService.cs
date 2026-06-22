@@ -56,8 +56,10 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         var selectedContextMap = selectedFileContexts
             .ToDictionary(context => NormalizeRelativePath(context.RelativePath), context => context.Content, StringComparer.OrdinalIgnoreCase);
+        var createOnlyOperations = response.Operations.All(operation =>
+            operation.Operation.Trim().Equals("create", StringComparison.OrdinalIgnoreCase));
 
-        if (selectedContextMap.Count == 0)
+        if (selectedContextMap.Count == 0 && !createOnlyOperations)
         {
             throw BuildValidationException(
                 rawJson,
@@ -104,7 +106,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             var filePath = NormalizeRelativePath(operation.FilePath);
             var isCreate = normalizedOperation.Equals("create", StringComparison.OrdinalIgnoreCase);
 
-            if (!ValidatePath(rootPath, filePath, selectedContextMap, intent, isCreate, validationErrors))
+            var pathIsValid = createOnlyOperations && isCreate
+                ? ValidateCreateOnlyPath(rootPath, filePath, intent, validationErrors)
+                : ValidatePath(rootPath, filePath, selectedContextMap, intent, isCreate, validationErrors);
+
+            if (!pathIsValid)
             {
                 continue;
             }
@@ -850,6 +856,49 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         return true;
     }
 
+    private static bool ValidateCreateOnlyPath(
+        string rootPath,
+        string relativePath,
+        PatchIntent? intent,
+        List<string> validationErrors)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            validationErrors.Add("Patch edit operation file path is empty.");
+            return false;
+        }
+
+        if (Path.IsPathRooted(relativePath) ||
+            relativePath.StartsWith("/", StringComparison.Ordinal) ||
+            relativePath.Contains("..", StringComparison.Ordinal))
+        {
+            validationErrors.Add($"Patch edit operation file path is invalid: {relativePath}");
+            return false;
+        }
+
+        var fullPath = Path.GetFullPath(Path.Combine(rootPath, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+        var rootPrefix = rootPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!fullPath.StartsWith(rootPrefix, StringComparison.Ordinal))
+        {
+            validationErrors.Add($"Patch edit operation file path is outside the project root: {relativePath}");
+            return false;
+        }
+
+        if (IsBlockedPath(relativePath))
+        {
+            validationErrors.Add($"Patch edit operation file path is blocked: {relativePath}");
+            return false;
+        }
+
+        if (!IsAllowedCreateFolder(relativePath, intent))
+        {
+            validationErrors.Add(BuildCreateFolderNotAllowedMessage(relativePath));
+            return false;
+        }
+
+        return true;
+    }
+
     private static bool IsAllowedCreateTarget(
         string relativePath,
         PatchIntent? intent)
@@ -869,6 +918,19 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return false;
         }
 
+        return IsUnderAnyAllowedCreateFolder(normalizedPath, intent.AllowedCreateFolders);
+    }
+
+    private static bool IsAllowedCreateFolder(
+        string relativePath,
+        PatchIntent? intent)
+    {
+        if (intent is null)
+        {
+            return false;
+        }
+
+        var normalizedPath = NormalizeRelativePath(relativePath);
         return IsUnderAnyAllowedCreateFolder(normalizedPath, intent.AllowedCreateFolders);
     }
 

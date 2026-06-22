@@ -732,7 +732,7 @@ public sealed class CoderConsoleService(
                 ChangedFilesDiffResult = changedFilesDiffResult,
                 ChangedFiles = changedFiles,
                 BackupFiles = backupFiles,
-                VerificationResults = [diffStatResult, changedFilesDiffResult, ..verificationResults]
+                VerificationResults = [diffStatResult, changedFilesDiffResult, .. verificationResults]
             };
         }
         finally
@@ -2676,9 +2676,33 @@ public sealed class CoderConsoleService(
         }
 
         var selectedPaths = new HashSet<string>(
-            fileContexts.Select(fileContext => NormalizePreviewPath(fileContext.RelativePath)),
-            StringComparer.OrdinalIgnoreCase);
-        if (selectedPaths.Count == 0)
+    fileContexts.Select(fileContext => NormalizePreviewPath(fileContext.RelativePath)),
+    StringComparer.OrdinalIgnoreCase);
+
+        var changedPaths = fileChanges?
+            .Select(change => NormalizePreviewPath(change.RelativePath))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ?? [];
+
+        var createOnlyPatch =
+            changedPaths.Length > 0 &&
+            fileChanges is not null &&
+            fileChanges.All(change => string.IsNullOrEmpty(change.OldContent));
+
+        var allowedCreateFolders = intent?.AllowedCreateFolders?
+            .Where(folder => !string.IsNullOrWhiteSpace(folder))
+            .Select(NormalizePreviewFolder)
+            .ToArray() ?? [];
+
+        var createTargetsAreAllowed =
+            createOnlyPatch &&
+            allowedCreateFolders.Length > 0 &&
+            changedPaths.All(path => allowedCreateFolders.Any(folder =>
+                path.Equals(folder, StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith(folder, StringComparison.OrdinalIgnoreCase)));
+
+        if (selectedPaths.Count == 0 && !createTargetsAreAllowed)
         {
             return new LocalCoderPatchValidationResult
             {
@@ -3416,7 +3440,14 @@ public sealed class CoderConsoleService(
     {
         return path.Replace('\\', '/').Trim();
     }
+private static string NormalizePreviewFolder(string path)
+{
+    var normalized = NormalizePreviewPath(path);
 
+    return normalized.EndsWith("/", StringComparison.Ordinal)
+        ? normalized
+        : $"{normalized}/";
+}
     private static string TrimForPrompt(string content, int maxChars)
     {
         if (string.IsNullOrEmpty(content) || content.Length <= maxChars)

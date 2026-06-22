@@ -1,9 +1,7 @@
 @ContextContent
-
-<RadzenFormField Text="Model">
-    <RadzenDropDown TValue="string" Value="@Model" ValueChanged="@ModelChanged" Data="@Models" Style="width: 100%;"
-                    Placeholder="Select Ollama model" />
-</RadzenFormField>
+<RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Lighter">
+    Model is selected by Agent Profile route, not by this page.
+</RadzenAlert>
 
 <RadzenFormField Text="Task">
     <RadzenTextArea Value="@Task" ValueChanged="@TaskChanged" Rows="6" Style="width: 100%;"
@@ -11,28 +9,25 @@
 </RadzenFormField>
 
 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-    <RadzenButton Text="Create Plan" Icon="psychology" ButtonStyle="ButtonStyle.Primary"
-                  Click="@OnCreatePlan"
+    <RadzenButton Text="Create Plan" Icon="psychology" ButtonStyle="ButtonStyle.Primary" Click="@OnCreatePlan"
                   Disabled="@(IsLoading || IsPlanning || string.IsNullOrWhiteSpace(Task))" />
 
     <RadzenButton Text="Generate Patch Preview" Icon="difference" ButtonStyle="ButtonStyle.Warning"
                   Click="@OnGeneratePatchPreview"
                   Disabled="@(IsLoading || IsGeneratingPatch || string.IsNullOrWhiteSpace(Task))" />
 
-    <RadzenButton Text="Verify Project" Icon="verified" ButtonStyle="ButtonStyle.Success"
-                  Click="@OnVerifyProject" Disabled="@(!CanVerifyProject)" />
+    <RadzenButton Text="Verify Project" Icon="verified" ButtonStyle="ButtonStyle.Success" Click="@OnVerifyProject"
+                  Disabled="@(!CanVerifyProject)" />
 
-    <RadzenButton Text="Review Diff" Icon="rate_review" ButtonStyle="ButtonStyle.Light"
-                  Click="@OnReviewDiff" Disabled="@(!CanReviewDiff)" />
+    <RadzenButton Text="Review Diff" Icon="rate_review" ButtonStyle="ButtonStyle.Light" Click="@OnReviewDiff"
+                  Disabled="@(!CanReviewDiff)" />
 </RadzenStack>
 
 <RadzenText Text="Preview only. No files are modified automatically." TextStyle="TextStyle.Caption" />
 
 @code {
     [Parameter] public RenderFragment? ContextContent { get; set; }
-    [Parameter] public IReadOnlyList<string> Models { get; set; } = [];
-    [Parameter] public string Model { get; set; } = string.Empty;
-    [Parameter] public EventCallback<string> ModelChanged { get; set; }
+
     [Parameter] public string Task { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> TaskChanged { get; set; }
     [Parameter] public bool IsLoading { get; set; }

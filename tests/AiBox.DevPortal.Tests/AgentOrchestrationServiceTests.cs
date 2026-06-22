@@ -29,6 +29,7 @@ public sealed class AgentOrchestrationServiceTests
             InitializeGitRepository(root);
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Models/OrchestrationExample.cs",
@@ -89,6 +90,7 @@ public sealed class AgentOrchestrationServiceTests
             WriteProjectFile(root, validProgram: true);
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Models/OrchestrationExample.cs",
@@ -206,6 +208,7 @@ public sealed class AgentOrchestrationServiceTests
             WriteProjectFile(root, validProgram: false);
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Models/OrchestrationExample.cs",
@@ -260,6 +263,7 @@ public sealed class AgentOrchestrationServiceTests
                 """;
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Program.cs",
@@ -351,6 +355,7 @@ public sealed class AgentOrchestrationServiceTests
                 """;
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Program.cs",
@@ -595,6 +600,7 @@ public sealed class AgentOrchestrationServiceTests
                 """;
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Program.cs",
@@ -685,6 +691,7 @@ public sealed class AgentOrchestrationServiceTests
                 """;
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Program.cs",
@@ -844,6 +851,7 @@ public sealed class AgentOrchestrationServiceTests
             WriteProjectFile(root, validProgram: false);
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Models/OrchestrationExample.cs",
@@ -887,6 +895,7 @@ public sealed class AgentOrchestrationServiceTests
             InitializeGitRepository(root, withPreCommitHook: true);
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Models/OrchestrationExample.cs",
@@ -935,6 +944,7 @@ public sealed class AgentOrchestrationServiceTests
             InitializeGitRepository(root, withPreCommitHook: true);
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Models/OrchestrationExample.cs",
@@ -1004,6 +1014,7 @@ public sealed class AgentOrchestrationServiceTests
             InitializeGitRepository(root, withPreCommitHook: true);
             var harness = CreateHarness(
                 root,
+                null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
                         "Models/OrchestrationExample.cs",
@@ -1241,7 +1252,18 @@ public sealed class AgentOrchestrationServiceTests
         return JsonSerializer.Serialize(new
         {
             response = responseText,
-            done = true
+            done = true,
+            choices = new[]
+            {
+                new
+                {
+                    message = new
+                    {
+                        role = "assistant",
+                        content = responseText
+                    }
+                }
+            }
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
 
