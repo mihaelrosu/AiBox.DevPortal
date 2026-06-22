@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AiBox.DevPortal.Models.Agents;
+using AiBox.DevPortal.Services;
 
 namespace AiBox.DevPortal.Services.Agents;
 
@@ -75,8 +76,7 @@ public sealed class AgentExecutionPolicyService(IWebHostEnvironment environment)
             return seeded;
         }
 
-        await using var stream = File.OpenRead(path);
-        var policies = await JsonSerializer.DeserializeAsync<List<AgentExecutionPolicy>>(stream, JsonOptions, cancellationToken) ?? [];
+        var policies = await JsonFileStore.LoadListAsync(path, JsonOptions, cancellationToken, CreateSeedPolicies);
         if (policies.Count == 0)
         {
             policies = CreateSeedPolicies();
@@ -88,15 +88,7 @@ public sealed class AgentExecutionPolicyService(IWebHostEnvironment environment)
 
     private async Task SavePoliciesAsync(List<AgentExecutionPolicy> policies, CancellationToken cancellationToken)
     {
-        var path = GetPoliciesPath();
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, policies, JsonOptions, cancellationToken);
+        await JsonFileStore.SaveListAsync(GetPoliciesPath(), policies, JsonOptions, cancellationToken);
     }
 
     private string GetPoliciesPath()

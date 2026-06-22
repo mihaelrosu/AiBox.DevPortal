@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AiBox.DevPortal.Models;
+using AiBox.DevPortal.Services;
 
 namespace AiBox.DevPortal.Services;
 
@@ -122,17 +123,12 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             return [];
         }
 
-        await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<List<LocalCoderHistoryEntry>>(stream, JsonOptions) ?? [];
+        return await JsonFileStore.LoadListAsync<LocalCoderHistoryEntry>(path, JsonOptions, fallbackFactory: () => []);
     }
 
     private async Task SaveAllAsync(List<LocalCoderHistoryEntry> entries)
     {
-        var path = GetHistoryPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, entries, JsonOptions);
+        await JsonFileStore.SaveListAsync(GetHistoryPath(), entries, JsonOptions);
     }
 
     private string GetHistoryPath()

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using AiBox.DevPortal.Models;
+using AiBox.DevPortal.Services;
 using AiBox.DevPortal.Models.Agents;
 
 namespace AiBox.DevPortal.Services.Agents;
@@ -229,8 +230,7 @@ public sealed class PatchSafetySnapshotService(IWebHostEnvironment environment)
             return [];
         }
 
-        await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<List<PatchSafetySnapshot>>(stream, JsonOptions, cancellationToken) ?? [];
+        return await JsonFileStore.LoadListAsync<PatchSafetySnapshot>(path, JsonOptions, cancellationToken, () => []);
     }
 
     private async Task SaveSnapshotAsync(PatchSafetySnapshot snapshot, CancellationToken cancellationToken)
@@ -242,15 +242,7 @@ public sealed class PatchSafetySnapshotService(IWebHostEnvironment environment)
 
     private async Task SaveAsync(List<PatchSafetySnapshot> items, CancellationToken cancellationToken)
     {
-        var path = GetHistoryPath();
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, items, JsonOptions, cancellationToken);
+        await JsonFileStore.SaveListAsync(GetHistoryPath(), items, JsonOptions, cancellationToken);
     }
 
     private async Task<(bool Success, string Output, string Error)> RunGitStatusAsync(string projectPath, CancellationToken cancellationToken)

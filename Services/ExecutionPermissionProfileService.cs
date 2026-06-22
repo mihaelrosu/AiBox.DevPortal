@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AiBox.DevPortal.Models;
+using AiBox.DevPortal.Services;
 
 namespace AiBox.DevPortal.Services;
 
@@ -168,16 +169,12 @@ public sealed class ExecutionPermissionProfileService : IExecutionPermissionProf
             return profiles;
         }
 
-        await using var stream = File.OpenRead(RegistryPath);
-        return await JsonSerializer.DeserializeAsync<List<ExecutionPermissionProfile>>(stream, JsonOptions, cancellationToken) ?? [];
+        return await JsonFileStore.LoadListAsync(RegistryPath, JsonOptions, cancellationToken, CreateDefaultProfiles);
     }
 
     private static async Task SaveAsync(List<ExecutionPermissionProfile> profiles, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(RegistryPath)!);
-
-        await using var stream = File.Create(RegistryPath);
-        await JsonSerializer.SerializeAsync(stream, profiles, JsonOptions, cancellationToken);
+        await JsonFileStore.SaveListAsync(RegistryPath, profiles, JsonOptions, cancellationToken);
     }
 
     private static List<ExecutionPermissionProfile> CreateDefaultProfiles()

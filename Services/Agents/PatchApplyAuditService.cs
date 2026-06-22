@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AiBox.DevPortal.Models.Agents;
+using AiBox.DevPortal.Services;
 
 namespace AiBox.DevPortal.Services.Agents;
 
@@ -68,21 +69,12 @@ public sealed class PatchApplyAuditService(IWebHostEnvironment environment)
             return [];
         }
 
-        await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<List<PatchApplyAuditItem>>(stream, JsonOptions, cancellationToken) ?? [];
+        return await JsonFileStore.LoadListAsync<PatchApplyAuditItem>(path, JsonOptions, cancellationToken, () => []);
     }
 
     private async Task SaveAsync(List<PatchApplyAuditItem> items, CancellationToken cancellationToken)
     {
-        var path = GetHistoryPath();
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, items, JsonOptions, cancellationToken);
+        await JsonFileStore.SaveListAsync(GetHistoryPath(), items, JsonOptions, cancellationToken);
     }
 
     private string GetHistoryPath()

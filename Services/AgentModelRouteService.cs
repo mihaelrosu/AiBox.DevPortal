@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AiBox.DevPortal.Models;
+using AiBox.DevPortal.Services;
 
 namespace AiBox.DevPortal.Services;
 
@@ -68,8 +69,7 @@ public sealed class AgentModelRouteService(IWebHostEnvironment environment)
             return seeded;
         }
 
-        await using var stream = File.OpenRead(path);
-        var routes = await JsonSerializer.DeserializeAsync<List<AgentModelRoute>>(stream, JsonOptions, cancellationToken) ?? [];
+        var routes = await JsonFileStore.LoadListAsync(path, JsonOptions, cancellationToken, CreateSeedRoutes);
         if (routes.Count == 0)
         {
             routes = CreateSeedRoutes();
@@ -81,15 +81,7 @@ public sealed class AgentModelRouteService(IWebHostEnvironment environment)
 
     private async Task SaveRoutesAsync(List<AgentModelRoute> routes, CancellationToken cancellationToken)
     {
-        var path = GetRoutesPath();
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, routes, JsonOptions, cancellationToken);
+        await JsonFileStore.SaveListAsync(GetRoutesPath(), routes, JsonOptions, cancellationToken);
     }
 
     private string GetRoutesPath()

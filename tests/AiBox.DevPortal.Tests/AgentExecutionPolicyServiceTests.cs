@@ -96,6 +96,30 @@ public sealed class AgentExecutionPolicyServiceTests
         }
     }
 
+    [Fact]
+    public async Task GetAllAsync_RepairsCorruptSeedFile()
+    {
+        var root = CreateTempProjectRoot();
+
+        try
+        {
+            var dataPath = Path.Combine(root, "Data", "agent-execution-policies.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(dataPath)!);
+            await File.WriteAllTextAsync(dataPath, "{not valid json");
+
+            var service = CreateService(root);
+            var policies = await service.GetAllAsync();
+
+            Assert.Equal(5, policies.Count);
+            Assert.Contains(policies, policy => policy.Id == "Planner");
+            Assert.Contains("\"Planner\"", await File.ReadAllTextAsync(dataPath));
+        }
+        finally
+        {
+            DeleteTempProjectRoot(root);
+        }
+    }
+
     private static AgentExecutionPolicyService CreateService(string root)
     {
         return new AgentExecutionPolicyService(new TestWebHostEnvironment(root));

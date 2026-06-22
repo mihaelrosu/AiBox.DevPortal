@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AiBox.DevPortal.Models.Agents;
+using AiBox.DevPortal.Services;
 
 namespace AiBox.DevPortal.Services.Agents;
 
@@ -87,27 +88,12 @@ public sealed class AgentRunTimelineService(IWebHostEnvironment environment)
 
     private async Task<List<AgentRunTimelineItem>> LoadAsync(CancellationToken cancellationToken)
     {
-        var path = GetPath();
-        if (!File.Exists(path))
-        {
-            return [];
-        }
-
-        await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<List<AgentRunTimelineItem>>(stream, JsonOptions, cancellationToken) ?? [];
+        return await JsonFileStore.LoadListAsync<AgentRunTimelineItem>(GetPath(), JsonOptions, cancellationToken, () => []);
     }
 
     private async Task SaveAsync(List<AgentRunTimelineItem> items, CancellationToken cancellationToken)
     {
-        var path = GetPath();
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, items, JsonOptions, cancellationToken);
+        await JsonFileStore.SaveListAsync(GetPath(), items, JsonOptions, cancellationToken);
     }
 
     private string GetPath()

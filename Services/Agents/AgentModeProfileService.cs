@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AiBox.DevPortal.Models.Agents;
+using AiBox.DevPortal.Services;
 
 namespace AiBox.DevPortal.Services.Agents;
 
@@ -112,20 +113,19 @@ private async Task<List<AgentModeProfile>> LoadAsync(CancellationToken cancellat
         return profiles;
     }
 
-    await using var stream = File.OpenRead(path);
-        var loadedProfiles = await JsonSerializer.DeserializeAsync<List<AgentModeProfile>>(stream, JsonOptions, cancellationToken) ?? [];
-            var normalizedProfiles = NormalizeProfiles(loadedProfiles);
-        if (normalizedProfiles.Count == 0)
-        {
-            normalizedProfiles = CreateDefaultProfiles();
-            await SaveAsync(normalizedProfiles, cancellationToken);
-        }
-        else if (!loadedProfiles.SequenceEqual(normalizedProfiles, AgentModeProfileComparer.Instance))
-        {
-            await SaveAsync(normalizedProfiles, cancellationToken);
-        }
+    var loadedProfiles = await JsonFileStore.LoadListAsync(path, JsonOptions, cancellationToken, CreateDefaultProfiles);
+    var normalizedProfiles = NormalizeProfiles(loadedProfiles);
+    if (normalizedProfiles.Count == 0)
+    {
+        normalizedProfiles = CreateDefaultProfiles();
+        await SaveAsync(normalizedProfiles, cancellationToken);
+    }
+    else if (!loadedProfiles.SequenceEqual(normalizedProfiles, AgentModeProfileComparer.Instance))
+    {
+        await SaveAsync(normalizedProfiles, cancellationToken);
+    }
 
-        return normalizedProfiles;
+    return normalizedProfiles;
 }
 
     
@@ -137,11 +137,7 @@ private async Task<List<AgentModeProfile>> LoadAsync(CancellationToken cancellat
     /// <returns>A task that represents the asynchronous operation.</returns>
 private async Task SaveAsync(List<AgentModeProfile> profiles, CancellationToken cancellationToken)
     {
-        var path = GetRegistryPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, profiles, JsonOptions, cancellationToken);
+        await JsonFileStore.SaveListAsync(GetRegistryPath(), profiles, JsonOptions, cancellationToken);
     }
 
     

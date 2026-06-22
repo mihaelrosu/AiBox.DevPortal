@@ -281,6 +281,46 @@ public sealed class AgentRunTimelineTests
         Assert.Equal("preview-approved", item.ReferenceId);
     }
 
+    [Fact]
+    public async Task CorruptTimelineFile_IsRepairedOnReadAndWrite()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"agent-run-timeline-corrupt-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+
+        try
+        {
+            var dataPath = Path.Combine(root, "Data", "agent-run-timeline.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(dataPath)!);
+            await File.WriteAllTextAsync(dataPath, "{not valid json");
+
+            var service = new AgentRunTimelineService(new TestWebHostEnvironment(root));
+
+            var latest = await service.GetLatestAsync();
+            Assert.Empty(latest);
+
+            await service.AddAsync(new AgentRunTimelineItem
+            {
+                RunId = "run-1",
+                Stage = "AuditWritten",
+                Status = "Succeeded",
+                Message = "written",
+                ReferenceId = "ref-1"
+            });
+
+            var recovered = await service.GetLatestAsync();
+            Assert.Single(recovered);
+            Assert.Equal("run-1", recovered[0].RunId);
+            Assert.Contains("\"run-1\"", await File.ReadAllTextAsync(dataPath));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static RunnerContext CreateContext()
     {
         var root = Path.Combine(Path.GetTempPath(), $"agent-run-timeline-{Guid.NewGuid():N}");
