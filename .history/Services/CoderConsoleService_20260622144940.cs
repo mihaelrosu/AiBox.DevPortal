@@ -3440,14 +3440,14 @@ public sealed class CoderConsoleService(
     {
         return path.Replace('\\', '/').Trim();
     }
-    private static string NormalizePreviewFolder(string path)
-    {
-        var normalized = NormalizePreviewPath(path);
+private static string NormalizePreviewFolder(string path)
+{
+    var normalized = NormalizePreviewPath(path);
 
-        return normalized.EndsWith("/", StringComparison.Ordinal)
-            ? normalized
-            : $"{normalized}/";
-    }
+    return normalized.EndsWith("/", StringComparison.Ordinal)
+        ? normalized
+        : $"{normalized}/";
+}
     private static string TrimForPrompt(string content, int maxChars)
     {
         if (string.IsNullOrEmpty(content) || content.Length <= maxChars)
