@@ -1,112 +1,10 @@
 @page "/coder"
 @rendermode InteractiveServer
-@using AiBox.DevPortal.Models
-@using AiBox.DevPortal.Models.Agents
 @using System.Security.Cryptography
 @using System.Text
-@inject AgentModelRouteService AgentModelRouteService
-@inject AgentModelRouteHealthCheckService AgentModelRouteHealthCheckService
-@inject AgentExecutionPolicyService AgentExecutionPolicyService
-@inject PatchSafetySnapshotService PatchSafetySnapshotService
-@inject PatchApplyAuditService PatchApplyAuditService
-@inject AgentRunTimelineService AgentRunTimelineService
 <PageTitle>Local Coder</PageTitle>
 <RadzenStack Gap="1rem">
 <RadzenText Text="Local Coder" TextStyle="TextStyle.H4" />
-<RadzenCard>
-    <RadzenStack Gap="0.5rem">
-        <RadzenText Text="Stable Local Model Routing" TextStyle="TextStyle.H6" />
-        <RadzenText Text="DevPortal Local Coder should use a dedicated llama.cpp endpoint. Do not depend on Ollama's currently loaded model."
-                    TextStyle="TextStyle.Body2" />
-
-        <RadzenFormField Text="Agent profile" Style="width: 100%;">
-            <RadzenDropDown TValue="string"
-                            Data="@agentModeProfiles"
-                            TextProperty="Name"
-                            ValueProperty="Id"
-                            @bind-Value="@selectedAgentModeProfileId"
-                            Style="width: 100%;" />
-        </RadzenFormField>
-
-        @if (GetSelectedAgentModeProfile() is { } selectedAgentProfile)
-        {
-            <RadzenCard Style="margin: 0;">
-                <RadzenStack Gap="0.25rem">
-                    <RadzenText Text="@($"Selected profile: {selectedAgentProfile.Name}")" TextStyle="TextStyle.Body2" />
-                    @if (GetSelectedAgentModeProfileRoute(selectedAgentProfile) is { } selectedRoute)
-                    {
-                        <RadzenText Text="@($"Route name: {selectedRoute.Name}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Provider: {selectedRoute.Provider}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Base URL: {selectedRoute.BaseUrl}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Model: {selectedRoute.Model}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Expected output format: {selectedRoute.ExpectedOutputFormat}")" TextStyle="TextStyle.Body2" />
-                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                            <RadzenButton Text="Check Route"
-                                          Icon="health_and_safety"
-                                          ButtonStyle="ButtonStyle.Light"
-                                          Size="ButtonSize.Small"
-                                          Click="@CheckSelectedRouteAsync"
-                                          Disabled="@isCheckingSelectedRoute" />
-                        </RadzenStack>
-                    }
-                    else if (string.IsNullOrWhiteSpace(selectedAgentProfile.ModelRouteId))
-                    {
-                        <RadzenText Text="This profile does not require a model route." TextStyle="TextStyle.Body2" />
-                    }
-                    else
-                    {
-                        <RadzenText Text="@($"Route id '{selectedAgentProfile.ModelRouteId}' was not found.")" TextStyle="TextStyle.Body2" />
-                    }
-                </RadzenStack>
-            </RadzenCard>
-
-            @if (GetSelectedAgentModeProfilePolicy(selectedAgentProfile) is { } selectedPolicy)
-            {
-                <RadzenCard Style="margin: 0;">
-                    <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="@($"Selected policy: {selectedPolicy.Name}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Policy id: {selectedPolicy.Id}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Description: {selectedPolicy.Description}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Model calls allowed: {(selectedPolicy.AllowModelCalls ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Tool calls allowed: {(selectedPolicy.AllowToolCalls ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Shell commands allowed: {(selectedPolicy.AllowShellCommands ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Patch generation allowed: {(selectedPolicy.AllowPatchGeneration ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Patch apply allowed: {(selectedPolicy.AllowPatchApply ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Require human approval: {(selectedPolicy.RequireHumanApproval ? "Yes" : "No")}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Max files changed: {selectedPolicy.MaxFilesChanged}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Max patch operations: {selectedPolicy.MaxPatchOperations}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Max execution minutes: {selectedPolicy.MaxExecutionMinutes}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Allowed directories: {FormatDirectoryList(selectedPolicy.AllowedDirectories)}")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@($"Blocked directories: {FormatDirectoryList(selectedPolicy.BlockedDirectories)}")" TextStyle="TextStyle.Body2" />
-                    </RadzenStack>
-                </RadzenCard>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(selectedRouteHealthMessage))
-            {
-                <RadzenAlert AlertStyle="@(selectedRouteHealthIsHealthy == true ? AlertStyle.Success : AlertStyle.Danger)" Shade="Shade.Lighter">
-                    @selectedRouteHealthMessage
-                </RadzenAlert>
-            }
-        }
-
-        @if (defaultCoderRoute is not null)
-        {
-            <RadzenStack Gap="0.25rem">
-                @foreach (var line in GetDefaultCoderRouteSummaryLines())
-                {
-                    <RadzenText Text="@line" TextStyle="TextStyle.Body2" />
-                }
-            </RadzenStack>
-        }
-        else
-        {
-            <RadzenText Text="No default coder route is configured yet." TextStyle="TextStyle.Body2" />
-        }
-
-        <RadzenText Text="@GetConfiguredModelRoutesText()" TextStyle="TextStyle.Caption" />
-    </RadzenStack>
-</RadzenCard>
 <RadzenTabs Style="width: 100%;" @bind-SelectedIndex="@selectedTabIndex">
     <Tabs>
         <RadzenTabsItem Text="Work" Icon="edit_note">
@@ -222,247 +120,6 @@
                     }
 
                     <TaskSliceApplyHistoryPanel Items="@applyHistoryItems" />
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenStack Orientation="Orientation.Horizontal"
-                                         AlignItems="AlignItems.Center"
-                                         JustifyContent="JustifyContent.SpaceBetween"
-                                         Gap="0.5rem"
-                                         Wrap="FlexWrap.Wrap">
-                                <RadzenText Text="Patch Safety Snapshots" TextStyle="TextStyle.H6" />
-                                <RadzenButton Text="Refresh"
-                                              Icon="refresh"
-                                              ButtonStyle="ButtonStyle.Light"
-                                              Size="ButtonSize.Small"
-                                              Click="@LoadPatchSafetySnapshotsAsync"
-                                              Disabled="@isLoadingPatchSafetySnapshots" />
-                            </RadzenStack>
-
-                            @if (patchSafetySnapshots.Count == 0)
-                            {
-                                <RadzenText Text="No patch safety snapshots available yet." TextStyle="TextStyle.Body2" />
-                            }
-                            else
-                            {
-                                <RadzenDataGrid Data="@patchSafetySnapshots"
-                                                TItem="PatchSafetySnapshot"
-                                                AllowPaging="false"
-                                                AllowSorting="false"
-                                                AllowFiltering="false"
-                                                Density="Density.Compact">
-                                    <Columns>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="CreatedAt" Title="Created" Width="170px">
-                                            <Template Context="item">
-                                                @item.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="PatchPreviewId" Title="Preview" Width="180px" />
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Success" Width="90px">
-                                            <Template Context="item">
-                                                <RadzenBadge Text="@GetPatchSafetySnapshotSuccessText(item)"
-                                                             BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Property="Message" Title="Message">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Target Files" Width="120px">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.TargetFiles.Count.ToString()" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchSafetySnapshot" Title="Restore" Width="110px">
-                                            <Template Context="item">
-                                                <RadzenButton Text="Restore"
-                                                              Icon="restore"
-                                                              Size="ButtonSize.Small"
-                                                              ButtonStyle="ButtonStyle.Secondary"
-                                                              Click="@(() => RestorePatchSafetySnapshotAsync(item.Id))"
-                                                              Disabled="@isRestoringPatchSafetySnapshot" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                    </Columns>
-                                </RadzenDataGrid>
-                            }
-
-                            @if (patchSafetySnapshotRestoreResult is not null)
-                            {
-                                <RadzenAlert AlertStyle="@(patchSafetySnapshotRestoreResult.Success ? AlertStyle.Success : AlertStyle.Danger)"
-                                             Shade="Shade.Lighter">
-                                    <RadzenStack Gap="0.25rem">
-                                        <RadzenText Text="@patchSafetySnapshotRestoreResult.Message" TextStyle="TextStyle.Body2" />
-                                        <RadzenText Text="@($"Restored: {patchSafetySnapshotRestoreResult.RestoredFiles.Count}, Skipped: {patchSafetySnapshotRestoreResult.SkippedFiles.Count}")"
-                                                    TextStyle="TextStyle.Caption" />
-                                    </RadzenStack>
-                                </RadzenAlert>
-                            }
-                        </RadzenStack>
-                    </RadzenCard>
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenStack Orientation="Orientation.Horizontal"
-                                         AlignItems="AlignItems.Center"
-                                         JustifyContent="JustifyContent.SpaceBetween"
-                                         Gap="0.5rem"
-                                         Wrap="FlexWrap.Wrap">
-                                <RadzenText Text="Patch Apply Audit" TextStyle="TextStyle.H6" />
-                                <RadzenButton Text="Refresh"
-                                              Icon="refresh"
-                                              ButtonStyle="ButtonStyle.Light"
-                                              Size="ButtonSize.Small"
-                                              Click="@LoadPatchApplyAuditAsync"
-                                              Disabled="@isLoadingPatchApplyAudit" />
-                            </RadzenStack>
-
-                            @if (patchApplyAuditEntries.Count == 0)
-                            {
-                                <RadzenText Text="No patch apply audit entries available yet." TextStyle="TextStyle.Body2" />
-                            }
-                            else
-                            {
-                                <RadzenDataGrid Data="@patchApplyAuditEntries"
-                                                TItem="PatchApplyAuditItem"
-                                                AllowPaging="false"
-                                                AllowSorting="false"
-                                                AllowFiltering="false"
-                                                Density="Density.Compact">
-                                    <Columns>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Timestamp" Title="UTC" Width="170px">
-                                            <Template Context="item">
-                                                @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Action" Title="Action" Width="130px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="PatchPreviewId" Title="Preview" Width="180px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="ProfileId" Title="Profile" Width="130px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="PolicyId" Title="Policy" Width="130px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="ModelRouteId" Title="Route" Width="180px" />
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Approved" Width="150px">
-                                            <Template Context="item">
-                                                <RadzenText Text="@GetPatchApplyAuditApprovalText(item)" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Success" Width="90px">
-                                            <Template Context="item">
-                                                <RadzenBadge Text="@GetPatchApplyAuditSuccessText(item)"
-                                                             BadgeStyle="@(item.Success ? BadgeStyle.Success : BadgeStyle.Danger)" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Verification" Width="150px">
-                                            <Template Context="item">
-                                                <RadzenText Text="@GetPatchApplyAuditVerificationText(item)" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Restore" Width="150px">
-                                            <Template Context="item">
-                                                <RadzenBadge Text="@GetPatchApplyAuditRestoreText(item)"
-                                                             BadgeStyle="@GetPatchApplyAuditRestoreBadgeStyle(item)" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Title="Files" Width="90px">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.ChangedFiles.Count.ToString()" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="PatchApplyAuditItem" Property="Message" Title="Message">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                    </Columns>
-                                </RadzenDataGrid>
-                            }
-                        </RadzenStack>
-                    </RadzenCard>
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenStack Orientation="Orientation.Horizontal"
-                                         AlignItems="AlignItems.Center"
-                                         JustifyContent="JustifyContent.SpaceBetween"
-                                         Gap="0.5rem"
-                                         Wrap="FlexWrap.Wrap">
-                                <RadzenText Text="Agent Run Timeline" TextStyle="TextStyle.H6" />
-                                <RadzenButton Text="Refresh"
-                                              Icon="refresh"
-                                              ButtonStyle="ButtonStyle.Light"
-                                              Size="ButtonSize.Small"
-                                              Click="@LoadAgentRunTimelineAsync"
-                                              Disabled="@isLoadingAgentRunTimeline" />
-                            </RadzenStack>
-
-                            @if (!string.IsNullOrWhiteSpace(currentTimelineRunId))
-                            {
-                                <RadzenText Text="@($"Current run: {currentTimelineRunId}")" TextStyle="TextStyle.Body2" />
-                                @if (currentAgentRunTimelineItems.Count == 0)
-                                {
-                                    <RadzenText Text="No timeline items were recorded for the current run yet." TextStyle="TextStyle.Body2" />
-                                }
-                                else
-                                {
-                                    <RadzenDataGrid Data="@currentAgentRunTimelineItems"
-                                                    TItem="AgentRunTimelineItem"
-                                                    AllowPaging="false"
-                                                    AllowSorting="false"
-                                                    AllowFiltering="false"
-                                                    Density="Density.Compact">
-                                        <Columns>
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Timestamp" Title="UTC" Width="170px">
-                                                <Template Context="item">
-                                                    @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
-                                                </Template>
-                                            </RadzenDataGridColumn>
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Stage" Title="Stage" Width="180px" />
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Status" Title="Status" Width="120px" />
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="ReferenceId" Title="Reference" Width="180px" />
-                                            <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Message" Title="Message">
-                                                <Template Context="item">
-                                                    <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
-                                                </Template>
-                                            </RadzenDataGridColumn>
-                                        </Columns>
-                                    </RadzenDataGrid>
-                                }
-                            }
-                            else
-                            {
-                                <RadzenText Text="No current run is selected yet." TextStyle="TextStyle.Body2" />
-                            }
-
-                            <RadzenText Text="Latest 25 timeline items" TextStyle="TextStyle.Body2" />
-                            @if (latestAgentRunTimelineItems.Count == 0)
-                            {
-                                <RadzenText Text="No agent run timeline items available yet." TextStyle="TextStyle.Body2" />
-                            }
-                            else
-                            {
-                                <RadzenDataGrid Data="@latestAgentRunTimelineItems"
-                                                TItem="AgentRunTimelineItem"
-                                                AllowPaging="false"
-                                                AllowSorting="false"
-                                                AllowFiltering="false"
-                                                Density="Density.Compact">
-                                    <Columns>
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Timestamp" Title="UTC" Width="170px">
-                                            <Template Context="item">
-                                                @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="RunId" Title="Run" Width="180px" />
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Stage" Title="Stage" Width="180px" />
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Status" Title="Status" Width="120px" />
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="ReferenceId" Title="Reference" Width="180px" />
-                                        <RadzenDataGridColumn TItem="AgentRunTimelineItem" Property="Message" Title="Message">
-                                            <Template Context="item">
-                                                <RadzenText Text="@item.Message" TextStyle="TextStyle.Body2" />
-                                            </Template>
-                                        </RadzenDataGridColumn>
-                                    </Columns>
-                                </RadzenDataGrid>
-                            }
-                        </RadzenStack>
-                    </RadzenCard>
                     <TaskSliceApplyAuditPanel Items="@applyAuditEntries"
                                               IsBusy="@isRollingBackSlice"
                                               OnRollbackRequested="@RollbackApplyAuditAsync" />
@@ -495,9 +152,9 @@
             </RadzenStack>
         </RadzenTabsItem>
 
-        <RadzenTabsItem Text="Scheduled Runs" Icon="schedule">
-            <CoderScheduledRunsPanel />
-        </RadzenTabsItem>
+<RadzenTabsItem Text="Scheduled Runs" Icon="schedule">
+    <CoderScheduledRunsPanel />
+</RadzenTabsItem>
 
         <RadzenTabsItem Text="Dashboard" Icon="dashboard">
             <RadzenStack Gap="1rem">
@@ -615,42 +272,6 @@
                                     TextStyle="TextStyle.Body2" />
                     </RadzenStack>
                 </RadzenCard>
-                @if (patchPreview is not null && patchPreview.RequiresApproval)
-                {
-                    <RadzenCard>
-                        <RadzenStack Gap="0.5rem">
-                            <RadzenStack Orientation="Orientation.Horizontal"
-                                         Gap="0.5rem"
-                                         Wrap="FlexWrap.Wrap"
-                                         AlignItems="AlignItems.Center">
-                                <RadzenBadge Text="Approval required" BadgeStyle="BadgeStyle.Warning" />
-                                @if (patchPreview.ApprovedAt is null)
-                                {
-                                    <RadzenBadge Text="Not approved" BadgeStyle="BadgeStyle.Light" />
-                                }
-                                else
-                                {
-                                    <RadzenBadge Text="Approved" BadgeStyle="BadgeStyle.Success" />
-                                }
-                            </RadzenStack>
-                            <RadzenText Text="@patchPreview.ApprovalReason" TextStyle="TextStyle.Body2" />
-                            @if (patchPreview.ApprovedAt is null)
-                            {
-                                <RadzenButton Text="Approve Preview"
-                                              Icon="verified"
-                                              ButtonStyle="ButtonStyle.Success"
-                                              Size="ButtonSize.Small"
-                                              Click="@ApprovePatchPreviewAsync"
-                                              Disabled="@isApprovingPatchPreview" />
-                            }
-                            else
-                            {
-                                <RadzenText Text="@($"Approved by {patchPreview.ApprovedBy} at {patchPreview.ApprovedAt:O}")"
-                                            TextStyle="TextStyle.Body2" />
-                            }
-                        </RadzenStack>
-                    </RadzenCard>
-                }
                 <CoderDiffViewer Error="@error"
                                  ValidationErrors="@LastPatchValidationErrors"
                                  OperationGrammarErrors="@LastPatchOperationGrammarErrors"
@@ -678,20 +299,6 @@
                                  OnClearSuggestedTarget="@ClearSuggestedTargetAsync"
                                  OnRegenerateWithSuggestedTarget="@RegeneratePatchPreviewWithSuggestedTargetAsync"
                                  OnFixPatchPreview="@FixPatchPreviewAsync" />
-                @if (applyResult is not null)
-                {
-                    <RadzenCard>
-                        <RadzenStack Gap="0.35rem">
-                            <RadzenText Text="Restore Status" TextStyle="TextStyle.H6" />
-                            <RadzenText Text="@($"Restore attempted: {applyResult.RestoreAttempted}")" TextStyle="TextStyle.Body2" />
-                            <RadzenText Text="@($"Restore succeeded: {applyResult.RestoreSucceeded}")" TextStyle="TextStyle.Body2" />
-                            @if (!string.IsNullOrWhiteSpace(applyResult.RestoreMessage))
-                            {
-                                <RadzenText Text="@($"Restore message: {applyResult.RestoreMessage}")" TextStyle="TextStyle.Body2" />
-                            }
-                        </RadzenStack>
-                    </RadzenCard>
-                }
                 <CoderPatchQueuePanel PatchPackages="@patchPackages"
                                       SelectedPatchPackage="@selectedPatchPackage"
                                       CanReview="@CanReviewSelectedPatch()"
@@ -831,13 +438,6 @@
 
     private IReadOnlyList<string> workspaceRoots = [];
     private IReadOnlyList<string> models = [];
-    private IReadOnlyList<AgentModelRoute> modelRoutes = [];
-    private AgentModelRoute? defaultCoderRoute;
-    private IReadOnlyList<AgentExecutionPolicy> executionPolicies = [];
-    private string selectedAgentModeProfileId = string.Empty;
-    private string selectedRouteHealthMessage = string.Empty;
-    private bool? selectedRouteHealthIsHealthy;
-    private bool isCheckingSelectedRoute;
     private IReadOnlyList<CommandRunResult> verifyResults = [];
     private IReadOnlyList<CommandRunResult> commitResults = [];
     private IReadOnlyList<CommandRunResult> buildDeployResults = [];
@@ -849,11 +449,6 @@
     private IReadOnlyList<TaskSliceExecutionResult> sliceExecutionHistory = [];
     private IReadOnlyList<TaskSliceApplyHistoryItem> applyHistoryItems = [];
     private IReadOnlyList<TaskSliceApplyAuditEntry> applyAuditEntries = [];
-    private IReadOnlyList<PatchApplyAuditItem> patchApplyAuditEntries = [];
-    private IReadOnlyList<AgentRunTimelineItem> currentAgentRunTimelineItems = [];
-    private IReadOnlyList<AgentRunTimelineItem> latestAgentRunTimelineItems = [];
-    private IReadOnlyList<PatchSafetySnapshot> patchSafetySnapshots = [];
-    private PatchSafetySnapshotRestoreResult? patchSafetySnapshotRestoreResult;
     private IReadOnlyDictionary<string, TaskSliceApproval> sliceApprovals = new Dictionary<string, TaskSliceApproval>(StringComparer.OrdinalIgnoreCase);
     private ProjectKnowledgeIndex? projectKnowledgeIndex;
     private List<LocalCoderFileContext> fileContexts = [];
@@ -884,7 +479,6 @@
     private LocalCoderContextRestoreResult? contextRestoreResult;
     private AgentRunRecord? selectedAgentRun;
     private PatchPackage? selectedPatchPackage;
-    private string currentTimelineRunId = string.Empty;
     private string commitMessage = string.Empty;
     private string? selectedPlanTaskId;
     private string? activePlanTaskId;
@@ -920,7 +514,6 @@
     private bool isGeneratingPatch;
     private bool isVerifyingSlice;
     private bool isApplyingPatch;
-    private bool isApprovingPatchPreview;
     private bool isRollingBack;
     private bool isRollingBackSlice;
     private bool isRunningCommand;
@@ -929,10 +522,6 @@
     private bool isBuildDeployRunning;
     private bool isRebuildingKnowledgeIndex;
     private bool isLoadingHistory;
-    private bool isLoadingPatchApplyAudit;
-    private bool isLoadingPatchSafetySnapshots;
-    private bool isLoadingAgentRunTimeline;
-    private bool isRestoringPatchSafetySnapshot;
     private bool isClearingHistory;
 
     private string? error;
@@ -955,9 +544,6 @@
         {
             workspaceRoots = await CoderConsoleService.GetWorkspaceRootsAsync();
             models = await CoderConsoleService.GetOllamaModelsAsync();
-            modelRoutes = await AgentModelRouteService.GetAllAsync();
-            defaultCoderRoute = await AgentModelRouteService.GetDefaultCoderRouteAsync();
-            executionPolicies = await AgentExecutionPolicyService.GetAllAsync();
 
             if (string.IsNullOrWhiteSpace(request.ProjectPath))
             {
@@ -975,8 +561,6 @@
 
             agentModeProfiles = await AgentModeProfiles.GetAllAsync();
             verificationProfiles = await LocalCoderVerificationProfileService.GetAllAsync();
-            selectedAgentModeProfileId = ResolveAgentModeProfileId(selectedAgentModeProfileId);
-            ClearRouteHealthMessage();
             selectedVerificationProfileId = ResolveVerificationProfileId(selectedVerificationProfileId);
             await LoadProjectKnowledgeIndexAsync();
             await LoadAgentRunHistoryAsync();
@@ -984,10 +568,7 @@
             await LoadHistoryAsync();
             await LoadApprovalStatesAsync();
             await LoadApplyHistoryAsync();
-            await LoadPatchSafetySnapshotsAsync();
-            await LoadPatchApplyAuditAsync();
             await LoadApplyAuditAsync();
-            await LoadAgentRunTimelineAsync();
         }
         catch (Exception exception)
         {
@@ -997,122 +578,6 @@
         {
             isLoading = false;
         }
-    }
-
-    private IReadOnlyList<string> GetDefaultCoderRouteSummaryLines()
-    {
-        if (defaultCoderRoute is null)
-        {
-            return [];
-        }
-
-        return
-        [
-            $"Default coder route: {defaultCoderRoute.Name}",
-            $"Provider: {defaultCoderRoute.Provider}",
-            $"Base URL: {defaultCoderRoute.BaseUrl}",
-            $"Model: {defaultCoderRoute.Model}",
-            $"Context size: {defaultCoderRoute.ContextSize}",
-            $"Tools allowed: {(defaultCoderRoute.AllowTools ? "Yes" : "No")}",
-            $"Expected output format: {defaultCoderRoute.ExpectedOutputFormat}",
-            $"Lifecycle policy: {defaultCoderRoute.LifecyclePolicy}"
-        ];
-    }
-
-    private string GetConfiguredModelRoutesText()
-    {
-        return $"Configured model routes: {modelRoutes.Count}";
-    }
-
-    private AgentModeProfile? GetSelectedAgentModeProfile()
-    {
-        return agentModeProfiles.FirstOrDefault(profile => profile.Id.Equals(selectedAgentModeProfileId, StringComparison.OrdinalIgnoreCase))
-            ?? agentModeProfiles.FirstOrDefault(profile => profile.Mode == AgentMode.Planner)
-            ?? agentModeProfiles.FirstOrDefault();
-    }
-
-    private AgentModelRoute? GetSelectedAgentModeProfileRoute(AgentModeProfile profile)
-    {
-        if (string.IsNullOrWhiteSpace(profile.ModelRouteId))
-        {
-            return null;
-        }
-
-        return modelRoutes.FirstOrDefault(route => route.Id.Equals(profile.ModelRouteId, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private AgentExecutionPolicy? GetSelectedAgentModeProfilePolicy(AgentModeProfile profile)
-    {
-        if (string.IsNullOrWhiteSpace(profile.PolicyId))
-        {
-            return null;
-        }
-
-        return executionPolicies.FirstOrDefault(policy => policy.Id.Equals(profile.PolicyId, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private async Task CheckSelectedRouteAsync()
-    {
-        var profile = GetSelectedAgentModeProfile();
-        if (profile is null)
-        {
-            selectedRouteHealthIsHealthy = false;
-            selectedRouteHealthMessage = "No agent profile is selected.";
-            return;
-        }
-
-        var route = GetSelectedAgentModeProfileRoute(profile);
-        if (route is null)
-        {
-            selectedRouteHealthIsHealthy = false;
-            selectedRouteHealthMessage = string.IsNullOrWhiteSpace(profile.ModelRouteId)
-                ? "This profile does not require a model route."
-                : $"Route id '{profile.ModelRouteId}' was not found.";
-            return;
-        }
-
-        isCheckingSelectedRoute = true;
-        ClearRouteHealthMessage();
-
-        try
-        {
-            var result = await AgentModelRouteHealthCheckService.CheckAsync(route);
-            selectedRouteHealthIsHealthy = result.IsHealthy;
-            selectedRouteHealthMessage = result.Message;
-        }
-        catch (Exception exception)
-        {
-            selectedRouteHealthIsHealthy = false;
-            selectedRouteHealthMessage = exception.Message;
-        }
-        finally
-        {
-            isCheckingSelectedRoute = false;
-        }
-    }
-
-    private void ClearRouteHealthMessage()
-    {
-        selectedRouteHealthMessage = string.Empty;
-        selectedRouteHealthIsHealthy = null;
-    }
-
-    private static string FormatDirectoryList(IReadOnlyList<string> directories)
-    {
-        return directories.Count == 0 ? "None" : string.Join(", ", directories);
-    }
-
-    private string ResolveAgentModeProfileId(string? profileId)
-    {
-        if (!string.IsNullOrWhiteSpace(profileId) &&
-            agentModeProfiles.Any(profile => profile.Id.Equals(profileId, StringComparison.OrdinalIgnoreCase)))
-        {
-            return profileId;
-        }
-
-        return agentModeProfiles.FirstOrDefault(profile => profile.Mode == AgentMode.Planner)?.Id
-            ?? agentModeProfiles.FirstOrDefault()?.Id
-            ?? string.Empty;
     }
     private async Task ApplySliceAsync(TaskPlanSlice slice)
     {
@@ -1423,7 +888,6 @@
         selectedHistoryEntry = null;
         selectedAgentRun = null;
         selectedPatchPackage = null;
-        currentTimelineRunId = string.Empty;
         highRiskApplyApprovals.Clear();
 
         error = null;
@@ -2146,11 +1610,6 @@
             patchIntent = PatchIntentService.BuildIntent(previewRequest);
             contextSnapshot = CreateContextSnapshot(LocalCoderHistoryActionType.GeneratePatchPreview);
             patchPreview = await AgentModeRunner.GeneratePatchPreviewAsync(previewRequest, profile, repairContext);
-            currentTimelineRunId = patchPreview.Id;
-            if (taskPlanSlice is not null)
-            {
-                patchPreview.VerificationCommands = [.. taskPlanSlice.VerificationCommands];
-            }
             patchPreview.Intent = patchIntent;
             patchPreview.IntentValidation = PatchIntentService.Evaluate(patchIntent!, patchPreview);
             patchIntentValidation = patchPreview.IntentValidation;
@@ -2311,7 +1770,6 @@
         {
             isGeneratingPatch = false;
             await LoadAgentRunHistoryAsync();
-            await LoadAgentRunTimelineAsync();
         }
     }
 
@@ -2348,11 +1806,6 @@
             Console.WriteLine("Apply Patch clicked. Starting patch apply...");
             if (!CanApplyPatchPreview() || patchPreview is null)
             {
-                if (patchPreview is not null && patchPreview.RequiresApproval && patchPreview.ApprovedAt is null)
-                {
-                    throw new InvalidOperationException("Patch preview requires approval before it can be applied.");
-                }
-
                 throw new InvalidOperationException("Generate and review an applicable patch preview before applying it.");
             }
             Console.WriteLine("APPLY STEP 1: handler reached.");
@@ -2374,14 +1827,13 @@
             Console.WriteLine("APPLY STEP 2: calling ApplyPatchPreviewAsync.");
 
             applyResult = await AgentModeRunner.ApplyPatchPreviewAsync(patchPreview, profile);
-            currentTimelineRunId = patchPreview.Id;
             if (applyResult.Applied && !string.IsNullOrWhiteSpace(activePlanTaskId))
             {
                 UpdatePlanTaskStatus(activePlanTaskId, LocalCoderPlanTaskStatus.Applied, "Patch applied successfully.");
             }
             await SaveHistoryEntryAsync(
                 LocalCoderHistoryActionType.ApplyPatch,
-                success: applyResult.Applied,
+                success: applyResult.Applied && applyResult.VerificationPassed,
                 applyResult.Message,
                 applyResult: applyResult,
                 verificationResults: applyResult.VerificationResults,
@@ -2413,13 +1865,6 @@
                 NotificationService.Notify(
                     NotificationSeverity.Success,
                     "Patch applied",
-                    applyResult.Message);
-            }
-            else if (applyResult.Applied)
-            {
-                NotificationService.Notify(
-                    NotificationSeverity.Warning,
-                    "Patch applied, but verification failed",
                     applyResult.Message);
             }
             else
@@ -2475,45 +1920,6 @@
         {
             isApplyingPatch = false;
             await LoadAgentRunHistoryAsync();
-            await LoadPatchSafetySnapshotsAsync();
-            await LoadPatchApplyAuditAsync();
-            await LoadAgentRunTimelineAsync();
-        }
-    }
-
-    private async Task ApprovePatchPreviewAsync()
-    {
-        try
-        {
-            var profile = GetRequiredProfile(AgentActionProfiles.ForApplyPatch());
-            if (patchPreview is null)
-            {
-                return;
-            }
-
-            isApprovingPatchPreview = true;
-            patchPreview = await AgentModeRunner.ApprovePatchPreviewAsync(
-                patchPreview,
-                profile,
-                Environment.UserName);
-            currentTimelineRunId = patchPreview.Id;
-
-            NotificationService.Notify(
-                NotificationSeverity.Success,
-                "Patch preview approved",
-                patchPreview.ApprovalReason);
-            await LoadPatchApplyAuditAsync();
-            await LoadAgentRunTimelineAsync();
-        }
-        catch (Exception exception)
-        {
-            error = exception.Message;
-            NotificationService.Notify(NotificationSeverity.Error, "Patch approval failed", exception.Message);
-        }
-        finally
-        {
-            isApprovingPatchPreview = false;
-            await LoadAgentRunTimelineAsync();
         }
     }
 
@@ -2522,8 +1928,7 @@
         return !isApplyingPatch &&
                patchPreview is not null &&
                !patchPreview.PatchText.Contains("PATCH_NOT_POSSIBLE", StringComparison.Ordinal) &&
-               (patchPreview.ScopeAnalysis is null || !patchPreview.ScopeAnalysis.IsBlocking) &&
-               (!patchPreview.RequiresApproval || patchPreview.ApprovedAt is not null);
+               (patchPreview.ScopeAnalysis is null || !patchPreview.ScopeAnalysis.IsBlocking);
     }
 
     private bool CanRollbackPatch()
@@ -3111,172 +2516,9 @@
         }
     }
 
-    private async Task LoadPatchApplyAuditAsync()
-    {
-        isLoadingPatchApplyAudit = true;
-
-        try
-        {
-            patchApplyAuditEntries = await PatchApplyAuditService.GetLatestAsync(10);
-        }
-        catch (Exception exception)
-        {
-            error = exception.Message;
-        }
-        finally
-        {
-            isLoadingPatchApplyAudit = false;
-        }
-    }
-
-    private async Task LoadAgentRunTimelineAsync()
-    {
-        isLoadingAgentRunTimeline = true;
-
-        try
-        {
-            latestAgentRunTimelineItems = await AgentRunTimelineService.GetLatestAsync(25);
-            currentAgentRunTimelineItems = string.IsNullOrWhiteSpace(currentTimelineRunId)
-                ? []
-                : await AgentRunTimelineService.GetByRunIdAsync(currentTimelineRunId);
-        }
-        catch (Exception exception)
-        {
-            error = exception.Message;
-        }
-        finally
-        {
-            isLoadingAgentRunTimeline = false;
-        }
-    }
-
-    private async Task LoadPatchSafetySnapshotsAsync()
-    {
-        isLoadingPatchSafetySnapshots = true;
-
-        try
-        {
-            patchSafetySnapshots = await PatchSafetySnapshotService.GetLatestAsync(10);
-        }
-        catch (Exception exception)
-        {
-            error = exception.Message;
-        }
-        finally
-        {
-            isLoadingPatchSafetySnapshots = false;
-        }
-    }
-
-    private async Task RestorePatchSafetySnapshotAsync(string snapshotId)
-    {
-        isRestoringPatchSafetySnapshot = true;
-
-        try
-        {
-            patchSafetySnapshotRestoreResult = await PatchSafetySnapshotService.RestoreAsync(snapshotId);
-
-            if (patchSafetySnapshotRestoreResult.Success)
-            {
-                NotificationService.Notify(
-                    NotificationSeverity.Success,
-                    "Patch safety snapshot restored",
-                    patchSafetySnapshotRestoreResult.Message);
-            }
-            else
-            {
-                NotificationService.Notify(
-                    NotificationSeverity.Error,
-                    "Patch safety snapshot restore failed",
-                    patchSafetySnapshotRestoreResult.Message);
-            }
-        }
-        catch (Exception exception)
-        {
-            patchSafetySnapshotRestoreResult = new PatchSafetySnapshotRestoreResult
-            {
-                Success = false,
-                Message = exception.Message
-            };
-
-            NotificationService.Notify(
-                NotificationSeverity.Error,
-                "Patch safety snapshot restore failed",
-                exception.Message);
-        }
-        finally
-        {
-            isRestoringPatchSafetySnapshot = false;
-            await LoadPatchSafetySnapshotsAsync();
-        }
-    }
-
     private async Task LoadApprovalStatesAsync()
     {
         sliceApprovals = await LoadApprovalStateMapAsync();
-    }
-
-    private static string GetPatchApplyAuditApprovalText(PatchApplyAuditItem item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.ApprovedBy) && item.ApprovedAt is not null)
-        {
-            return $"{item.ApprovedBy} @ {item.ApprovedAt:yyyy-MM-dd HH:mm:ss}";
-        }
-
-        return "Not approved";
-    }
-
-    private static string GetPatchApplyAuditSuccessText(PatchApplyAuditItem item)
-    {
-        return item.Success ? "Yes" : "No";
-    }
-
-    private static string GetPatchApplyAuditVerificationText(PatchApplyAuditItem item)
-    {
-        if (!string.Equals(item.Action, "ApplySucceeded", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(item.Action, "ApplyFailed", StringComparison.OrdinalIgnoreCase))
-        {
-            return "N/A";
-        }
-
-        return item.VerificationSucceeded ? "Passed" : "Failed";
-    }
-
-    private static string GetPatchApplyAuditRestoreText(PatchApplyAuditItem item)
-    {
-        if (!string.Equals(item.Action, "ApplySucceeded", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(item.Action, "ApplyFailed", StringComparison.OrdinalIgnoreCase))
-        {
-            return "N/A";
-        }
-
-        if (!item.RestoreAttempted)
-        {
-            return "Not attempted";
-        }
-
-        return item.RestoreSucceeded ? "Restored" : "Failed";
-    }
-
-    private static BadgeStyle GetPatchApplyAuditRestoreBadgeStyle(PatchApplyAuditItem item)
-    {
-        if (!string.Equals(item.Action, "ApplySucceeded", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(item.Action, "ApplyFailed", StringComparison.OrdinalIgnoreCase))
-        {
-            return BadgeStyle.Light;
-        }
-
-        if (!item.RestoreAttempted)
-        {
-            return BadgeStyle.Secondary;
-        }
-
-        return item.RestoreSucceeded ? BadgeStyle.Success : BadgeStyle.Warning;
-    }
-
-    private static string GetPatchSafetySnapshotSuccessText(PatchSafetySnapshot item)
-    {
-        return item.Success ? "Yes" : "No";
     }
 
     private static string BuildVerificationOutputPreview(TaskSliceExecutionResult verificationResult)
@@ -4067,7 +3309,7 @@
         {
             LocalCoderHistoryActionType.ApplyPatch => entry.ApplyResult is null
                 ? "n/a"
-                : $"{entry.ApplyResult.Applied}, verification {entry.ApplyResult.VerificationPassed}, restore {(entry.ApplyResult.RestoreAttempted ? (entry.ApplyResult.RestoreSucceeded ? "succeeded" : "failed") : "not attempted")}",
+                : $"{entry.ApplyResult.Applied}, verification {entry.ApplyResult.VerificationPassed}",
             LocalCoderHistoryActionType.RollbackPatch => entry.RollbackResult is null
                 ? "n/a"
                 : $"{entry.RollbackResult.RolledBack}, verification {entry.RollbackResult.VerificationPassed}",

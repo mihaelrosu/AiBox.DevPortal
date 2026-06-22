@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Services/ScheduledRunDispatcher.cs",
+      "operation": "insert_after",
+      "anchor": "catch (Exception exception)",
+      "oldText": "",
+      "newText": "\n            var execution = await scheduledRunService.MarkStartedAsync(run.Id, nowUtc, cancellationToken);\n            if (execution is null) {\n                continue;\n            }\n\n            try {\n                // existing code block\n            } catch (Exception exception) {\n                _logger.LogError(exception, \"Scheduled run {RunId} failed during dispatch.\", run.Id);\n\n                try {\n                    await scheduledRunService.MarkFailedAsync(run.Id, exception.Message, DateTimeOffset.UtcNow, cancellationToken);\n                } catch (Exception markFailureException) {\n                    _logger.LogError(markFailureException, \"Failed to record failure for scheduled run {RunId}.\", run.Id);\n                }\n            }\n        }",
+      "summary": "Insert content after an existing anchor"
+    }
+  ]
+}
+```

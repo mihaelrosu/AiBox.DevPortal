@@ -1,4 +1,5 @@
 using AiBox.DevPortal.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AiBox.DevPortal.Services;
 
@@ -37,6 +38,7 @@ public sealed class ScheduledRunDispatcher : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var scheduledRunService = scope.ServiceProvider.GetRequiredService<ScheduledAgentRunService>();
         var scheduledExecutionService = scope.ServiceProvider.GetRequiredService<ScheduledAgentExecutionService>();
+        var orchestrationService = scope.ServiceProvider.GetRequiredService<AgentOrchestrationService>();
 
         var nowUtc = DateTimeOffset.UtcNow;
         var dueRuns = await scheduledRunService.GetDueRunsAsync(nowUtc, cancellationToken);
@@ -65,25 +67,64 @@ public sealed class ScheduledRunDispatcher : BackgroundService
                     ScheduledRunId = run.Id,
                     ScheduleName = run.Name,
                     TaskName = run.TaskName,
-                    StartedUtc = nowUtc,
-                    Success = true
+                    StartedUtc = started.LastStartedUtc ?? nowUtc
                 }, cancellationToken);
 
-                var completed = await scheduledRunService.MarkCompletedAsync(
-                    run.Id,
-                    DateTimeOffset.UtcNow,
+                var executionPolicy = await orchestrationService.GetExecutionPolicyProfileAsync(run.ExecutionPolicyName, cancellationToken);
+                if (executionPolicy is null)
+                {
+                    throw new InvalidOperationException($"Execution policy '{run.ExecutionPolicyName}' was not found.");
+                }
+
+                var orchestrationResult = await orchestrationService.RunOrchestrationAsync(
+                    run.TaskName,
+                    run.UserRequest,
+                    run.CommitAndSync,
+                    approveHighRiskApply: true,
                     cancellationToken);
-                if (completed is null)
+
+                var completedAtUtc = orchestrationResult.CompletedAtUtc is null
+                    ? DateTimeOffset.UtcNow
+                    : new DateTimeOffset(orchestrationResult.CompletedAtUtc.Value, TimeSpan.Zero);
+
+                if (orchestrationResult.Status == AgentOrchestrationStatus.Completed)
+                {
+                    var completed = await scheduledRunService.MarkCompletedAsync(
+                        run.Id,
+                        completedAtUtc,
+                        cancellationToken);
+                    if (completed is null)
+                    {
+                        continue;
+                    }
+
+                    await scheduledExecutionService.MarkCompletedAsync(
+                        execution!.Id,
+                        completedAtUtc,
+                        cancellationToken);
+
+                    _logger.LogInformation("Scheduled run {RunId} completed.", run.Id);
+                    continue;
+                }
+
+                var failureMessage = GetFailureMessage(orchestrationResult);
+                var failed = await scheduledRunService.MarkFailedAsync(
+                    run.Id,
+                    failureMessage,
+                    completedAtUtc,
+                    cancellationToken);
+                if (failed is null)
                 {
                     continue;
                 }
 
-                await scheduledExecutionService.MarkCompletedAsync(
+                await scheduledExecutionService.MarkFailedAsync(
                     execution!.Id,
-                    DateTimeOffset.UtcNow,
+                    failureMessage,
+                    completedAtUtc,
                     cancellationToken);
 
-                _logger.LogInformation("Scheduled run {RunId} completed.", run.Id);
+                _logger.LogWarning("Scheduled run {RunId} failed: {FailureMessage}", run.Id, failureMessage);
             }
             catch (Exception exception)
             {
@@ -119,5 +160,21 @@ public sealed class ScheduledRunDispatcher : BackgroundService
                 }
             }
         }
+    }
+
+    private static string GetFailureMessage(AgentOrchestrationRun run)
+    {
+        var failedStep = run.Steps.LastOrDefault(step => step.Status == AgentOrchestrationStatus.Failed);
+        var stepMessage = failedStep?.ErrorMessage;
+
+        return string.IsNullOrWhiteSpace(stepMessage)
+            ? (!string.IsNullOrWhiteSpace(run.ApplyMessage)
+                ? run.ApplyMessage
+                : !string.IsNullOrWhiteSpace(run.GitMessage)
+                    ? run.GitMessage
+                    : !string.IsNullOrWhiteSpace(run.SafetySummary)
+                        ? run.SafetySummary
+                        : "Scheduled orchestration failed.")
+            : stepMessage;
     }
 }

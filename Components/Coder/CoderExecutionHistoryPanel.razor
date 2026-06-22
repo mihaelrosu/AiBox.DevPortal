@@ -1,0 +1,88 @@
+@inject ScheduledAgentExecutionService ScheduledAgentExecutionService
+
+<RadzenCard>
+    <RadzenStack Gap="0.75rem">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0.75rem"
+                     Wrap="FlexWrap.Wrap">
+            <div>
+                <RadzenText Text="Execution History" TextStyle="TextStyle.H5" />
+                <RadzenText Text="@($"Latest executions: {executions.Count}")" TextStyle="TextStyle.Body2" />
+            </div>
+
+            <RadzenButton Text="Refresh"
+                          Icon="refresh"
+                          ButtonStyle="ButtonStyle.Light"
+                          Size="ButtonSize.Small"
+                          Click="@RefreshAsync"
+                          Disabled="@isLoading" />
+        </RadzenStack>
+
+        <RadzenDataGrid Data="@executions"
+                        TItem="ScheduledAgentExecution"
+                        AllowPaging="true"
+                        PageSize="10"
+                        AllowSorting="true"
+                        AllowFiltering="false"
+                        ShowPagingSummary="true"
+                        AllowColumnResize="true"
+                        IsLoading="@isLoading"
+                        EmptyText="No scheduled executions recorded yet.">
+            <Columns>
+                <RadzenDataGridColumn TItem="ScheduledAgentExecution" Title="Started UTC" Width="190px">
+                    <Template Context="execution">@execution.StartedUtc.ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ScheduledAgentExecution" Property="ScheduleName" Title="Schedule" />
+                <RadzenDataGridColumn TItem="ScheduledAgentExecution" Property="TaskName" Title="Task" />
+                <RadzenDataGridColumn TItem="ScheduledAgentExecution" Title="Success" Width="110px">
+                    <Template Context="execution">
+                        <RadzenBadge Text="@(execution.Success ? "Success" : "Failed")"
+                                     BadgeStyle="@(execution.Success ? BadgeStyle.Success : BadgeStyle.Warning)" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ScheduledAgentExecution" Title="Duration Ms" Width="120px">
+                    <Template Context="execution">@execution.DurationMs.ToString("N0")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ScheduledAgentExecution" Title="Error">
+                    <Template Context="execution">
+                        <span>@(string.IsNullOrWhiteSpace(execution.Error) ? "—" : execution.Error)</span>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    private IReadOnlyList<ScheduledAgentExecution> executions = [];
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            executions = (await ScheduledAgentExecutionService.GetAllAsync())
+                .OrderByDescending(item => item.StartedUtc)
+                .Take(100)
+                .ToArray();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

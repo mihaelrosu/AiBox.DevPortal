@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Services/ScheduledAgentRunService.cs",
+      "operation": "insert_before",
+      "anchor": "private async Task<ScheduledAgentRun?> SetEnabledAsync(string id, bool enabled, CancellationToken cancellationToken)",
+      "oldText": "",
+      "newText": "\n        }\n\n        private async Task<bool> IsScheduleExistsAsync(string id, CancellationToken cancellationToken)\n        {\n            await FileLock.WaitAsync(cancellationToken);\n            try\n            {\n                var schedules = await LoadAsync(cancellationToken);\n                return schedules.Any(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));\n            }\n            finally\n            {\n                FileLock.Release();\n            }\n        }\n",
+      "summary": "Insert before SetEnabledAsync method"
+    }
+  ]
+}
+```

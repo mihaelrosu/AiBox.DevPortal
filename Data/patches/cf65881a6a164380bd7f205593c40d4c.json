@@ -1,0 +1,99 @@
+{
+  "id": "cf65881a6a164380bd7f205593c40d4c",
+  "createdAt": "2026-06-21T12:19:17.2745489+00:00",
+  "updatedAt": "2026-06-21T12:19:17.274549+00:00",
+  "backupFolder": "",
+  "appliedAt": null,
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Stop patch. Regenerate from current code.\n\nModify only:\n- Services/ScheduledRunDispatcher.cs\n\nRequirements:\n1. Do not introduce a new executionService variable.\n2. Use existing ScheduledAgentRunService execution methods only.\n3. Create exactly one execution record after MarkStartedAsync succeeds.\n4. Store the returned execution in a local variable.\n5. After MarkCompletedAsync succeeds, call MarkExecutionCompletedAsync(execution.Id, ...).\n6. If an exception occurs after execution was created, call MarkExecutionFailedAsync(execution.Id, error, ...).\n7. Do not create duplicate execution records.\n8. Keep placeholder execution behavior.\n9. Build.",
+  "model": "qwen2.5-coder:7b",
+  "patchText": "diff --git a/Services/ScheduledRunDispatcher.cs b/Services/ScheduledRunDispatcher.cs\nindex 0b8119f..d13654a 100644\n--- a/Services/ScheduledRunDispatcher.cs\n\u002B\u002B\u002B b/Services/ScheduledRunDispatcher.cs\n@@ -67,6 \u002B67,23 @@ public sealed class ScheduledRunDispatcher : BackgroundService\n                 _logger.LogInformation(\u0022Scheduled run {RunId} completed.\u0022, run.Id);\n             }\n             catch (Exception exception)\n\u002B            var execution = await scheduledRunService.MarkStartedAsync(run.Id, nowUtc, cancellationToken);\n\u002B            if (execution is null) {\n\u002B                continue;\n\u002B            }\n\u002B\n\u002B            try {\n\u002B                // existing code block\n\u002B            } catch (Exception exception) {\n\u002B                _logger.LogError(exception, \u0022Scheduled run {RunId} failed during dispatch.\u0022, run.Id);\n\u002B\n\u002B                try {\n\u002B                    await scheduledRunService.MarkFailedAsync(run.Id, exception.Message, DateTimeOffset.UtcNow, cancellationToken);\n\u002B                } catch (Exception markFailureException) {\n\u002B                    _logger.LogError(markFailureException, \u0022Failed to record failure for scheduled run {RunId}.\u0022, run.Id);\n\u002B                }\n\u002B            }\n\u002B        }\n             {\n                 _logger.LogError(exception, \u0022Scheduled run {RunId} failed during dispatch.\u0022, run.Id);",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [
+    "Models/",
+    "Services/"
+  ],
+  "contextFilePaths": [
+    "Services/ScheduledAgentRunService.cs",
+    "Services/ScheduledRunDispatcher.cs",
+    "Models/ScheduledAgentExecution.cs"
+  ],
+  "intent": {
+    "goal": "Stop patch",
+    "allowedFiles": [
+      "Services/ScheduledAgentRunService.cs",
+      "Services/ScheduledRunDispatcher.cs",
+      "Models/ScheduledAgentExecution.cs"
+    ],
+    "allowedPaths": [
+      "Services/ScheduledAgentRunService.cs",
+      "Services/ScheduledRunDispatcher.cs",
+      "Models/ScheduledAgentExecution.cs"
+    ],
+    "targetCreatedFiles": [],
+    "allowedCreateFolders": [
+      "Models/",
+      "Services/"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet build"
+  },
+  "intentValidation": {
+    "status": "partiallyMatches",
+    "detectedChangeType": "Update",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Services/ScheduledAgentRunService.cs",
+      "Services/ScheduledRunDispatcher.cs",
+      "Models/ScheduledAgentExecution.cs"
+    ],
+    "modifiedFiles": [
+      "Services/ScheduledRunDispatcher.cs"
+    ],
+    "contextFiles": [
+      "Models/ScheduledAgentExecution.cs",
+      "Services/ScheduledAgentRunService.cs",
+      "Services/ScheduledRunDispatcher.cs"
+    ],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Services/ScheduledRunDispatcher.cs",
+        "inContext": true,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [
+      "Expected Add but detected Update."
+    ],
+    "isBlocking": false
+  },
+  "status": "draft",
+  "statusMessage": "Draft patch package created from preview.",
+  "approvalGateResults": [],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Services/ScheduledRunDispatcher.cs",
+      "oldContent": "namespace AiBox.DevPortal.Services;\n\npublic sealed class ScheduledRunDispatcher : BackgroundService\n{\n    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);\n\n    private readonly IServiceScopeFactory _scopeFactory;\n    private readonly ILogger\u003CScheduledRunDispatcher\u003E _logger;\n\n    public ScheduledRunDispatcher(\n        IServiceScopeFactory scopeFactory,\n        ILogger\u003CScheduledRunDispatcher\u003E logger)\n    {\n        _scopeFactory = scopeFactory;\n        _logger = logger;\n    }\n\n    protected override async Task ExecuteAsync(CancellationToken stoppingToken)\n    {\n        using var timer = new PeriodicTimer(PollInterval);\n\n        while (!stoppingToken.IsCancellationRequested)\n        {\n            await ProcessDueRunsAsync(stoppingToken);\n\n            if (!await timer.WaitForNextTickAsync(stoppingToken))\n            {\n                break;\n            }\n        }\n    }\n\n    private async Task ProcessDueRunsAsync(CancellationToken cancellationToken)\n    {\n        using var scope = _scopeFactory.CreateScope();\n        var scheduledRunService = scope.ServiceProvider.GetRequiredService\u003CScheduledAgentRunService\u003E();\n\n        var nowUtc = DateTimeOffset.UtcNow;\n        var dueRuns = await scheduledRunService.GetDueRunsAsync(nowUtc, cancellationToken);\n\n        foreach (var run in dueRuns)\n        {\n            if (run.IsRunning)\n            {\n                continue;\n            }\n\n            try\n            {\n                var started = await scheduledRunService.MarkStartedAsync(run.Id, nowUtc, cancellationToken);\n                if (started is null)\n                {\n                    continue;\n                }\n\n                _logger.LogInformation(\u0022Scheduled run {RunId} started.\u0022, run.Id);\n\n                var completed = await scheduledRunService.MarkCompletedAsync(\n                    run.Id,\n                    DateTimeOffset.UtcNow,\n                    cancellationToken);\n                if (completed is null)\n                {\n                    continue;\n                }\n\n                _logger.LogInformation(\u0022Scheduled run {RunId} completed.\u0022, run.Id);\n            }\n            catch (Exception exception)\n            {\n                _logger.LogError(exception, \u0022Scheduled run {RunId} failed during dispatch.\u0022, run.Id);\n\n                try\n                {\n                    await scheduledRunService.MarkFailedAsync(\n                        run.Id,\n                        exception.Message,\n                        DateTimeOffset.UtcNow,\n                        cancellationToken);\n                }\n                catch (Exception markFailureException)\n                {\n                    _logger.LogError(markFailureException, \u0022Failed to record failure for scheduled run {RunId}.\u0022, run.Id);\n                }\n            }\n        }\n    }\n}\n",
+      "newContent": "namespace AiBox.DevPortal.Services;\n\npublic sealed class ScheduledRunDispatcher : BackgroundService\n{\n    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);\n\n    private readonly IServiceScopeFactory _scopeFactory;\n    private readonly ILogger\u003CScheduledRunDispatcher\u003E _logger;\n\n    public ScheduledRunDispatcher(\n        IServiceScopeFactory scopeFactory,\n        ILogger\u003CScheduledRunDispatcher\u003E logger)\n    {\n        _scopeFactory = scopeFactory;\n        _logger = logger;\n    }\n\n    protected override async Task ExecuteAsync(CancellationToken stoppingToken)\n    {\n        using var timer = new PeriodicTimer(PollInterval);\n\n        while (!stoppingToken.IsCancellationRequested)\n        {\n            await ProcessDueRunsAsync(stoppingToken);\n\n            if (!await timer.WaitForNextTickAsync(stoppingToken))\n            {\n                break;\n            }\n        }\n    }\n\n    private async Task ProcessDueRunsAsync(CancellationToken cancellationToken)\n    {\n        using var scope = _scopeFactory.CreateScope();\n        var scheduledRunService = scope.ServiceProvider.GetRequiredService\u003CScheduledAgentRunService\u003E();\n\n        var nowUtc = DateTimeOffset.UtcNow;\n        var dueRuns = await scheduledRunService.GetDueRunsAsync(nowUtc, cancellationToken);\n\n        foreach (var run in dueRuns)\n        {\n            if (run.IsRunning)\n            {\n                continue;\n            }\n\n            try\n            {\n                var started = await scheduledRunService.MarkStartedAsync(run.Id, nowUtc, cancellationToken);\n                if (started is null)\n                {\n                    continue;\n                }\n\n                _logger.LogInformation(\u0022Scheduled run {RunId} started.\u0022, run.Id);\n\n                var completed = await scheduledRunService.MarkCompletedAsync(\n                    run.Id,\n                    DateTimeOffset.UtcNow,\n                    cancellationToken);\n                if (completed is null)\n                {\n                    continue;\n                }\n\n                _logger.LogInformation(\u0022Scheduled run {RunId} completed.\u0022, run.Id);\n            }\n            catch (Exception exception)\n            var execution = await scheduledRunService.MarkStartedAsync(run.Id, nowUtc, cancellationToken);\n            if (execution is null) {\n                continue;\n            }\n\n            try {\n                // existing code block\n            } catch (Exception exception) {\n                _logger.LogError(exception, \u0022Scheduled run {RunId} failed during dispatch.\u0022, run.Id);\n\n                try {\n                    await scheduledRunService.MarkFailedAsync(run.Id, exception.Message, DateTimeOffset.UtcNow, cancellationToken);\n                } catch (Exception markFailureException) {\n                    _logger.LogError(markFailureException, \u0022Failed to record failure for scheduled run {RunId}.\u0022, run.Id);\n                }\n            }\n        }\n            {\n                _logger.LogError(exception, \u0022Scheduled run {RunId} failed during dispatch.\u0022, run.Id);\n\n                try\n                {\n                    await scheduledRunService.MarkFailedAsync(\n                        run.Id,\n                        exception.Message,\n                        DateTimeOffset.UtcNow,\n                        cancellationToken);\n                }\n                catch (Exception markFailureException)\n                {\n                    _logger.LogError(markFailureException, \u0022Failed to record failure for scheduled run {RunId}.\u0022, run.Id);\n                }\n            }\n        }\n    }\n}\n"
+    }
+  ]
+}

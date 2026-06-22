@@ -19,5 +19,10 @@ public sealed class LocalCoderPatchPreview
     public PatchPromptAudit? PromptAudit { get; set; }
     public PatchPromptTargetResolution? PromptTargetResolution { get; set; }
     public PatchPreviewRepairSummary? RepairSummary { get; set; }
+    public bool RequiresApproval { get; set; }
+    public string ApprovalReason { get; set; } = string.Empty;
+    public DateTimeOffset? ApprovedAt { get; set; }
+    public string ApprovedBy { get; set; } = string.Empty;
+    public IReadOnlyList<string> VerificationCommands { get; set; } = [];
     public string PatchText { get; set; } = string.Empty;
 }

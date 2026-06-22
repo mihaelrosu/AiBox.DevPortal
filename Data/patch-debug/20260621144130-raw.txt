@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Coder.razor",
+      "operation": "insert_after",
+      "anchor": "<RadzenTabsItem Text=\"Dashboard\" Icon=\"dashboard\">",
+      "oldText": "",
+      "newText": "<RadzenTabsItem Text=\"Scheduled Runs\" Icon=\"schedule\">\n    <CoderScheduledRunsPanel />\n</RadzenTabsItem>",
+      "summary": "Insert new tabs after Dashboard tab"
+    }
+  ]
+}
+```

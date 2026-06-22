@@ -33,11 +33,11 @@ private static readonly SemaphoreSlim FileLock = new(1, 1);
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that represents the asynchronous operation and returns a list of agent mode profiles.</returns>
 public async Task<IReadOnlyList<AgentModeProfile>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        await FileLock.WaitAsync(cancellationToken);
+{
+    await FileLock.WaitAsync(cancellationToken);
 
-        try
-        {
+    try
+    {
             return (await LoadAsync(cancellationToken))
                 .OrderBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(Clone)
@@ -102,19 +102,31 @@ public async Task<AgentModeProfile?> GetByModeAsync(AgentMode mode, Cancellation
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that represents the asynchronous operation and returns a list of agent mode profiles.</returns>
 private async Task<List<AgentModeProfile>> LoadAsync(CancellationToken cancellationToken)
-    {
-        var path = GetRegistryPath();
+{
+    var path = GetRegistryPath();
 
-        if (!File.Exists(path))
+    if (!File.Exists(path))
+    {
+        var profiles = CreateDefaultProfiles();
+        await SaveAsync(profiles, cancellationToken);
+        return profiles;
+    }
+
+    await using var stream = File.OpenRead(path);
+        var loadedProfiles = await JsonSerializer.DeserializeAsync<List<AgentModeProfile>>(stream, JsonOptions, cancellationToken) ?? [];
+            var normalizedProfiles = NormalizeProfiles(loadedProfiles);
+        if (normalizedProfiles.Count == 0)
         {
-            var profiles = CreateDefaultProfiles();
-            await SaveAsync(profiles, cancellationToken);
-            return profiles;
+            normalizedProfiles = CreateDefaultProfiles();
+            await SaveAsync(normalizedProfiles, cancellationToken);
+        }
+        else if (!loadedProfiles.SequenceEqual(normalizedProfiles, AgentModeProfileComparer.Instance))
+        {
+            await SaveAsync(normalizedProfiles, cancellationToken);
         }
 
-        await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<List<AgentModeProfile>>(stream, JsonOptions, cancellationToken) ?? [];
-    }
+        return normalizedProfiles;
+}
 
     
     /// <summary>
@@ -157,6 +169,8 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.Planner,
                 Name = "Planner",
                 Model = "qwen2.5-coder:7b",
+                ModelRouteId = "llamacpp-local-coder",
+                PolicyId = "Planner",
                 PreferredModel = "qwen2.5-coder:7b",
                 FallbackModel = string.Empty,
                 AllowFallback = false,
@@ -168,6 +182,8 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.PatchBuilder,
                 Name = "Patch Builder",
                 Model = "qwen2.5-coder:7b",
+                ModelRouteId = "llamacpp-local-coder",
+                PolicyId = "PatchBuilder",
                 PreferredModel = "qwen2.5-coder:7b",
                 FallbackModel = string.Empty,
                 AllowFallback = false,
@@ -179,6 +195,8 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.Verifier,
                 Name = "Verifier",
                 Model = "qwen2.5-coder:7b",
+                ModelRouteId = string.Empty,
+                PolicyId = "Verifier",
                 PreferredModel = "qwen2.5-coder:7b",
                 FallbackModel = string.Empty,
                 AllowFallback = false,
@@ -190,6 +208,8 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.Reviewer,
                 Name = "Reviewer",
                 Model = "qwen2.5-coder:7b",
+                ModelRouteId = "llamacpp-local-coder",
+                PolicyId = "Reviewer",
                 PreferredModel = "qwen2.5-coder:7b",
                 FallbackModel = string.Empty,
                 AllowFallback = false,
@@ -201,6 +221,8 @@ private static List<AgentModeProfile> CreateDefaultProfiles()
                 Mode = AgentMode.ToolRunner,
                 Name = "Tool Runner",
                 Model = "qwen2.5-coder:7b",
+                ModelRouteId = string.Empty,
+                PolicyId = "ToolRunner",
                 PreferredModel = "qwen2.5-coder:7b",
                 FallbackModel = string.Empty,
                 AllowFallback = false,
@@ -223,10 +245,93 @@ private static AgentModeProfile Clone(AgentModeProfile profile)
             Mode = profile.Mode,
             Name = profile.Name,
             Model = profile.Model,
+            ModelRouteId = profile.ModelRouteId,
+            PolicyId = profile.PolicyId,
             PreferredModel = profile.PreferredModel,
             FallbackModel = profile.FallbackModel,
             AllowFallback = profile.AllowFallback,
             RulesSummary = profile.RulesSummary
         };
+    }
+
+    private static List<AgentModeProfile> NormalizeProfiles(IEnumerable<AgentModeProfile> profiles)
+    {
+        return profiles
+            .Select(profile =>
+            {
+                var clone = Clone(profile);
+
+                if (string.IsNullOrWhiteSpace(clone.ModelRouteId))
+                {
+                    clone.ModelRouteId = clone.Mode switch
+                    {
+                        AgentMode.Planner => "llamacpp-local-coder",
+                        AgentMode.PatchBuilder => "llamacpp-local-coder",
+                        AgentMode.Reviewer => "llamacpp-local-coder",
+                        _ => string.Empty
+                    };
+                }
+
+                if (string.IsNullOrWhiteSpace(clone.PolicyId))
+                {
+                    clone.PolicyId = clone.Mode switch
+                    {
+                        AgentMode.Planner => "Planner",
+                        AgentMode.PatchBuilder => "PatchBuilder",
+                        AgentMode.Reviewer => "Reviewer",
+                        AgentMode.Verifier => "Verifier",
+                        AgentMode.ToolRunner => "ToolRunner",
+                        _ => string.Empty
+                    };
+                }
+
+                return clone;
+            })
+            .ToList();
+    }
+
+    private sealed class AgentModeProfileComparer : IEqualityComparer<AgentModeProfile>
+    {
+        public static readonly AgentModeProfileComparer Instance = new();
+
+        public bool Equals(AgentModeProfile? x, AgentModeProfile? y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            if (x is null || y is null)
+            {
+                return false;
+            }
+
+            return x.Id == y.Id
+                   && x.Mode == y.Mode
+                   && x.Name == y.Name
+                   && x.Model == y.Model
+                   && x.ModelRouteId == y.ModelRouteId
+                   && x.PolicyId == y.PolicyId
+                   && x.PreferredModel == y.PreferredModel
+                   && x.FallbackModel == y.FallbackModel
+                   && x.AllowFallback == y.AllowFallback
+                   && x.RulesSummary == y.RulesSummary;
+        }
+
+        public int GetHashCode(AgentModeProfile obj)
+        {
+            var hash = new HashCode();
+            hash.Add(obj.Id);
+            hash.Add(obj.Mode);
+            hash.Add(obj.Name);
+            hash.Add(obj.Model);
+            hash.Add(obj.ModelRouteId);
+            hash.Add(obj.PolicyId);
+            hash.Add(obj.PreferredModel);
+            hash.Add(obj.FallbackModel);
+            hash.Add(obj.AllowFallback);
+            hash.Add(obj.RulesSummary);
+            return hash.ToHashCode();
+        }
     }
 }

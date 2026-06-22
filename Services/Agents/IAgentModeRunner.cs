@@ -8,6 +8,7 @@ public interface IAgentModeRunner
 {
     Task<ConsoleLocalCoderTask> CreatePlanAsync(LocalCoderRequest request, AgentModeProfile profile);
     Task<LocalCoderPatchPreview> GeneratePatchPreviewAsync(LocalCoderRequest request, AgentModeProfile profile, PatchPreviewRepairContext? repairContext = null);
+    Task<LocalCoderPatchPreview> ApprovePatchPreviewAsync(LocalCoderPatchPreview patchPreview, AgentModeProfile profile, string? approvedBy = null);
     Task<LocalCoderPatchApplyResult> ApplyPatchPreviewAsync(LocalCoderPatchPreview patchPreview, AgentModeProfile profile);
     Task<LocalCoderPatchRollbackResult> RollbackPatchAsync(LocalCoderPatchApplyResult applyResult, string projectPath, AgentModeProfile profile);
     Task<IReadOnlyList<CommandRunResult>> CommitChangesAsync(string projectPath, string commitMessage, AgentModeProfile profile);

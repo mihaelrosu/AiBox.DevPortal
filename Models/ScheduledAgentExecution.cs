@@ -2,7 +2,7 @@ namespace AiBox.DevPortal.Models
 {
     public sealed class ScheduledAgentExecution
     {
-        public string Id { get; } = Guid.NewGuid().ToString("N");
+        public string Id { get; init; } = Guid.NewGuid().ToString("N");
         public string ScheduledRunId { get; set; } = string.Empty;
         public string ScheduleName { get; set; } = string.Empty;
         public string TaskName { get; set; } = string.Empty;

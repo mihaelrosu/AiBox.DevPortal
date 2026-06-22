@@ -578,6 +578,14 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
                 <RadzenText Text="@($"Applied: {ApplyResult.Applied}")" TextStyle="TextStyle.Body1" />
                 <RadzenText Text="@($"Verification passed: {ApplyResult.VerificationPassed}")" TextStyle="TextStyle.Body1" />
                 <RadzenText Text="@($"Message: {ApplyResult.Message}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="@($"Verification succeeded: {ApplyResult.VerificationSucceeded}")" TextStyle="TextStyle.Body1" />
+                <RadzenText Text="Verification Run" TextStyle="TextStyle.H6" />
+                @ResultCard(ApplyResult.VerificationRun, true)
+                @if (!string.IsNullOrWhiteSpace(ApplyResult.VerificationOutput))
+                {
+                    <RadzenText Text="Verification Output" TextStyle="TextStyle.H6" />
+                    <pre class="coder-output">@ApplyResult.VerificationOutput</pre>
+                }
                 <RadzenText Text="Git Apply Result" TextStyle="TextStyle.H6" />
                 @ResultCard(ApplyResult.GitApplyResult, true)
                 <RadzenText Text="Git Diff Stat" TextStyle="TextStyle.H6" />
@@ -852,6 +860,7 @@ Result: @ValidationStatusText(PatchPreview.IntentValidation.Status)</pre>
     {
         return ApplyResult?.TechnicalDetails
                ?? ApplyResult?.GitApplyResult?.Error
+               ?? ApplyResult?.VerificationOutput
                ?? string.Empty;
     }
 

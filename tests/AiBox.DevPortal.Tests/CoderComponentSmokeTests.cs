@@ -5,6 +5,8 @@ using AiBox.DevPortal.Models.Agents;
 using AiBox.DevPortal.Services;
 using AiBox.DevPortal.Services.Agents;
 using AiBox.DevPortal.Services.Browser;
+using System.Net;
+using System.Net.Http;
 using Bunit;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -30,7 +32,12 @@ public sealed class CoderComponentSmokeTests : TestContext
         var cut = RenderComponent<Coder>();
 
         Assert.Contains("Local Coder", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Stable Local Model Routing", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Agent profile", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("File Context", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Scheduled Runs", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Patch Safety Snapshots", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Patch Apply Audit", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("0 files", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("0 characters", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("~0 tokens", cut.Markup, StringComparison.Ordinal);
@@ -122,6 +129,15 @@ public sealed class CoderComponentSmokeTests : TestContext
         var cut = RenderComponent<CoderExecutionPanel>();
 
         Assert.Contains("Safe Commands", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CoderScheduledRunsPanel_Renders()
+    {
+        var cut = RenderComponent<CoderScheduledRunsPanel>();
+
+        Assert.Contains("Scheduled Runs", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Refresh", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -250,6 +266,11 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddScoped<AgentDashboardService>();
         Services.AddScoped<AgentOrchestrationCheckpointService>();
         Services.AddScoped<ExecutionPolicyProfileService>();
+        Services.AddScoped<AgentModelRouteService>();
+        Services.AddScoped<AgentModelRouteHealthCheckService>();
+        Services.AddScoped<AgentExecutionPolicyService>();
+        Services.AddScoped<PatchSafetySnapshotService>();
+        Services.AddScoped<ScheduledAgentRunService>();
         Services.AddScoped<AgentOrchestrationService>();
         Services.AddScoped<AgentInstructionService>();
         Services.AddScoped<PlannerContextSelectionService>();
@@ -259,6 +280,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddScoped<TaskSliceVerificationLoopService>();
         Services.AddScoped<TaskSliceApplyHistoryService>();
         Services.AddScoped<TaskSliceApplyAuditService>();
+        Services.AddScoped<PatchApplyAuditService>();
         Services.AddScoped<TaskSliceApprovalService>();
         Services.AddScoped<TaskSliceApplyService>();
         Services.AddScoped<TaskSliceRollbackService>();
@@ -287,6 +309,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(Substitute.For<IOllamaService>());
         Services.AddSingleton(Substitute.For<ILocalLlmService>());
         Services.AddSingleton(Substitute.For<IPromptEnhancerService>());
+        Services.AddSingleton<IHttpClientFactory>(new SmokeHttpClientFactory());
         Services.AddScoped<PatchVerificationService>();
         Services.AddScoped<SelectedContextValidator>();
         Services.AddScoped<PatchPreviewRepairService>();
@@ -308,5 +331,21 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(Substitute.For<IImageToolService>());
         Services.AddSingleton(Substitute.For<IComfyUiService>());
         Services.AddSingleton(Substitute.For<ISdxlTextToImageService>());
+    }
+
+    private sealed class SmokeHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(new SmokeHttpMessageHandler());
+    }
+
+    private sealed class SmokeHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
+            });
+        }
     }
 }

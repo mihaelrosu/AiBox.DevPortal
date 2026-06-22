@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Services/ScheduledRunDispatcher.cs",
+      "operation": "insert_before",
+      "anchor": "                var completed = await scheduledRunService.MarkCompletedAsync(",
+      "oldText": "",
+      "newText": "        var execution = new ScheduledAgentExecution\n        {\n            ScheduledRunId = run.Id,\n            ScheduleName = run.Name,\n            TaskName = run.TaskName,\n            StartedUtc = DateTimeOffset.UtcNow\n        };\n\n        await executionService.SaveAsync(execution, cancellationToken);\n\n",
+      "summary": "Insert content before the specified anchor"
+    }
+  ]
+}
+```

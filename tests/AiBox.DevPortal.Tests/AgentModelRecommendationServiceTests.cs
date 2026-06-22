@@ -84,7 +84,7 @@ public sealed class AgentModelRecommendationServiceTests
             new Dictionary<string, Queue<Func<Task<string>>>>(StringComparer.OrdinalIgnoreCase)
             {
                 ["model-a"] = new Queue<Func<Task<string>>>([
-                    () => DelayAndReturn("a-success", 5),
+                    () => DelayAndReturn("a-success", 200),
                     () => Task.FromException<string>(new InvalidOperationException("boom"))
                 ]),
                 ["model-b"] = new Queue<Func<Task<string>>>([

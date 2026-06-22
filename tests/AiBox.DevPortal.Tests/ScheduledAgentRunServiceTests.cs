@@ -42,6 +42,14 @@ public sealed class ScheduledAgentRunServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_RejectsInvalidCronExpression()
+    {
+        await AssertInvalidScheduleAsync(
+            schedule => schedule.CronExpression = "not a cron",
+            "Cron expression 'not a cron' is invalid.");
+    }
+
+    [Fact]
     public async Task CreateAsync_PersistsValidSchedule()
     {
         var root = CreateTempProjectRoot();
@@ -246,13 +254,15 @@ public sealed class ScheduledAgentRunServiceTests
         {
             var service = CreateService(root);
             var created = await service.CreateAsync(CreateValidSchedule("Safe", nextRunUtc: DateTime.UtcNow.AddMinutes(-5), isRunning: true));
+            var nowUtc = new DateTimeOffset(2026, 6, 21, 12, 34, 0, TimeSpan.Zero);
 
-            var completed = await service.MarkCompletedAsync(created.Id, DateTimeOffset.UtcNow);
+            var completed = await service.MarkCompletedAsync(created.Id, nowUtc);
 
             Assert.NotNull(completed);
             Assert.False(completed!.IsRunning);
             Assert.NotNull(completed.LastCompletedUtc);
             Assert.NotNull(completed.LastRunUtc);
+            Assert.Equal(new DateTime(2026, 6, 22, 0, 0, 0, DateTimeKind.Utc), completed.NextRunUtc);
             Assert.Null(completed.LastError);
         }
         finally
@@ -270,13 +280,15 @@ public sealed class ScheduledAgentRunServiceTests
         {
             var service = CreateService(root);
             var created = await service.CreateAsync(CreateValidSchedule("Safe", nextRunUtc: DateTime.UtcNow.AddMinutes(-5), isRunning: true));
+            var nowUtc = new DateTimeOffset(2026, 6, 21, 12, 34, 0, TimeSpan.Zero);
 
-            var failed = await service.MarkFailedAsync(created.Id, "boom", DateTimeOffset.UtcNow);
+            var failed = await service.MarkFailedAsync(created.Id, "boom", nowUtc);
 
             Assert.NotNull(failed);
             Assert.False(failed!.IsRunning);
             Assert.NotNull(failed.LastFailedUtc);
             Assert.NotNull(failed.LastRunUtc);
+            Assert.Equal(new DateTime(2026, 6, 22, 0, 0, 0, DateTimeKind.Utc), failed.NextRunUtc);
             Assert.Equal("boom", failed.LastError);
         }
         finally

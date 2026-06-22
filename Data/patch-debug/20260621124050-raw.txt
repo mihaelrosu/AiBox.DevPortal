@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Services/ScheduledAgentRunService.cs",
+      "operation": "insert_after",
+      "anchor": "public async Task<IReadOnlyList<ScheduledAgentRun>> GetAllAsync(CancellationToken cancellationToken = default)",
+      "oldText": "",
+      "newText": "\n\n        public async Task<IReadOnlyList<ScheduledAgentExecution>> GetExecutionsAsync(string runId, CancellationToken cancellationToken = default)\n        {\n            await FileLock.WaitAsync(cancellationToken);\n            try\n            {\n                var executions = (await LoadAsync(cancellationToken))\n                    .Where(item => item.ScheduledRunId == runId)\n                    .OrderBy(item => item.StartedUtc, DateTimeComparer.Ordinal)\n                    .Select(Clone)\n                    .ToArray();\n\n                return executions;\n            }\n            finally\n            {\n                FileLock.Release();\n            }\n        }\n\n        public async Task<IReadOnlyList<ScheduledAgentExecution>> GetExecutionsForRunAsync(string runId, CancellationToken cancellationToken = default)\n        {\n            await FileLock.WaitAsync(cancellationToken);\n            try\n            {\n                var executions = (await LoadAsync(cancellationToken))\n                    .Where(item => item.ScheduledRunId == runId && !item.IsRunning)\n                    .OrderBy(item => item.StartedUtc, DateTimeComparer.Ordinal)\n                    .Select(Clone)\n                    .ToArray();\n\n                return executions;\n            }\n            finally\n            {\n                FileLock.Release();\n            }\n        }",
+      "summary": "Insert GetExecutionsAsync and GetExecutionsForRunAsync methods after GetAllAsync"
+    }
+  ]
+}
+```

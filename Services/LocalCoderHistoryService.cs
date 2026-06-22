@@ -216,7 +216,13 @@ public sealed class LocalCoderHistoryService(IWebHostEnvironment environment) : 
             ChangedFilesDiffResult = CloneCommand(result.ChangedFilesDiffResult),
             ChangedFiles = [.. result.ChangedFiles ?? []],
             BackupFiles = [.. result.BackupFiles ?? []],
-            VerificationResults = [.. result.VerificationResults ?? []]
+            VerificationResults = [.. result.VerificationResults ?? []],
+            VerificationRun = CloneCommand(result.VerificationRun),
+            VerificationSucceeded = result.VerificationSucceeded,
+            VerificationOutput = result.VerificationOutput,
+            RestoreAttempted = result.RestoreAttempted,
+            RestoreSucceeded = result.RestoreSucceeded,
+            RestoreMessage = result.RestoreMessage
         };
     }
 
