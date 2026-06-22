@@ -256,17 +256,22 @@ public sealed class AgentOrchestrationServiceTests
             WriteProjectFile(root, validProgram: true);
             var riskyRequest = """
                 Create:
-                Program.cs
+                Extra/Program.cs
                 Services/AuthService.cs
                 Data/AppDbContext.cs
                 Services/DependencyInjectionService.cs
+
+                Allowed create folders:
+                Extra/
+                Services/
+                Data/
                 """;
             var harness = CreateHarness(
                 root,
                 null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
-                        "Program.cs",
+                        "Extra/Program.cs",
                         """
                         Console.WriteLine("High risk update");
                         """),
@@ -348,17 +353,22 @@ public sealed class AgentOrchestrationServiceTests
             WriteProjectFile(root, validProgram: true);
             var riskyRequest = """
                 Create:
-                Program.cs
+                Extra/Program.cs
                 Services/AuthService.cs
                 Data/AppDbContext.cs
                 Services/DependencyInjectionService.cs
+
+                Allowed create folders:
+                Extra/
+                Services/
+                Data/
                 """;
             var harness = CreateHarness(
                 root,
                 null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
-                        "Program.cs",
+                        "Extra/Program.cs",
                         """
                         Console.WriteLine("High risk update");
                         """),
@@ -593,17 +603,22 @@ public sealed class AgentOrchestrationServiceTests
             WriteProjectFile(root, validProgram: true);
             var riskyRequest = """
                 Create:
-                Program.cs
+                Extra/Program.cs
                 Services/AuthService.cs
                 Data/AppDbContext.cs
                 Services/DependencyInjectionService.cs
+
+                Allowed create folders:
+                Extra/
+                Services/
+                Data/
                 """;
             var harness = CreateHarness(
                 root,
                 null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
-                        "Program.cs",
+                        "Extra/Program.cs",
                         """
                         Console.WriteLine("High risk update");
                         """),
@@ -676,7 +691,7 @@ public sealed class AgentOrchestrationServiceTests
             WriteProjectFile(root, validProgram: true);
             var criticalRequest = """
                 Create:
-                Program.cs
+                Extra/Program.cs
                 Services/AuthService.cs
                 Data/AppDbContext.cs
                 Services/DependencyInjectionService.cs
@@ -688,13 +703,21 @@ public sealed class AgentOrchestrationServiceTests
                 Extra/YetAnother.cs
                 Extra/More.cs
                 Extra/EvenMore.cs
+
+                Allowed create folders:
+                Services/
+                Data/
+                Security/
+                Controllers/
+                Docs/
+                Extra/
                 """;
             var harness = CreateHarness(
                 root,
                 null,
                 BuildOllamaResponse(BuildPatchOperationsJson(
                     new PatchOperationFixture(
-                        "Program.cs",
+                        "Extra/Program.cs",
                         """
                         Console.WriteLine("Critical risk update");
                         """),
@@ -792,6 +815,7 @@ public sealed class AgentOrchestrationServiceTests
                 criticalRequest,
                 commitAndSync: false,
                 approveHighRiskApply: true);
+
 
             Assert.Equal(AgentOrchestrationStatus.Failed, run.Status);
             Assert.Equal(RiskLevel.Low, run.SafetyHighestRiskLevel);
