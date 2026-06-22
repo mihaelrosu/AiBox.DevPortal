@@ -16,4 +16,7 @@ public sealed class ProjectKnowledgeItem
     public string Kind { get; set; } = string.Empty;
     public string Summary { get; set; } = string.Empty;
     public DateTime LastModifiedUtc { get; set; }
+    public IReadOnlyList<string> Classes { get; set; } = [];
+    public IReadOnlyList<string> Interfaces { get; set; } = [];
+    public IReadOnlyList<string> Records { get; set; } = [];
 }
