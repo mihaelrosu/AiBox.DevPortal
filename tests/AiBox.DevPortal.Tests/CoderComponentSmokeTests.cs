@@ -25,7 +25,13 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddRadzenComponents();
         RegisterPageServices();
     }
+    [Fact]
+    public void CoderPage_SuggestContext_Renders()
+    {
+        var cut = RenderComponent<Coder>();
 
+        Assert.Contains("Suggest Context", cut.Markup, StringComparison.Ordinal);
+    }
     [Fact]
     public void CoderPage_Renders()
     {
@@ -36,7 +42,7 @@ public sealed class CoderComponentSmokeTests : TestContext
         Assert.Contains("Select context and describe the work", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("File Context", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Task slices", cut.Markup, StringComparison.Ordinal);
-        
+
         // Use text that is always visible on first render:
         // Assert.Contains("History, audits, snapshots, and timeline", cut.Markup);
         // Assert.Contains("Latest 25 timeline items", cut.Markup, StringComparison.Ordinal);
