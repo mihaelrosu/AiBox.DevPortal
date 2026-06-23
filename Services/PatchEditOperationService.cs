@@ -58,6 +58,13 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             .ToDictionary(context => NormalizeRelativePath(context.RelativePath), context => context.Content, StringComparer.OrdinalIgnoreCase);
         var createOnlyOperations = response.Operations.All(operation =>
             operation.Operation.Trim().Equals("create", StringComparison.OrdinalIgnoreCase));
+        var mixedOperationPaths = response.Operations
+            .GroupBy(operation => NormalizeRelativePath(operation.FilePath), StringComparer.OrdinalIgnoreCase)
+            .Where(group =>
+                group.Any(operation => operation.Operation.Trim().Equals("create", StringComparison.OrdinalIgnoreCase)) &&
+                group.Any(operation => !operation.Operation.Trim().Equals("create", StringComparison.OrdinalIgnoreCase)))
+            .Select(group => group.Key)
+            .ToArray();
 
         if (selectedContextMap.Count == 0 && !createOnlyOperations)
         {
@@ -83,6 +90,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         var replaceDiagnostics = new List<PatchReplaceDiagnostic>();
         var suggestedTargetDiagnostics = new List<PatchSuggestedTargetDiagnostic>();
 
+        foreach (var mixedOperationPath in mixedOperationPaths)
+        {
+            validationErrors.Add($"Patch preview cannot create and edit the same file in one preview: {mixedOperationPath}");
+        }
+
         if (response.Operations.Count == 0)
         {
             throw BuildValidationException(
@@ -104,6 +116,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             }
 
             var filePath = NormalizeRelativePath(operation.FilePath);
+            if (mixedOperationPaths.Contains(filePath, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var isCreate = normalizedOperation.Equals("create", StringComparison.OrdinalIgnoreCase);
 
             var pathIsValid = createOnlyOperations && isCreate
