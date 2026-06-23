@@ -665,6 +665,58 @@ public sealed class CoderConsoleServiceRepairTests
     }
 
     [Fact]
+    public async Task GeneratePatchPreviewAsync_NoSelectedContext_StopsBeforeModelCall()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-no-selected-context-{Guid.NewGuid():N}");
+        var requests = new List<string>();
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+
+            var handler = new QueueHandler(requests);
+
+            var httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri("http://localhost")
+            };
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["AiBox:LocalCoder:DefaultModel"] = "test-model",
+                    ["AiBox:LocalCoder:WorkspaceRoots:0"] = projectRoot
+                })
+                .Build();
+
+            var environment = Substitute.For<IWebHostEnvironment>();
+            environment.ContentRootPath.Returns(projectRoot);
+
+            var patchEditOperationService = new PatchEditOperationService(NullLogger<PatchEditOperationService>.Instance);
+            var contextService = Substitute.For<ILocalCoderContextService>();
+
+            var service = CreateService(httpClient, configuration, environment, patchEditOperationService, contextService);
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() => service.GeneratePatchPreviewAsync(new LocalCoderRequest
+            {
+                ProjectPath = projectRoot,
+                Model = "test-model",
+                Task = "Rename the class"
+            }));
+
+            Assert.Contains("No editable source files selected and no valid create targets were detected.", exception.Message, StringComparison.Ordinal);
+            Assert.Empty(requests);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task GeneratePatchPreviewAsync_CreateAllowedFileInRepresentedFolder_PassesValidation()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-create-intent-preview-{Guid.NewGuid():N}");
@@ -797,7 +849,7 @@ public sealed class CoderConsoleServiceRepairTests
                 new AgentModelRoute
                 {
                     Id = "llamacpp-local-coder",
-                    Name = "llama.cpp / DevPortal Local Coder",
+                    Name = "llama.cpp Local Coder",
                     Provider = "llama.cpp",
                     BaseUrl = "http://localhost:8082/v1/chat/completions",
                     Model = "qwen2.5-coder-7b-instruct-q4_k_m.gguf"

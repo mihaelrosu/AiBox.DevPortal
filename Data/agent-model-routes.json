@@ -4,7 +4,7 @@
     "name": "Ollama / Open WebUI",
     "provider": "Ollama",
     "baseUrl": "http://localhost:11434",
-    "model": "dynamic",
+    "model": "qwen2.5-coder:7b",
     "contextSize": 8192,
     "allowTools": false,
     "expectedOutputFormat": "free-text",
@@ -13,7 +13,7 @@
   },
   {
     "id": "llamacpp-local-coder",
-    "name": "llama.cpp / DevPortal Local Coder",
+    "name": "llama.cpp Local Coder",
     "provider": "llama.cpp",
     "baseUrl": "http://localhost:8082/v1/chat/completions",
     "model": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",

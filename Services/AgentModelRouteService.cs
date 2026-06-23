@@ -99,7 +99,7 @@ public sealed class AgentModelRouteService(IWebHostEnvironment environment)
                 Name = "Ollama / Open WebUI",
                 Provider = "Ollama",
                 BaseUrl = "http://localhost:11434",
-                Model = "dynamic",
+                Model = "qwen2.5-coder:7b",
                 ContextSize = 8192,
                 AllowTools = false,
                 ExpectedOutputFormat = "free-text",
@@ -109,7 +109,7 @@ public sealed class AgentModelRouteService(IWebHostEnvironment environment)
             new AgentModelRoute
             {
                 Id = "llamacpp-local-coder",
-                Name = "llama.cpp / DevPortal Local Coder",
+                Name = "llama.cpp Local Coder",
                 Provider = "llama.cpp",
                 BaseUrl = "http://localhost:8082/v1/chat/completions",
                 Model = "qwen2.5-coder-7b-instruct-q4_k_m.gguf",

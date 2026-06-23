@@ -15,7 +15,7 @@ public sealed class AgentModelRouteHealthCheckServiceTests
         var service = new AgentModelRouteHealthCheckService(new TestHttpClientFactory(HttpStatusCode.OK));
         var route = new AgentModelRoute
         {
-            Name = "llama.cpp / DevPortal Local Coder",
+            Name = "llama.cpp Local Coder",
             BaseUrl = "http://localhost:8082/v1/chat/completions",
             Model = "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
         };
@@ -32,7 +32,7 @@ public sealed class AgentModelRouteHealthCheckServiceTests
         var service = new AgentModelRouteHealthCheckService(new TestHttpClientFactory(HttpStatusCode.ServiceUnavailable));
         var route = new AgentModelRoute
         {
-            Name = "llama.cpp / DevPortal Local Coder",
+            Name = "llama.cpp Local Coder",
             BaseUrl = "http://localhost:8082/v1/chat/completions",
             Model = "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
         };
@@ -40,7 +40,7 @@ public sealed class AgentModelRouteHealthCheckServiceTests
         var result = await service.CheckAsync(route);
 
         Assert.False(result.IsHealthy);
-        Assert.Equal("Model route 'llama.cpp / DevPortal Local Coder' is not reachable at http://localhost:8082/v1/chat/completions.", result.Message);
+        Assert.Equal("Model route 'llama.cpp Local Coder' is not reachable at http://localhost:8082/v1/models.", result.Message);
     }
 
     private sealed class TestHttpClientFactory(HttpStatusCode statusCode) : IHttpClientFactory

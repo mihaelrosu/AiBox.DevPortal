@@ -15,7 +15,7 @@
   },
   {
     "role": "verifier",
-    "preferredModel": "qwen2.5-coder:7b",
+    "preferredModel": "",
     "useRecommendedModel": false,
     "fallbackModel": "",
     "allowFallback": false
@@ -29,7 +29,7 @@
   },
   {
     "role": "toolRunner",
-    "preferredModel": "qwen2.5-coder:7b",
+    "preferredModel": "",
     "useRecommendedModel": false,
     "fallbackModel": "",
     "allowFallback": false

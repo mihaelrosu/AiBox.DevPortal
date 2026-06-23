@@ -415,7 +415,7 @@ public sealed class AgentModeProfileRouteTests
             Task = "Create planner route test"
         }, profile!));
 
-        Assert.Equal("Model route 'llama.cpp / DevPortal Local Coder' is not reachable at http://localhost:8082/v1/chat/completions.", exception.Message);
+        Assert.Equal("Model route 'llama.cpp Local Coder' is not reachable at http://localhost:8082/v1/models.", exception.Message);
         await context.CoderConsoleService.DidNotReceiveWithAnyArgs().CreatePlanAsync(default!, default!);
     }
 
