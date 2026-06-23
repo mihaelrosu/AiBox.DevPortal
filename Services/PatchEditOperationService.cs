@@ -92,7 +92,7 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
 
         foreach (var mixedOperationPath in mixedOperationPaths)
         {
-            validationErrors.Add($"Patch preview cannot create and edit the same file in one preview: {mixedOperationPath}");
+            validationErrors.Add($"Patch cannot create and edit the same file in one preview: {mixedOperationPath}");
         }
 
         if (response.Operations.Count == 0)
