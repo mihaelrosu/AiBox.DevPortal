@@ -653,7 +653,7 @@ public sealed class CoderConsoleServiceRepairTests
             Assert.NotNull(exception.PromptTargetResolution);
             Assert.False(exception.PromptTargetResolution!.TargetFound);
             Assert.Equal("insert_before", exception.PromptTargetResolution.Operation);
-            Assert.Equal(0, requests.Count);
+            Assert.Empty(requests);
         }
         finally
         {
@@ -862,21 +862,21 @@ public sealed class CoderConsoleServiceRepairTests
             }
         }
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             requests.Add(request.RequestUri!);
             if (responses.Count == 0)
             {
-                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 {
                     Content = new StringContent("No more responses configured", Encoding.UTF8, "application/json")
-                };
+                });
             }
 
-            return new HttpResponseMessage(HttpStatusCode.OK)
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(responses.Dequeue(), Encoding.UTF8, "application/json")
-            };
+            });
         }
     }
 }

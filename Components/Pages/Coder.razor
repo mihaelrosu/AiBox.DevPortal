@@ -131,6 +131,12 @@
 @if (suggestedContextFiles.Count > 0)
 {
     <RadzenCard Style="margin-top: 0.5rem;">
+        <RadzenButton Text="Add Suggested Files"
+              Icon="add"
+              ButtonStyle="ButtonStyle.Primary"
+              Size="ButtonSize.Small"
+              Click="@AddSuggestedContextFilesAsync"
+              Disabled="@isContextLocked" />
         <RadzenStack Gap="0.35rem">
             <RadzenText Text="Suggested context files" TextStyle="TextStyle.Subtitle2" />
             @foreach (var file in suggestedContextFiles)
@@ -4210,6 +4216,14 @@ private string userRequest = string.Empty;
 
         return profile;
     }
+    private async Task AddSuggestedContextFilesAsync()
+    {
+    if (suggestedContextFiles.Count == 0)
+    {
+    return;
+    }
 
+    await AddSuggestedFilesAsync(suggestedContextFiles);
+    }
     #endregion
 }

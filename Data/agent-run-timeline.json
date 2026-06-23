@@ -421,5 +421,50 @@
     "status": "Failed",
     "message": "The model returned an invalid patch operation.",
     "referenceId": "f841d8a1a5b747529b871d1551cab27b"
+  },
+  {
+    "id": "5a3ac088def544dca4bfe8857a5b040a",
+    "runId": "60f4b37c1e764925a628c1df7ee833bd",
+    "timestamp": "2026-06-23T12:43:16.9598184+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "52027f6bac1f4d268943ae7f8d5b3296",
+    "runId": "60f4b37c1e764925a628c1df7ee833bd",
+    "timestamp": "2026-06-23T12:43:17.9598184+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "1e2b1b3e9a5f48f7b7a95fcaa88ac46d",
+    "runId": "60f4b37c1e764925a628c1df7ee833bd",
+    "timestamp": "2026-06-23T12:43:18.9598184+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "60f4b37c1e764925a628c1df7ee833bd"
+  },
+  {
+    "id": "0628eb8e60b04fa2b552243b2e4a3959",
+    "runId": "b287c7a81df542b6816754f6d996882f",
+    "timestamp": "2026-06-23T12:46:42.5028732+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "5295a88b8c964e81af7733e95f86221e",
+    "runId": "b287c7a81df542b6816754f6d996882f",
+    "timestamp": "2026-06-23T12:46:44.5028732+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "Patch preview validation failed:\n- Anchor not found for insert_after in file \u0027Components/Pages/Coder.razor\u0027: private async Task ApplyPlanAsync()\n- Response status code does not indicate success: 404 (Not Found).",
+    "referenceId": "b287c7a81df542b6816754f6d996882f"
   }
 ]

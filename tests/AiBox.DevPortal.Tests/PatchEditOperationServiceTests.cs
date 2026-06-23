@@ -1803,12 +1803,12 @@ public sealed class PatchEditOperationServiceTests
                     """));
 
             Assert.Equal("The model returned an invalid patch operation.", exception.Message);
-            Assert.True(
-                exception.ValidationErrors.Any(error =>
-                    string.Equals(error, "Exact target text was not found in context.", StringComparison.Ordinal)));
-            Assert.True(
-                exception.OperationGrammarErrors.Any(error =>
-                    string.Equals(error, "Exact target text was not found in context.", StringComparison.Ordinal)));
+            Assert.Contains(
+                exception.ValidationErrors,
+                error => string.Equals(error, "Exact target text was not found in context.", StringComparison.Ordinal));
+            Assert.Contains(
+                exception.OperationGrammarErrors,
+                error => string.Equals(error, "Exact target text was not found in context.", StringComparison.Ordinal));
         }
         finally
         {

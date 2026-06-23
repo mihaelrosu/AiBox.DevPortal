@@ -1,0 +1,18 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Models/TestFeature.cs",
+      "operation": "create",
+      "newText": "namespace AiBox.DevPortal.Models {\n    public class TestFeature {\n        // Add properties and methods here\n    }\n}\n",
+      "summary": "Create a new file"
+    },
+    {
+      "filePath": "Services/TestFeatureService.cs",
+      "operation": "create",
+      "newText": "using AiBox.DevPortal.Models;\nusing System;\nusing System.Collections.Generic;\n\nnamespace AiBox.DevPortal.Services {\n    public class TestFeatureService {\n        // Add methods here\n    }\n}\n",
+      "summary": "Create a new file"
+    }
+  ]
+}
+```

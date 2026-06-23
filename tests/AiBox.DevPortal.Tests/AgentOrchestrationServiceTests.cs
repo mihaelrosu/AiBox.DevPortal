@@ -462,7 +462,7 @@ public sealed class AgentOrchestrationServiceTests
             run = await harness.Service.AddStepAsync(run.Id, "Planner", AgentMode.Planner);
             run = await harness.Service.AddStepAsync(run.Id, "Patch Builder", AgentMode.PatchBuilder);
 
-            var plannerStep = Assert.Single(run.Steps.Where(step => step.StepName == "Planner"));
+            var plannerStep = Assert.Single(run.Steps, step => step.StepName == "Planner");
             await harness.Service.StartStepAsync(run.Id, plannerStep.Id, "Planner started.");
             run = await harness.Service.CompleteStepAsync(run.Id, plannerStep.Id, "Planner completed.");
 
@@ -510,7 +510,7 @@ public sealed class AgentOrchestrationServiceTests
             run = await harness.Service.AddStepAsync(run.Id, "Planner", AgentMode.Planner);
             run = await harness.Service.AddStepAsync(run.Id, "Patch Builder", AgentMode.PatchBuilder);
 
-            var plannerStep = Assert.Single(run.Steps.Where(step => step.StepName == "Planner"));
+            var plannerStep = Assert.Single(run.Steps, step => step.StepName == "Planner");
             await harness.Service.StartStepAsync(run.Id, plannerStep.Id, "Planner started.");
             run = await harness.Service.CompleteStepAsync(run.Id, plannerStep.Id, "Planner completed.");
 
@@ -1361,7 +1361,10 @@ public sealed class AgentOrchestrationServiceTests
             Directory.CreateDirectory(hookDirectory);
             var hookPath = Path.Combine(hookDirectory, "pre-commit");
             File.WriteAllText(hookPath, "#!/bin/sh\nexit 1\n");
-            File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
         }
     }
 

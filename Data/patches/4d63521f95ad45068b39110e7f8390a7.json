@@ -1,0 +1,106 @@
+{
+  "id": "4d63521f95ad45068b39110e7f8390a7",
+  "createdAt": "2026-06-23T12:43:23.7974406+00:00",
+  "updatedAt": "2026-06-23T12:43:23.7974407+00:00",
+  "backupFolder": "",
+  "appliedAt": null,
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Create Models/TestFeature.cs\nCreate Services/TestFeatureService.cs",
+  "model": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+  "patchText": "diff --git a/Models/TestFeature.cs b/Models/TestFeature.cs\nindex e69de29..4268651 100644\n--- a/Models/TestFeature.cs\n\u002B\u002B\u002B b/Models/TestFeature.cs\n@@ -0,0 \u002B1,5 @@\n\u002Bnamespace AiBox.DevPortal.Models {\n\u002B    public class TestFeature {\n\u002B        // Add properties and methods here\n\u002B    }\n\u002B}\ndiff --git a/Services/TestFeatureService.cs b/Services/TestFeatureService.cs\nindex e69de29..42937a1 100644\n--- a/Services/TestFeatureService.cs\n\u002B\u002B\u002B b/Services/TestFeatureService.cs\n@@ -0,0 \u002B1,9 @@\n\u002Busing AiBox.DevPortal.Models;\n\u002Busing System;\n\u002Busing System.Collections.Generic;\n\u002B\n\u002Bnamespace AiBox.DevPortal.Services {\n\u002B    public class TestFeatureService {\n\u002B        // Add methods here\n\u002B    }\n\u002B}",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [
+    "Models/",
+    "Services/"
+  ],
+  "contextFilePaths": [],
+  "intent": {
+    "goal": "Create Models/TestFeature",
+    "allowedFiles": [
+      "Models/TestFeature.cs",
+      "Services/TestFeatureService.cs"
+    ],
+    "allowedPaths": [
+      "Models/TestFeature.cs",
+      "Services/TestFeatureService.cs"
+    ],
+    "targetCreatedFiles": [
+      "Models/TestFeature.cs",
+      "Services/TestFeatureService.cs"
+    ],
+    "allowedCreateFolders": [
+      "Models/",
+      "Services/"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet test"
+  },
+  "intentValidation": {
+    "status": "partiallyMatches",
+    "detectedChangeType": "Refactor",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Models/TestFeature.cs",
+      "Services/TestFeatureService.cs"
+    ],
+    "modifiedFiles": [
+      "Models/TestFeature.cs",
+      "Services/TestFeatureService.cs"
+    ],
+    "contextFiles": [],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Models/TestFeature.cs",
+        "inContext": false,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      },
+      {
+        "relativePath": "Services/TestFeatureService.cs",
+        "inContext": false,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [
+      "Expected Add but detected Refactor."
+    ],
+    "isBlocking": false
+  },
+  "status": "draft",
+  "statusMessage": "Draft patch package created from preview.",
+  "approvalGateResults": [],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Models/TestFeature.cs",
+      "oldContent": "",
+      "newContent": "namespace AiBox.DevPortal.Models {\n    public class TestFeature {\n        // Add properties and methods here\n    }\n}\n"
+    },
+    {
+      "relativePath": "Services/TestFeatureService.cs",
+      "oldContent": "",
+      "newContent": "using AiBox.DevPortal.Models;\nusing System;\nusing System.Collections.Generic;\n\nnamespace AiBox.DevPortal.Services {\n    public class TestFeatureService {\n        // Add methods here\n    }\n}\n"
+    }
+  ]
+}
