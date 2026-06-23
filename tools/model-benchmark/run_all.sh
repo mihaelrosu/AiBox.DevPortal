@@ -8,7 +8,8 @@ for suite in \
   benchmark_cases_ui.json \
   benchmark_cases_hallucination.json \
   benchmark_cases_devportal.json \
-  benchmark_cases_context.json
+  benchmark_cases_context.json \
+  benchmark_cases_patchbuilder_reliability.json
 do
     echo
     echo "======================================"

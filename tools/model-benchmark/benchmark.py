@@ -5,14 +5,9 @@ import requests
 
 MODELS = [
     {
-        "name": "ollama-qwen25-coder-7b",
-        "url": "http://localhost:11434/v1/chat/completions",
-        "model": "qwen2.5-coder:7b"
-    },
-    {
         "name": "llamacpp-qwen25-coder-7b",
         "url": "http://localhost:8082/v1/chat/completions",
-        "model": "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+        "model": "local"
     }
 ]
 
@@ -83,6 +78,11 @@ def score_response(content, expected):
     except Exception as ex:
         return 0, [f"Invalid JSON: {ex}"]
 
+    if isinstance(data, list):
+        data = {
+            "operations": data
+        }
+
     operations = data.get("operations", [])
 
     if isinstance(operations, list):
@@ -111,6 +111,7 @@ def score_response(content, expected):
             errors.append("Model created patch when it should refuse")
 
     required_texts = expected.get("mustContainText", [])
+    forbidden_texts = expected.get("mustNotContainText", [])
     all_new_text = "\n".join(
         x.get("newText", "")
         for x in operations
@@ -118,15 +119,27 @@ def score_response(content, expected):
     )
 
     if required_texts:
+        searchable = all_new_text + "\n" + content
         missing = [
             item for item in required_texts
-            if item not in all_new_text
+            if item not in searchable
         ]
 
         if not missing:
             score += 30
         else:
-            errors.append("Missing required UI text: " + ", ".join(missing))
+            errors.append("Missing required text: " + ", ".join(missing))
+
+    if forbidden_texts:
+        searchable = all_new_text + "\n" + content
+        found = [
+            item for item in forbidden_texts
+            if item in searchable
+        ]
+
+        if found:
+            score = 0
+            errors.append("Forbidden hallucinated text: " + ", ".join(found))
 
     return min(score, 100), errors
 
