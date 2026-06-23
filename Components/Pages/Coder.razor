@@ -124,7 +124,7 @@
                                                       Click="@DecomposeTask"
                                                       Disabled="@string.IsNullOrWhiteSpace(request.Task)" />
                                         <RadzenButton Text="Suggest Context"
-                                                        Icon="context_info"
+                                                        Icon="info"
                                                         ButtonStyle="ButtonStyle.Light"
                                                         Click="@NotifyContextSuggestions" />
                                         </RadzenStack>
@@ -1076,12 +1076,12 @@
         return modelRoutes.FirstOrDefault(route => route.Id.Equals(profile.ModelRouteId, StringComparison.OrdinalIgnoreCase));
     }
     private void NotifyContextSuggestions()
-    {
-        NotificationService.Notify(
-            NotificationSeverity.Info,
-            "Context Suggestions",
-            "Context suggestions are not implemented yet.");
-    }
+{
+    NotificationService.Notify(
+        NotificationSeverity.Info,
+        "Context Suggestions",
+        "Suggestion engine will be wired in the next slice.");
+}
     private AgentExecutionPolicy? GetSelectedAgentModeProfilePolicy(AgentModeProfile profile)
     {
         if (string.IsNullOrWhiteSpace(profile.PolicyId))

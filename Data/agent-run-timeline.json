@@ -403,5 +403,23 @@
     "status": "Succeeded",
     "message": "Patch preview generated.",
     "referenceId": "d23b4316aee54e848ed931643650d528"
+  },
+  {
+    "id": "4d9f2b64c80349359be72e96558c945e",
+    "runId": "f841d8a1a5b747529b871d1551cab27b",
+    "timestamp": "2026-06-23T09:46:46.2949831+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "0ea835f512384a84838bc5d458091001",
+    "runId": "f841d8a1a5b747529b871d1551cab27b",
+    "timestamp": "2026-06-23T09:46:48.2949831+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "The model returned an invalid patch operation.",
+    "referenceId": "f841d8a1a5b747529b871d1551cab27b"
   }
 ]
