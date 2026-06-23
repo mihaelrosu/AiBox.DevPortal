@@ -128,7 +128,18 @@
                                                         ButtonStyle="ButtonStyle.Light"
                                                         Click="@NotifyContextSuggestions" />
                                         </RadzenStack>
-
+@if (suggestedContextFiles.Count > 0)
+{
+    <RadzenCard Style="margin-top: 0.5rem;">
+        <RadzenStack Gap="0.35rem">
+            <RadzenText Text="Suggested context files" TextStyle="TextStyle.Subtitle2" />
+            @foreach (var file in suggestedContextFiles)
+            {
+                <RadzenText Text="@file" TextStyle="TextStyle.Body2" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+}
                                     <TaskPlanPreviewPanel Plan="@taskPlanPreview"
                                                           IsGeneratingPatch="@isGeneratingPatch"
                                                           IsVerifyingSlice="@isVerifyingSlice"
@@ -857,11 +868,13 @@
     [Inject] private ILocalCoderContextService LocalCoderContextService { get; set; } = default!;
     [Inject] private Radzen.DialogService DialogService { get; set; } = default!;
     [Inject] private Radzen.NotificationService NotificationService { get; set; } = default!;
+    @inject ContextSuggestionService ContextSuggestionService
 
     #endregion
 
     #region Page state
-
+private IReadOnlyList<string> suggestedContextFiles = [];
+private string userRequest = string.Empty;
     private readonly LocalCoderRequest request = new();
 
     private IReadOnlyList<string> workspaceRoots = [];
@@ -1075,13 +1088,39 @@
 
         return modelRoutes.FirstOrDefault(route => route.Id.Equals(profile.ModelRouteId, StringComparison.OrdinalIgnoreCase));
     }
-    private void NotifyContextSuggestions()
-{
-    NotificationService.Notify(
-        NotificationSeverity.Info,
-        "Context Suggestions",
-        "Suggestion engine will be wired in the next slice.");
-}
+    private async Task NotifyContextSuggestions()
+    {
+        if (string.IsNullOrWhiteSpace(request.ProjectPath))
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "Context Suggestions",
+                "Select a project before suggesting context.");
+
+            return;
+        }
+
+        projectKnowledgeIndex ??= await ProjectKnowledgeIndexService.GetLatestAsync(request.ProjectPath);
+
+        if (projectKnowledgeIndex is null)
+        {
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "Context Suggestions",
+                "Rebuild the project knowledge index before suggesting context.");
+
+            return;
+        }
+
+        suggestedContextFiles = ContextSuggestionService.SuggestFiles(
+            request.Task,
+            projectKnowledgeIndex);
+
+        NotificationService.Notify(
+            NotificationSeverity.Info,
+            "Context Suggestions",
+            $"Found {suggestedContextFiles.Count} suggestion(s).");
+    }
     private AgentExecutionPolicy? GetSelectedAgentModeProfilePolicy(AgentModeProfile profile)
     {
         if (string.IsNullOrWhiteSpace(profile.PolicyId))

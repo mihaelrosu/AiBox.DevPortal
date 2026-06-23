@@ -334,6 +334,8 @@ public sealed class CoderComponentSmokeTests : TestContext
         Services.AddSingleton(Substitute.For<IImageToolService>());
         Services.AddSingleton(Substitute.For<IComfyUiService>());
         Services.AddSingleton(Substitute.For<ISdxlTextToImageService>());
+
+        Services.AddScoped<ContextSuggestionService>();
     }
 
     private sealed class SmokeHttpClientFactory : IHttpClientFactory
