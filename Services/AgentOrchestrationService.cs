@@ -1289,11 +1289,14 @@ public sealed class AgentOrchestrationService(
             throw new InvalidOperationException(preparation.FailureMessage);
         }
 
+        var preparedTaskText = string.IsNullOrWhiteSpace(preparation.TaskText)
+            ? userRequest
+            : preparation.TaskText;
         var request = new LocalCoderRequest
         {
             ProjectPath = environment.ContentRootPath,
             Model = (await agentModeProfileService.GetByModeAsync(AgentMode.PatchBuilder, cancellationToken))?.Model ?? "qwen2.5-coder:7b",
-            Task = userRequest,
+            Task = preparedTaskText,
             FileContexts = preparation.FileContexts.ToList(),
             AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
             AllowedPatchFolders = [],
@@ -1301,7 +1304,7 @@ public sealed class AgentOrchestrationService(
             {
                 ProjectPath = environment.ContentRootPath,
                 Model = "qwen2.5-coder:7b",
-                Task = userRequest,
+                Task = preparedTaskText,
                 FileContexts = preparation.FileContexts.ToList(),
                 AllowedPatchScope = PatchScopeMode.ContextFilesOnly
             }).AllowedCreateFolders.ToList()

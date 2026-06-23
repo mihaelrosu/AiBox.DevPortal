@@ -171,6 +171,12 @@ public sealed class TaskSlicePatchPreviewPreparationService(
             sliceContexts = normalizedSelectedContexts;
         }
 
+        if (sliceContexts.Count == 0 && createTargets.Count == 0 && normalizedTargetFiles.Count > 0)
+        {
+            createTargets = normalizedTargetFiles;
+            debugDetails.Add("CreateTargets inferred from TargetFiles.");
+        }
+
         if (sliceContexts.Count == 0 && createTargets.Count > 0)
         {
             selectedSource = "CreateTargets";

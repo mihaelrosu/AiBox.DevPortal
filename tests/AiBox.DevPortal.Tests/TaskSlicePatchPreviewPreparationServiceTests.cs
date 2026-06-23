@@ -92,6 +92,46 @@ public sealed class TaskSlicePatchPreviewPreparationServiceTests
     }
 
     [Fact]
+    public async Task PrepareAsync_UsesTargetFilesAsCreateTargetsWhenNoLoadedContextsExist()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"slice-preview-target-files-create-targets-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(projectRoot, "Models"));
+
+            var result = await service.PrepareAsync(
+                new TaskPlanSlice
+                {
+                    Id = "slice-2b",
+                    Title = "Create new models",
+                    TargetFiles =
+                    [
+                        "Models/ToolAgentRequest.cs",
+                        "Models/ToolAgentResult.cs"
+                    ]
+                },
+                projectRoot,
+                []);
+
+            Assert.True(result.CanGenerate);
+            Assert.Equal(["Models/ToolAgentRequest.cs", "Models/ToolAgentResult.cs"], result.FileContexts.Select(context => context.RelativePath).ToArray());
+            Assert.Contains(result.DebugDetails, detail => detail == "CreateTargets inferred from TargetFiles.");
+            Assert.Contains(result.DebugDetails, detail => detail == "SelectedContextSource: CreateTargets");
+            Assert.Contains("Create targets:", result.TaskText, StringComparison.Ordinal);
+            Assert.Contains("Models/ToolAgentRequest.cs", result.TaskText, StringComparison.Ordinal);
+            Assert.Contains("Models/ToolAgentResult.cs", result.TaskText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PrepareAsync_ReturnsFailureWhenNoValidTargetsExist()
     {
         var result = await service.PrepareAsync(
