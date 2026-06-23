@@ -1,0 +1,36 @@
+{
+  "model": "llamacpp-qwen25-coder-7b",
+  "averageScore": 100.0,
+  "results": [
+    {
+      "caseId": "radzen_card_panel",
+      "score": 100,
+      "elapsedSeconds": 2.8,
+      "errors": [],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Components/Coder/TestBenchmarkPanel.razor\",\n      \"operation\": \"create\",\n      \"oldText\": \"\",\n      \"newText\": \"<RadzenCard Title=\\\"Test Benchmark\\\">\\n    <RadzenStack Orientation=\\\"Vertical\\\">\\n        <RadzenText>Run Benchmark</RadzenText>\\n        <RadzenButton Text=\\\"Run\\\" OnClick=\\\"OnRunClicked\\\" />\\n    </RadzenStack>\\n</RadzenCard>\\n\\n@code {\\n    private void OnRunClicked()\\n    {\\n        // Benchmark logic here\\n    }\\n}\\n\",\n      \"summary\": \"Create TestBenchmarkPanel component with RadzenCard, RadzenStack, RadzenText, and RadzenButton\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "radzen_data_grid",
+      "score": 100,
+      "elapsedSeconds": 5.41,
+      "errors": [
+        "Missing required UI text: RadzenDataGridColumn"
+      ],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Components/Coder/TestBenchmarkGrid.razor\",\n      \"operation\": \"create\",\n      \"oldText\": \"\",\n      \"newText\": \"<RadzenDataGrid Data=\\\"@benchmarkResults\\\">\\n    <Columns>\\n        <RadzenGridColumn TItem=\\\"BenchmarkResult\\\" Field=\\\"Model\\\" Title=\\\"Model\\\" />\\n        <RadzenGridColumn TItem=\\\"BenchmarkResult\\\" Field=\\\"Score\\\" Title=\\\"Score\\\" />\\n        <RadzenGridColumn TItem=\\\"BenchmarkResult\\\" Field=\\\"ElapsedSeconds\\\" Title=\\\"Elapsed Seconds\\\" />\\n        <RadzenGridColumn TItem=\\\"BenchmarkResult\\\" Field=\\\"Status\\\" Title=\\\"Status\\\" />\\n    </Columns>\\n</RadzenDataGrid>\\n\\n@code {\\n    private List<BenchmarkResult> benchmarkResults = new List<BenchmarkResult>\\n    {\\n        new BenchmarkResult { Model = \\\"Model1\\\", Score = 95, ElapsedSeconds = 2.3, Status = \\\"Passed\\\" },\\n        new BenchmarkResult { Model = \\\"Model2\\\", Score = 88, ElapsedSeconds = 1.9, Status = \\\"Failed\\\" }\\n    };\\n\\n    public class BenchmarkResult\\n    {\\n        public string Model { get; set; }\\n        public int Score { get; set; }\\n        public double ElapsedSeconds { get; set; }\\n        public string Status { get; set; }\\n    }\\n}\\n\",\n      \"summary\": \"Create test benchmark grid component\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "radzen_dialog_component",
+      "score": 100,
+      "elapsedSeconds": 3.91,
+      "errors": [],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Components/Coder/TestBenchmarkDialog.razor\",\n      \"operation\": \"create\",\n      \"oldText\": \"\",\n      \"newText\": \"<RadzenDialog @bind-Visible=\\\"visible\\\" Title=\\\"Benchmark Details\\\">\\n    <p>Benchmark details will be shown here.</p>\\n    <RadzenButton Text=\\\"Close\\\" OnClick=\\\"CloseDialog\\\" Style=\\\"margin-right: 10px;\\\" />\\n    <RadzenButton Text=\\\"Run Again\\\" OnClick=\\\"RunBenchmark\\\" />\\n</RadzenDialog>\\n\\n@code {\\n    [Inject]\\n    private DialogService DialogService { get; set; }\\n\\n    private bool visible = true;\\n\\n    private void CloseDialog()\\n    {\\n        visible = false;\\n        DialogService.CloseDialog(this);\\n    }\\n\\n    private void RunBenchmark()\\n    {\\n        // Logic to run benchmark\\n    }\\n}\\n\",\n      \"summary\": \"Create TestBenchmarkDialog component with DialogService injection, benchmark details display, and Close and Run Again buttons\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "radzen_form_validation",
+      "score": 100,
+      "elapsedSeconds": 3.22,
+      "errors": [],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Components/Coder/TestBenchmarkForm.razor\",\n      \"operation\": \"create\",\n      \"oldText\": \"\",\n      \"newText\": \"<RadzenTemplateForm OnSubmit=\\\"OnSubmit\\\">\\n    <RadzenTextBox Field=\\\"Name\\\" Label=\\\"Name\\\" Placeholder=\\\"Enter name\\\" />\\n    <RadzenRequiredValidator Field=\\\"Name\\\" ErrorMessage=\\\"Name is required\\\" />\\n    <RadzenDropDown Field=\\\"Type\\\" Label=\\\"Type\\\" Placeholder=\\\"Select type\\\">\\n        <RadzenListItem Value=\\\"Type1\\\">Type 1</RadzenListItem>\\n        <RadzenListItem Value=\\\"Type2\\\">Type 2</RadzenListItem>\\n    </RadzenDropDown>\\n    <RadzenButton ButtonType=\\\"Submit\\\">Submit</RadzenButton>\\n</RadzenTemplateForm>\",\n      \"summary\": \"Create test benchmark form component\"\n    }\n  ]\n}"
+    }
+  ]
+}

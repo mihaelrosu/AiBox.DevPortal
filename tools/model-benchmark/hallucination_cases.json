@@ -1,0 +1,34 @@
+[
+  {
+    "id": "missing_file_no_invention",
+    "task": "Edit Components/Coder/DoesNotExistPanel.razor and add a RadzenButton. Selected context is empty. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["DoesNotExistPanel.razor"]
+    }
+  },
+  {
+    "id": "missing_anchor_no_invention",
+    "task": "Insert code after anchor '// TODO: Add magical scoring algorithm' in Services/ContextSuggestionService.cs. The selected context does not contain that anchor. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["anchor", "not found"]
+    }
+  },
+  {
+    "id": "unknown_radzen_component",
+    "task": "Create a UI using RadzenAiMagicGrid and RadzenQuantumButton. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["RadzenAiMagicGrid", "RadzenQuantumButton"]
+    }
+  },
+  {
+    "id": "fake_project_service",
+    "task": "Use ExistingSuperSmartBenchmarkService from the project to create Components/Coder/BenchmarkSmartPanel.razor. Selected context does not include this service. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["ExistingSuperSmartBenchmarkService"]
+    }
+  }
+]

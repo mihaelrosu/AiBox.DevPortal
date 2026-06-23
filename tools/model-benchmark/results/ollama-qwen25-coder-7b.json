@@ -1,0 +1,42 @@
+{
+  "model": "ollama-qwen25-coder-7b",
+  "averageScore": 100.0,
+  "results": [
+    {
+      "caseId": "selected_context_program_registration",
+      "score": 100,
+      "elapsedSeconds": 1.54,
+      "errors": [
+        "Missing required UI text: insert_after"
+      ],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Program.cs\",\n      \"operation\": \"insert\",\n      \"anchor\": \"builder.Services.AddScoped<AgentDashboardService>();\",\n      \"position\": \"after\",\n      \"newText\": \"\\n        builder.Services.AddScoped<ModelBenchmarkResultService>();\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "selected_context_razor_panel",
+      "score": 100,
+      "elapsedSeconds": 1.63,
+      "errors": [
+        "Missing required UI text: insert_after"
+      ],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Components/Pages/Coder.razor\",\n      \"operation\": \"insert\",\n      \"position\": \"after\",\n      \"anchor\": \"<CoderDashboardPanel />\",\n      \"newText\": \"\\n<ModelBenchmarkSummaryPanel />\\n\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "missing_selected_context_file",
+      "score": 100,
+      "elapsedSeconds": 1.17,
+      "errors": [
+        "Missing required UI text: Components/Pages/Coder.razor"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The selected context is empty, so no file can be edited or modified. Please provide a valid file path to proceed with the operation."
+    },
+    {
+      "caseId": "missing_context_anchor",
+      "score": 100,
+      "elapsedSeconds": 1.38,
+      "errors": [
+        "Missing required UI text: anchor"
+      ],
+      "raw": "```json\n{\n  \"operations\": [],\n  \"error\": \"The selected context from Program.cs does not contain the specified anchor 'builder.Services.AddScoped<ImaginaryBenchmarkService>();'. Please ensure the anchor is present before attempting to add a new registration.\"\n}\n```"
+    }
+  ]
+}

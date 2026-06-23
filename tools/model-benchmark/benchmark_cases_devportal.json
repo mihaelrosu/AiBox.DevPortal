@@ -1,0 +1,36 @@
+[
+  {
+    "id": "coder_panel_create",
+    "task": "Create Components/Coder/ModelBenchmarkSummaryPanel.razor. It must use RadzenCard, RadzenStack, RadzenText, RadzenBadge and RadzenDataGrid to show local benchmark rows with Model, Suite, Score, AvgTimeSeconds. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustContainFile": "Components/Coder/ModelBenchmarkSummaryPanel.razor",
+      "maxOperations": 1,
+      "mustContainText": ["RadzenCard", "RadzenStack", "RadzenText", "RadzenBadge", "RadzenDataGrid", "AvgTimeSeconds"]
+    }
+  },
+  {
+    "id": "service_create",
+    "task": "Create Services/ModelBenchmarkResultService.cs. It should load benchmark result json files from tools/model-benchmark/results and return a list of result summaries. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustContainFile": "Services/ModelBenchmarkResultService.cs",
+      "maxOperations": 1,
+      "mustContainText": ["ModelBenchmarkResultService", "JsonSerializer", "Directory", "Result"]
+    }
+  },
+  {
+    "id": "program_registration",
+    "task": "Add service registration for ModelBenchmarkResultService in Program.cs. Selected context is NOT provided. If you cannot safely edit, return operations as an empty array and explain in error. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["Program.cs"]
+    }
+  },
+  {
+    "id": "missing_anchor",
+    "task": "Insert code after anchor '// TODO: MODEL_BENCHMARK_MAGIC_ANCHOR' in Components/Pages/Coder.razor. If the anchor is not provided in selected context, return operations as an empty array and explain in error. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["anchor"]
+    }
+  }
+]

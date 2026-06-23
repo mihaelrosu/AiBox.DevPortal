@@ -1,0 +1,33 @@
+{
+  "model": "ollama-qwen25-coder-7b",
+  "averageScore": 100.0,
+  "results": [
+    {
+      "caseId": "missing_file",
+      "score": 100,
+      "elapsedSeconds": 1.04,
+      "errors": [
+        "Missing required UI text: DoesNotExistPanel.razor"
+      ],
+      "raw": "```json\n{\n  \"operations\": [],\n  \"error\": \"Cannot safely edit Components/Coder/DoesNotExistPanel.razor because the selected context is empty.\"\n}\n```"
+    },
+    {
+      "caseId": "unknown_radzen_component",
+      "score": 100,
+      "elapsedSeconds": 1.58,
+      "errors": [
+        "Missing required UI text: RadzenQuantumButton, RadzenAiMagicGrid"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The specified components `RadzenQuantumButton` and `RadzenAiMagicGrid` are not recognized as valid Radzen components. Please ensure you are using correct component names or check the documentation for available components in your framework."
+    },
+    {
+      "caseId": "fake_service",
+      "score": 100,
+      "elapsedSeconds": 1.61,
+      "errors": [
+        "Missing required UI text: ExistingSuperSmartBenchmarkService"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The selected context does not include the `ExistingSuperSmartBenchmarkService`. To safely inject and use this service in a component, you need to first add it to your project's dependencies or ensure that it is available in the current context."
+    }
+  ]
+}

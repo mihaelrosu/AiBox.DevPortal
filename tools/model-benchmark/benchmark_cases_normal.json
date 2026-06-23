@@ -1,0 +1,38 @@
+[
+  {
+    "id": "radzen_card_panel",
+    "task": "Create Components/Coder/TestBenchmarkPanel.razor. It must use RadzenCard, RadzenStack, RadzenText, RadzenButton and a private OnRunClicked method. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustContainFile": "Components/Coder/TestBenchmarkPanel.razor",
+      "maxOperations": 1,
+      "mustContainText": ["RadzenCard", "RadzenStack", "RadzenText", "RadzenButton", "OnRunClicked"]
+    }
+  },
+  {
+    "id": "radzen_data_grid",
+    "task": "Create Components/Coder/TestBenchmarkGrid.razor. It must show a RadzenDataGrid for a local list of benchmark result rows with columns Model, Score, ElapsedSeconds, Status. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustContainFile": "Components/Coder/TestBenchmarkGrid.razor",
+      "maxOperations": 1,
+      "mustContainText": ["RadzenDataGrid", "RadzenDataGridColumn", "Model", "Score", "ElapsedSeconds", "Status"]
+    }
+  },
+  {
+    "id": "radzen_dialog_component",
+    "task": "Create Components/Coder/TestBenchmarkDialog.razor. It must inject DialogService, show benchmark details, and include Close and Run Again buttons using RadzenButton. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustContainFile": "Components/Coder/TestBenchmarkDialog.razor",
+      "maxOperations": 1,
+      "mustContainText": ["DialogService", "RadzenButton", "Close", "Run Again"]
+    }
+  },
+  {
+    "id": "radzen_form_validation",
+    "task": "Create Components/Coder/TestBenchmarkForm.razor. It must use RadzenTemplateForm, RadzenTextBox, RadzenRequiredValidator, RadzenDropDown, and submit handler OnSubmit. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustContainFile": "Components/Coder/TestBenchmarkForm.razor",
+      "maxOperations": 1,
+      "mustContainText": ["RadzenTemplateForm", "RadzenTextBox", "RadzenRequiredValidator", "RadzenDropDown", "OnSubmit"]
+    }
+  }
+]

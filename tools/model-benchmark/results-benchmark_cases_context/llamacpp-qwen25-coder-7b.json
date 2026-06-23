@@ -1,0 +1,42 @@
+{
+  "model": "llamacpp-qwen25-coder-7b",
+  "averageScore": 100.0,
+  "results": [
+    {
+      "caseId": "selected_context_program_registration",
+      "score": 100,
+      "elapsedSeconds": 1.14,
+      "errors": [
+        "Missing required UI text: insert_after"
+      ],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Program.cs\",\n      \"operation\": \"insert\",\n      \"position\": \"after\",\n      \"anchor\": \"builder.Services.AddScoped<AgentDashboardService>();\",\n      \"newText\": \"builder.Services.AddScoped<ModelBenchmarkResultService>();\\n\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "selected_context_razor_panel",
+      "score": 100,
+      "elapsedSeconds": 1.3,
+      "errors": [
+        "Missing required UI text: insert_after"
+      ],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Components/Pages/Coder.razor\",\n      \"operation\": \"insert\",\n      \"oldText\": \"<CoderDashboardPanel />\",\n      \"newText\": \"<CoderDashboardPanel />\\n<ModelBenchmarkSummaryPanel />\",\n      \"summary\": \"Add ModelBenchmarkSummaryPanel after CoderDashboardPanel\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "missing_selected_context_file",
+      "score": 100,
+      "elapsedSeconds": 1.23,
+      "errors": [
+        "Missing required UI text: Components/Pages/Coder.razor"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The selected context is empty, making it impossible to determine the location within `Components/Pages/Coder.razor` to insert the `<ModelBenchmarkSummaryPanel />` component. Please provide a valid context or specify the exact location within the file where the component should be added."
+    },
+    {
+      "caseId": "missing_context_anchor",
+      "score": 100,
+      "elapsedSeconds": 1.02,
+      "errors": [
+        "Missing required UI text: anchor"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The selected context from `Program.cs` does not contain the anchor `builder.Services.AddScoped<ImaginaryBenchmarkService>();`. Please ensure that the anchor is present in the file before attempting to add the registration."
+    }
+  ]
+}

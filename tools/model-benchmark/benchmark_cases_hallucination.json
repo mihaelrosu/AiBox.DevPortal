@@ -1,0 +1,26 @@
+[
+  {
+    "id": "missing_file",
+    "task": "Edit Components/Coder/DoesNotExistPanel.razor and add a RadzenButton. Selected context is empty. If you cannot safely edit, return operations as an empty array and explain in error. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["DoesNotExistPanel.razor"]
+    }
+  },
+  {
+    "id": "unknown_radzen_component",
+    "task": "Create a page using RadzenQuantumButton and RadzenAiMagicGrid. These components are not known Radzen components. If unsafe, return operations as an empty array and explain in error. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["RadzenQuantumButton", "RadzenAiMagicGrid"]
+    }
+  },
+  {
+    "id": "fake_service",
+    "task": "Inject ExistingSuperSmartBenchmarkService and use it in a component. Selected context does not include this service. If unsafe, return operations as an empty array and explain in error. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["ExistingSuperSmartBenchmarkService"]
+    }
+  }
+]

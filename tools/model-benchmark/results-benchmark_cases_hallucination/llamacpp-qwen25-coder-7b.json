@@ -1,0 +1,33 @@
+{
+  "model": "llamacpp-qwen25-coder-7b",
+  "averageScore": 100.0,
+  "results": [
+    {
+      "caseId": "missing_file",
+      "score": 100,
+      "elapsedSeconds": 0.65,
+      "errors": [
+        "Missing required UI text: DoesNotExistPanel.razor"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The specified file \"Components/Coder/DoesNotExistPanel.razor\" does not exist."
+    },
+    {
+      "caseId": "unknown_radzen_component",
+      "score": 100,
+      "elapsedSeconds": 1.03,
+      "errors": [
+        "Missing required UI text: RadzenQuantumButton, RadzenAiMagicGrid"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The components `RadzenQuantumButton` and `RadzenAiMagicGrid` are not recognized as valid Radzen components. Please ensure you are using correct component names or check the documentation for the correct usage of these components."
+    },
+    {
+      "caseId": "fake_service",
+      "score": 100,
+      "elapsedSeconds": 0.97,
+      "errors": [
+        "Missing required UI text: ExistingSuperSmartBenchmarkService"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The selected context does not include the `ExistingSuperSmartBenchmarkService`. To use this service in a component, you need to first add it to the context or ensure it is available in the component's dependencies."
+    }
+  ]
+}

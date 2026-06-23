@@ -1,0 +1,36 @@
+[
+  {
+    "id": "selected_context_program_registration",
+    "task": "Selected context from Program.cs contains this exact anchor: builder.Services.AddScoped<AgentDashboardService>(); Add builder.Services.AddScoped<ModelBenchmarkResultService>(); after that anchor. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustContainFile": "Program.cs",
+      "maxOperations": 1,
+      "mustContainText": ["ModelBenchmarkResultService", "insert_after"]
+    }
+  },
+  {
+    "id": "selected_context_razor_panel",
+    "task": "Selected context from Components/Pages/Coder.razor contains this exact anchor: <CoderDashboardPanel /> Add <ModelBenchmarkSummaryPanel /> after that anchor. Return ONLY JSON patch operations.",
+    "expected": {
+      "mustContainFile": "Components/Pages/Coder.razor",
+      "maxOperations": 1,
+      "mustContainText": ["ModelBenchmarkSummaryPanel", "insert_after"]
+    }
+  },
+  {
+    "id": "missing_selected_context_file",
+    "task": "Edit Components/Pages/Coder.razor and add <ModelBenchmarkSummaryPanel />. Selected context is empty. If unsafe, return operations as an empty array and explain in error. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["Components/Pages/Coder.razor"]
+    }
+  },
+  {
+    "id": "missing_context_anchor",
+    "task": "Selected context from Program.cs does not contain anchor builder.Services.AddScoped<ImaginaryBenchmarkService>(); Add a registration after that anchor. If unsafe, return operations as an empty array and explain in error. Return ONLY JSON.",
+    "expected": {
+      "mustRefusePatch": true,
+      "mustContainText": ["anchor"]
+    }
+  }
+]

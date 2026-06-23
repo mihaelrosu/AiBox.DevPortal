@@ -1,0 +1,42 @@
+{
+  "model": "ollama-qwen25-coder-7b",
+  "averageScore": 100.0,
+  "results": [
+    {
+      "caseId": "coder_panel_create",
+      "score": 100,
+      "elapsedSeconds": 4.41,
+      "errors": [
+        "Missing required UI text: RadzenText, RadzenBadge"
+      ],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Components/Coder/ModelBenchmarkSummaryPanel.razor\",\n      \"operation\": \"create\",\n      \"oldText\": \"\",\n      \"newText\": \"<RadzenCard Title=\\\"Model Benchmark Summary\\\">\\n    <RadzenStack Orientation=\\\"Vertical\\\">\\n        <RadzenDataGrid Data=\\\"@benchmarkRows\\\" AllowPaging=\\\"true\\\" PageSize=\\\"10\\\">\\n            <Columns>\\n                <RadzenGridColumn TItem=\\\"BenchmarkRow\\\" Field=\\\"Model\\\" Title=\\\"Model\\\" />\\n                <RadzenGridColumn TItem=\\\"BenchmarkRow\\\" Field=\\\"Suite\\\" Title=\\\"Suite\\\" />\\n                <RadzenGridColumn TItem=\\\"BenchmarkRow\\\" Field=\\\"Score\\\" Title=\\\"Score\\\" />\\n                <RadzenGridColumn TItem=\\\"BenchmarkRow\\\" Field=\\\"AvgTimeSeconds\\\" Title=\\\"Average Time (s)\\\" />\\n            </Columns>\\n        </RadzenDataGrid>\\n    </RadzenStack>\\n</RadzenCard>\",\n      \"summary\": \"Create Model Benchmark Summary Panel\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "service_create",
+      "score": 100,
+      "elapsedSeconds": 7.13,
+      "errors": [
+        "Missing required UI text: JsonSerializer"
+      ],
+      "raw": "{\n  \"operations\": [\n    {\n      \"filePath\": \"Services/ModelBenchmarkResultService.cs\",\n      \"operation\": \"create\",\n      \"oldText\": \"\",\n      \"newText\": \"using System;\\nusing System.Collections.Generic;\\nusing System.IO;\\nusing Newtonsoft.Json;\\n\\nnamespace AiBox.DevPortal.Services;\\n\\npublic class ModelBenchmarkResultService\\n{\\n    public List<BenchmarkResultSummary> LoadResults()\\n    {\\n        var results = new List<BenchmarkResultSummary>();\\n        var directoryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, \\\"tools\\\", \\\"model-benchmark\\\", \\\"results\\\");\\n\\n        foreach (var file in Directory.GetFiles(directoryPath, \\\"*.json\\\"))\\n        {\\n            var result = JsonConvert.DeserializeObject<BenchmarkResult>(File.ReadAllText(file));\\n            results.Add(new BenchmarkResultSummary\\n            {\\n                Name = result.Name,\\n                AverageTime = result.AverageTime,\\n                MinTime = result.MinTime,\\n                MaxTime = result.MaxTime\\n            });\\n        }\\n\\n        return results;\\n    }\\n}\\n\\npublic class BenchmarkResult\\n{\\n    public string Name { get; set; }\\n    public double AverageTime { get; set; }\\n    public double MinTime { get; set; }\\n    public double MaxTime { get; set; }\\n}\\n\\npublic class BenchmarkResultSummary\\n{\\n    public string Name { get; set; }\\n    public double AverageTime { get; set; }\\n    public double MinTime { get; set; }\\n    public double MaxTime { get; set; }\\n}\",\n      \"summary\": \"Create service to load and summarize model benchmark results\"\n    }\n  ]\n}"
+    },
+    {
+      "caseId": "program_registration",
+      "score": 100,
+      "elapsedSeconds": 1.91,
+      "errors": [
+        "Missing required UI text: Program.cs"
+      ],
+      "raw": "```json\n{\n  \"operations\": []\n}\n```\n\n**Error:** The selected context does not provide information about the `Program.cs` file or any existing service registrations. Without this information, it is not safe to add a new service registration for `ModelBenchmarkResultService`. Please provide the necessary context or specify the location within `Program.cs` where the service should be registered."
+    },
+    {
+      "caseId": "missing_anchor",
+      "score": 100,
+      "elapsedSeconds": 0.96,
+      "errors": [
+        "Missing required UI text: anchor"
+      ],
+      "raw": "```json\n{\n  \"operations\": [],\n  \"error\": \"Anchor '// TODO: MODEL_BENCHMARK_MAGIC_ANCHOR' not found in the selected context.\"\n}\n```"
+    }
+  ]
+}
