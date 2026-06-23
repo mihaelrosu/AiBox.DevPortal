@@ -52,5 +52,356 @@
     "status": "Failed",
     "message": "Patch preview validation failed:\n- Anchor not found for insert_after in file \u0027Components/Pages/Coder.razor\u0027: \u003CRadzenText Text=\u0022Current time\u0022 TextStyle=\u0022TextStyle.Body2\u0022 /\u003E\n- Response status code does not indicate success: 404 (Not Found).",
     "referenceId": "ee0cd96b4c1747c5bff8c6f5c9febe7e"
+  },
+  {
+    "id": "632c4798c7a947f28a5d50346988e19c",
+    "runId": "8d69bed281aa49fda13b59f4bd623e60",
+    "timestamp": "2026-06-22T17:06:25.8916306+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "a07edf32326540808eb8cd5be70d1e86",
+    "runId": "8d69bed281aa49fda13b59f4bd623e60",
+    "timestamp": "2026-06-22T17:06:27.8916306+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "No editable source files selected and no valid create targets were detected.",
+    "referenceId": "8d69bed281aa49fda13b59f4bd623e60"
+  },
+  {
+    "id": "d2a62602798044859d3af7f02b3b3d7f",
+    "runId": "2143856c15224d79a361186a3a976560",
+    "timestamp": "2026-06-22T17:09:08.3024931+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "861143aa0a634c96b86707b42f53d20f",
+    "runId": "2143856c15224d79a361186a3a976560",
+    "timestamp": "2026-06-22T17:09:09.3024931+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "3c2f6668277545419b437c9311c887d7",
+    "runId": "2143856c15224d79a361186a3a976560",
+    "timestamp": "2026-06-22T17:09:10.3024931+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "2143856c15224d79a361186a3a976560"
+  },
+  {
+    "id": "a82d66023d2c4e13b3599b05b8e0f5c0",
+    "runId": "ea51b7c430ed4d3ab73760e27ce645e3",
+    "timestamp": "2026-06-22T17:10:49.5338368+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "e3468131e06c42ddb435ca325b014ceb",
+    "runId": "ea51b7c430ed4d3ab73760e27ce645e3",
+    "timestamp": "2026-06-22T17:10:50.5338368+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "ba645b9e9c394527b3411b8deafce142",
+    "runId": "ea51b7c430ed4d3ab73760e27ce645e3",
+    "timestamp": "2026-06-22T17:10:51.5338368+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "ea51b7c430ed4d3ab73760e27ce645e3"
+  },
+  {
+    "id": "af4ae1379a424db191ccaf89c33d6c01",
+    "runId": "4e925de856494f949664127787cee2b8",
+    "timestamp": "2026-06-22T17:12:26.9940847+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "d154670e5a4f4171b62aeb25dc9fba99",
+    "runId": "4e925de856494f949664127787cee2b8",
+    "timestamp": "2026-06-22T17:12:28.9940847+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "Patch preview validation failed:\n- Patch edit operation file path was not included in the selected context: Models/ProjectKnowledgeItem.cs",
+    "referenceId": "4e925de856494f949664127787cee2b8"
+  },
+  {
+    "id": "a7ad8bd9183a4c8794e968c630719847",
+    "runId": "b0e07dc02a5142cba3f6b7bd6b20540b",
+    "timestamp": "2026-06-22T17:17:09.1287564+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "60a0d3c62a6943978daca07eaea3bf28",
+    "runId": "b0e07dc02a5142cba3f6b7bd6b20540b",
+    "timestamp": "2026-06-22T17:17:11.1287564+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "Patch preview validation failed:\n- Patch edit operation file path was not included in the selected context: Models/ProjectKnowledgeItem.cs",
+    "referenceId": "b0e07dc02a5142cba3f6b7bd6b20540b"
+  },
+  {
+    "id": "2fece8265d2a4bb3bbb958af569bcbad",
+    "runId": "13934df00ff642af976a10951895e63a",
+    "timestamp": "2026-06-22T17:31:26.0486563+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "166c2976e31f44b68ab2b8dd2d548181",
+    "runId": "13934df00ff642af976a10951895e63a",
+    "timestamp": "2026-06-22T17:31:28.0486563+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "Patch preview validation failed:\n- JSON parse error: \u0027)\u0027 is invalid after a value. Expected either \u0027,\u0027, \u0027}\u0027, or \u0027]\u0027. Path: $.operations[1] | LineNumber: 13 | BytePositionInLine: 2581.",
+    "referenceId": "13934df00ff642af976a10951895e63a"
+  },
+  {
+    "id": "797a7ba858434f24adfd95453cb5eeb0",
+    "runId": "f9d797da7680477e97618c59828a1716",
+    "timestamp": "2026-06-22T17:33:14.8733174+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "48a01ce6d41a4dab8cab657a191599d4",
+    "runId": "f9d797da7680477e97618c59828a1716",
+    "timestamp": "2026-06-22T17:33:15.8733174+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "fb0b6792f16545f8a6e552032d6a94f0",
+    "runId": "f9d797da7680477e97618c59828a1716",
+    "timestamp": "2026-06-22T17:33:16.8733174+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "f9d797da7680477e97618c59828a1716"
+  },
+  {
+    "id": "04e0a78e62c14e4887dfab0672dba634",
+    "runId": "1f0b2d7e03de4a85998c25c99684d163",
+    "timestamp": "2026-06-22T17:35:58.4712822+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "a95937cc85d3426fb0b9c3c3dc23a42d",
+    "runId": "1f0b2d7e03de4a85998c25c99684d163",
+    "timestamp": "2026-06-22T17:35:59.4712822+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "3c7398e859ca4dfb92484426f1791868",
+    "runId": "1f0b2d7e03de4a85998c25c99684d163",
+    "timestamp": "2026-06-22T17:36:00.4712822+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "1f0b2d7e03de4a85998c25c99684d163"
+  },
+  {
+    "id": "6a8fb7280cb0473bb91471f040da7747",
+    "runId": "7445e02cfc8246b1b5ec8865d33f0093",
+    "timestamp": "2026-06-22T17:52:01.62236+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "0a2aecfce71b4555ad3c98c51d30e577",
+    "runId": "7445e02cfc8246b1b5ec8865d33f0093",
+    "timestamp": "2026-06-22T17:52:02.62236+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "ed62794da7ec4264929e56e78772d876",
+    "runId": "7445e02cfc8246b1b5ec8865d33f0093",
+    "timestamp": "2026-06-22T17:52:03.62236+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "7445e02cfc8246b1b5ec8865d33f0093"
+  },
+  {
+    "id": "8b199263649045bebf68f699c0de462b",
+    "runId": "87a1505307fb467eb292d3257d5b7d38",
+    "timestamp": "2026-06-22T20:15:29.4291795+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "651a25c168a643168e138b036ffe0be6",
+    "runId": "87a1505307fb467eb292d3257d5b7d38",
+    "timestamp": "2026-06-22T20:15:30.4291795+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "a6ca3b64dc7046d8b4657801bf0f0df0",
+    "runId": "87a1505307fb467eb292d3257d5b7d38",
+    "timestamp": "2026-06-22T20:15:31.4291795+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "87a1505307fb467eb292d3257d5b7d38"
+  },
+  {
+    "id": "96ee266877374f57a83af5c70da03e17",
+    "runId": "97de43c274f04e29af0948cfac7a9d28",
+    "timestamp": "2026-06-22T20:38:40.4722332+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "52b340c85f3b4c0185bd163a522603ef",
+    "runId": "97de43c274f04e29af0948cfac7a9d28",
+    "timestamp": "2026-06-22T20:38:41.4722332+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "627902469633476abae33aa06b8044c4",
+    "runId": "97de43c274f04e29af0948cfac7a9d28",
+    "timestamp": "2026-06-22T20:38:42.4722332+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "97de43c274f04e29af0948cfac7a9d28"
+  },
+  {
+    "id": "7671eda2c4094836be9f24810d72a1a8",
+    "runId": "5b328c8ff30a4a80805a7e94ccadc678",
+    "timestamp": "2026-06-22T20:41:36.0011384+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "1766ed53ce0347d78bea7a695986befa",
+    "runId": "5b328c8ff30a4a80805a7e94ccadc678",
+    "timestamp": "2026-06-22T20:41:38.0011384+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "No editable source files selected and no valid create targets were detected.",
+    "referenceId": "5b328c8ff30a4a80805a7e94ccadc678"
+  },
+  {
+    "id": "224c646506e247ec88c831d234ca9e1e",
+    "runId": "b9a9725eee1f4d02aa417f05781e0518",
+    "timestamp": "2026-06-22T20:49:11.7979736+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "761be9479a8c4dd99a585f148876cb1f",
+    "runId": "b9a9725eee1f4d02aa417f05781e0518",
+    "timestamp": "2026-06-22T20:49:12.7979736+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "9d182007b98344f596936112de9efee6",
+    "runId": "b9a9725eee1f4d02aa417f05781e0518",
+    "timestamp": "2026-06-22T20:49:13.7979736+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "b9a9725eee1f4d02aa417f05781e0518"
+  },
+  {
+    "id": "0a7f387f458e485185251c0aa7e28550",
+    "runId": "18f86538f781450783fe41250ea38a0f",
+    "timestamp": "2026-06-22T20:54:48.1916407+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "2f7f29f328384c248746324a88db46e2",
+    "runId": "18f86538f781450783fe41250ea38a0f",
+    "timestamp": "2026-06-22T20:54:50.1916407+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Failed",
+    "message": "Patch preview validation failed:\n- Patch preview does not appear to implement the requested change.",
+    "referenceId": "18f86538f781450783fe41250ea38a0f"
+  },
+  {
+    "id": "0361a0eb34e04504acc742f9844d62a5",
+    "runId": "d23b4316aee54e848ed931643650d528",
+    "timestamp": "2026-06-22T20:58:22.6695236+00:00",
+    "stage": "RouteHealthCheck",
+    "status": "Succeeded",
+    "message": "Model route \u0027llama.cpp / DevPortal Local Coder\u0027 is healthy at http://localhost:8082/v1/chat/completions.",
+    "referenceId": "llamacpp-local-coder"
+  },
+  {
+    "id": "9e0ad87efd854e5391ffedd79f062343",
+    "runId": "d23b4316aee54e848ed931643650d528",
+    "timestamp": "2026-06-22T20:58:23.6695236+00:00",
+    "stage": "PolicyValidation",
+    "status": "Succeeded",
+    "message": "Execution policy \u0027Patch Builder\u0027 accepted patch preview generation.",
+    "referenceId": "PatchBuilder"
+  },
+  {
+    "id": "7ec584c8d6734a4a9a1860d03b6a2e7b",
+    "runId": "d23b4316aee54e848ed931643650d528",
+    "timestamp": "2026-06-22T20:58:24.6695236+00:00",
+    "stage": "PatchPreviewGenerated",
+    "status": "Succeeded",
+    "message": "Patch preview generated.",
+    "referenceId": "d23b4316aee54e848ed931643650d528"
   }
 ]

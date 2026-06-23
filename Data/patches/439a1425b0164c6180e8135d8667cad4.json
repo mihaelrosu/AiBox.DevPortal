@@ -1,0 +1,85 @@
+{
+  "id": "439a1425b0164c6180e8135d8667cad4",
+  "createdAt": "2026-06-22T20:49:20.6800914+00:00",
+  "updatedAt": "2026-06-22T20:49:20.6800918+00:00",
+  "backupFolder": "",
+  "appliedAt": null,
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Create:\nServices/ContextSuggestionService.cs\n\nFix ContextSuggestionService so it compiles.\n\nIssues:\n- score variable is out of scope in OrderByDescending.\n- Suggestions must keep both Path and Score.\n- Matching must be case-insensitive.\n- Tokenization should lowercase and remove empty tokens.\n\nReturn top 10 paths ordered by descending score then path.\n\nGenerate patch preview only.",
+  "model": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+  "patchText": "diff --git a/Services/ContextSuggestionService.cs b/Services/ContextSuggestionService.cs\nindex e69de29..ed7d17e 100644\n--- a/Services/ContextSuggestionService.cs\n\u002B\u002B\u002B b/Services/ContextSuggestionService.cs\n@@ -0,0 \u002B1,28 @@\n\u002Busing System;\n\u002Busing System.Collections.Generic;\n\u002Busing System.Linq;\n\u002Busing System.Threading.Tasks;\n\u002B\n\u002Bnamespace AiBox.DevPortal.Services\n\u002B{\n\u002B    public class ContextSuggestionService\n\u002B    {\n\u002B        public List\u003Cstring\u003E GetSuggestions(string query)\n\u002B        {\n\u002B            var tokens = query.ToLower().Split(\u0027 \u0027).Where(token =\u003E !string.IsNullOrEmpty(token)).ToList();\n\u002B            var suggestions = new List\u003Cstring\u003E();\n\u002B            foreach (var token in tokens)\n\u002B            {\n\u002B                suggestions.AddRange(GetSuggestionForToken(token));\n\u002B            }\n\u002B            var scoredSuggestions = suggestions.Select(suggestion =\u003E new { Suggestion = suggestion, Score = suggestion.ToLower().Count(c =\u003E c == token.ToLower()[0]) }).ToList();\n\u002B            return scoredSuggestions.OrderByDescending(suggestion =\u003E suggestion.Score).ThenBy(suggestion =\u003E suggestion.Suggestion).Take(10).Select(suggestion =\u003E suggestion.Suggestion).ToList();\n\u002B        }\n\u002B\n\u002B        private List\u003Cstring\u003E GetSuggestionForToken(string token)\n\u002B        {\n\u002B            // Implement logic to retrieve suggestions based on the token\n\u002B            return new List\u003Cstring\u003E { \u0022suggestion1\u0022, \u0022suggestion2\u0022, \u0022suggestion3\u0022 }; // Example suggestions\n\u002B        }\n\u002B    }\n\u002B}\n\\ No newline at end of file",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [
+    "Services/"
+  ],
+  "contextFilePaths": [],
+  "intent": {
+    "goal": "Create:\nServices/ContextSuggestionService",
+    "allowedFiles": [
+      "Services/ContextSuggestionService.cs"
+    ],
+    "allowedPaths": [
+      "Services/ContextSuggestionService.cs"
+    ],
+    "targetCreatedFiles": [
+      "Services/ContextSuggestionService.cs"
+    ],
+    "allowedCreateFolders": [
+      "Services/"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "move",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet build"
+  },
+  "intentValidation": {
+    "status": "partiallyMatches",
+    "detectedChangeType": "Update",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Services/ContextSuggestionService.cs"
+    ],
+    "modifiedFiles": [
+      "Services/ContextSuggestionService.cs"
+    ],
+    "contextFiles": [],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Services/ContextSuggestionService.cs",
+        "inContext": false,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [
+      "Expected Move but detected Update."
+    ],
+    "isBlocking": false
+  },
+  "status": "draft",
+  "statusMessage": "Draft patch package created from preview.",
+  "approvalGateResults": [],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Services/ContextSuggestionService.cs",
+      "oldContent": "",
+      "newContent": "using System;\nusing System.Collections.Generic;\nusing System.Linq;\nusing System.Threading.Tasks;\n\nnamespace AiBox.DevPortal.Services\n{\n    public class ContextSuggestionService\n    {\n        public List\u003Cstring\u003E GetSuggestions(string query)\n        {\n            var tokens = query.ToLower().Split(\u0027 \u0027).Where(token =\u003E !string.IsNullOrEmpty(token)).ToList();\n            var suggestions = new List\u003Cstring\u003E();\n            foreach (var token in tokens)\n            {\n                suggestions.AddRange(GetSuggestionForToken(token));\n            }\n            var scoredSuggestions = suggestions.Select(suggestion =\u003E new { Suggestion = suggestion, Score = suggestion.ToLower().Count(c =\u003E c == token.ToLower()[0]) }).ToList();\n            return scoredSuggestions.OrderByDescending(suggestion =\u003E suggestion.Score).ThenBy(suggestion =\u003E suggestion.Suggestion).Take(10).Select(suggestion =\u003E suggestion.Suggestion).ToList();\n        }\n\n        private List\u003Cstring\u003E GetSuggestionForToken(string token)\n        {\n            // Implement logic to retrieve suggestions based on the token\n            return new List\u003Cstring\u003E { \u0022suggestion1\u0022, \u0022suggestion2\u0022, \u0022suggestion3\u0022 }; // Example suggestions\n        }\n    }\n}"
+    }
+  ]
+}

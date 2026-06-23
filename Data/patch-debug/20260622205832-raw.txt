@@ -1,0 +1,22 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Coder.razor",
+      "operation": "insert_after",
+      "anchor": "<RadzenButton Text=\"Decompose Task\"",
+      "oldText": "",
+      "newText": "<RadzenButton Text=\"Suggest Context\" Icon=\"context_info\" ButtonStyle=\"ButtonStyle.Light\" Click=\"NotifyContextSuggestions\" />",
+      "summary": "Insert Suggest Context button after Decompose Task button"
+    },
+    {
+      "filePath": "Components/Pages/Coder.razor",
+      "operation": "insert_after",
+      "anchor": "<RadzenButton Text=\"Suggest Context\" Icon=\"context_info\" ButtonStyle=\"ButtonStyle.Light\" Click=\"NotifyContextSuggestions\" />",
+      "oldText": "",
+      "newText": "private void NotifyContextSuggestions()\n{\n    NotificationService.Notify(\n        NotificationSeverity.Info,\n        \"Context Suggestions\",\n        \"Context suggestions are not implemented yet.\");\n}",
+      "summary": "Insert NotifyContextSuggestions method after Suggest Context button"
+    }
+  ]
+}
+```

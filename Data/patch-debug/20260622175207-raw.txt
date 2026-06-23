@@ -1,0 +1,10 @@
+{
+  "operations": [
+    {
+      "filePath": "Services/ContextSuggestionService.cs",
+      "operation": "create",
+      "newText": "using System;\n\nnamespace AiBox.DevPortal.Services\n{\n    public class ContextSuggestionService\n    {\n        // Implement your service logic here\n    }\n}\n",
+      "summary": "Create a new file"
+    }
+  ]
+}

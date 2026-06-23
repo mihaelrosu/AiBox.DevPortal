@@ -1,0 +1,87 @@
+{
+  "id": "4dfdec1ae1794e1f9b1d33799cf4d32d",
+  "createdAt": "2026-06-22T17:10:56.4259095+00:00",
+  "updatedAt": "2026-06-22T17:10:56.4259095+00:00",
+  "backupFolder": "",
+  "appliedAt": null,
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Modify only:\nModels/ProjectKnowledgeIndex.cs\n\nChange existing ProjectKnowledgeItem:\n- Classes should be List\u003Cstring\u003E\n- Interfaces should be List\u003Cstring\u003E\n- Add Records as List\u003Cstring\u003E\n- Keep Namespace\n- Keep RelativePath\n- Keep FileType\n- Keep LastIndexedUtc\n\nDo not create Models/ProjectKnowledgeItem.cs.\nDo not add duplicate Items property.\nGenerate patch preview only.",
+  "model": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+  "patchText": "diff --git a/Models/ProjectKnowledgeIndex.cs b/Models/ProjectKnowledgeIndex.cs\nindex 9b44703..ffeffaa 100644\n--- a/Models/ProjectKnowledgeIndex.cs\n\u002B\u002B\u002B b/Models/ProjectKnowledgeIndex.cs\n@@ -4,7 \u002B4,9 @@ public sealed class ProjectKnowledgeIndex\n {\n     public string ProjectPath { get; set; } = string.Empty;\n     public DateTime RebuiltAtUtc { get; set; }\n-    public IReadOnlyList\u003CProjectKnowledgeItem\u003E Items { get; set; } = [];\n\u002B    public List\u003Cstring\u003E Classes { get; set; } = [];\n\u002Bpublic List\u003Cstring\u003E Interfaces { get; set; } = [];\n\u002Bpublic List\u003Cstring\u003E Records { get; set; } = [];\n }\n \n public sealed class ProjectKnowledgeItem",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [
+    "Models/"
+  ],
+  "contextFilePaths": [
+    "Models/ProjectKnowledgeIndex.cs"
+  ],
+  "intent": {
+    "goal": "Modify only:\nModels/ProjectKnowledgeIndex",
+    "allowedFiles": [
+      "Models/ProjectKnowledgeIndex.cs"
+    ],
+    "allowedPaths": [
+      "Models/ProjectKnowledgeIndex.cs"
+    ],
+    "targetCreatedFiles": [],
+    "allowedCreateFolders": [
+      "Models/"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet build"
+  },
+  "intentValidation": {
+    "status": "partiallyMatches",
+    "detectedChangeType": "Update",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Models/ProjectKnowledgeIndex.cs"
+    ],
+    "modifiedFiles": [
+      "Models/ProjectKnowledgeIndex.cs"
+    ],
+    "contextFiles": [
+      "Models/ProjectKnowledgeIndex.cs"
+    ],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Models/ProjectKnowledgeIndex.cs",
+        "inContext": true,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [
+      "Expected Add but detected Update."
+    ],
+    "isBlocking": false
+  },
+  "status": "draft",
+  "statusMessage": "Draft patch package created from preview.",
+  "approvalGateResults": [],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Models/ProjectKnowledgeIndex.cs",
+      "oldContent": "namespace AiBox.DevPortal.Models;\n\npublic sealed class ProjectKnowledgeIndex\n{\n    public string ProjectPath { get; set; } = string.Empty;\n    public DateTime RebuiltAtUtc { get; set; }\n    public IReadOnlyList\u003CProjectKnowledgeItem\u003E Items { get; set; } = [];\n}\n\npublic sealed class ProjectKnowledgeItem\n{\n    public string RelativePath { get; set; } = string.Empty;\n    public string FileType { get; set; } = string.Empty;\n    public string Name { get; set; } = string.Empty;\n    public string Namespace { get; set; } = string.Empty;\n    public string Kind { get; set; } = string.Empty;\n    public string Summary { get; set; } = string.Empty;\n    public DateTime LastModifiedUtc { get; set; }\n}\n",
+      "newContent": "namespace AiBox.DevPortal.Models;\n\npublic sealed class ProjectKnowledgeIndex\n{\n    public string ProjectPath { get; set; } = string.Empty;\n    public DateTime RebuiltAtUtc { get; set; }\n    public List\u003Cstring\u003E Classes { get; set; } = [];\npublic List\u003Cstring\u003E Interfaces { get; set; } = [];\npublic List\u003Cstring\u003E Records { get; set; } = [];\n}\n\npublic sealed class ProjectKnowledgeItem\n{\n    public string RelativePath { get; set; } = string.Empty;\n    public string FileType { get; set; } = string.Empty;\n    public string Name { get; set; } = string.Empty;\n    public string Namespace { get; set; } = string.Empty;\n    public string Kind { get; set; } = string.Empty;\n    public string Summary { get; set; } = string.Empty;\n    public DateTime LastModifiedUtc { get; set; }\n}\n"
+    }
+  ]
+}

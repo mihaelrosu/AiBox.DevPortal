@@ -1,0 +1,118 @@
+{
+  "id": "c2487659eb2145069169b3f6ef70aaf4",
+  "createdAt": "2026-06-22T17:36:14.3771667+00:00",
+  "updatedAt": "2026-06-22T17:36:14.3771667+00:00",
+  "backupFolder": "",
+  "appliedAt": null,
+  "rolledBack": false,
+  "rolledBackAt": null,
+  "projectPath": "/opt/ai-box/dev/projects/AiBox.DevPortal",
+  "userRequest": "Create:\nModels/PatchTargetCorrectionResult.cs\nServices/PatchTargetCorrectionService.cs\n\nAllowed create folders:\nModels/\nServices/\n\nGoal:\nCreate a standalone service.\n\nDo not implement any existing interface.\n\nPatchTargetCorrectionResult should contain:\n- bool IsCorrected\n- string OriginalPath\n- string CorrectedPath\n- string Reason\n\nPatchTargetCorrectionService should expose:\n\nPatchTargetCorrectionResult CorrectPath(\n    string requestedPath,\n    IReadOnlyList\u003CLocalCoderFileContext\u003E selectedContexts)\n\nBehavior:\n- If requestedPath exists in selectedContexts, return IsCorrected=false.\n- Otherwise infer symbol name from filename.\n- Search selected context contents for:\n  class SymbolName\n  record SymbolName\n  interface SymbolName\n- If found, return corrected path and reason.\n- Otherwise return IsCorrected=false.\n\nGenerate patch preview only.",
+  "model": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+  "patchText": "diff --git a/Models/PatchTargetCorrectionResult.cs b/Models/PatchTargetCorrectionResult.cs\nindex e69de29..56f0891 100644\n--- a/Models/PatchTargetCorrectionResult.cs\n\u002B\u002B\u002B b/Models/PatchTargetCorrectionResult.cs\n@@ -0,0 \u002B1,10 @@\n\u002Busing System;\n\u002B\n\u002Bnamespace AiBox.DevPortal.Models {\n\u002B    public sealed class PatchTargetCorrectionResult {\n\u002B        public bool IsCorrected { get; set; }\n\u002B        public string OriginalPath { get; set; }\n\u002B        public string CorrectedPath { get; set; }\n\u002B        public string Reason { get; set; }\n\u002B    }\n\u002B}\n\\ No newline at end of file\ndiff --git a/Services/PatchTargetCorrectionService.cs b/Services/PatchTargetCorrectionService.cs\nindex e69de29..cc2421d 100644\n--- a/Services/PatchTargetCorrectionService.cs\n\u002B\u002B\u002B b/Services/PatchTargetCorrectionService.cs\n@@ -0,0 \u002B1,41 @@\n\u002Busing System;\n\u002Busing System.Collections.Generic;\n\u002Busing AiBox.DevPortal.Models;\n\u002B\n\u002Bnamespace AiBox.DevPortal.Services {\n\u002B    public class PatchTargetCorrectionService {\n\u002B        public PatchTargetCorrectionResult CorrectPath(string requestedPath, IReadOnlyList\u003CLocalCoderFileContext\u003E selectedContexts) {\n\u002B            if (selectedContexts.Any(x =\u003E x.FullPath == requestedPath)) {\n\u002B                return new PatchTargetCorrectionResult { IsCorrected = false, OriginalPath = requestedPath, CorrectedPath = requestedPath, Reason = \u0022Path already exists.\u0022 };\n\u002B            }\n\u002B\n\u002B            string symbolName = InferSymbolNameFromFilename(requestedPath);\n\u002B            if (string.IsNullOrEmpty(symbolName)) {\n\u002B                return new PatchTargetCorrectionResult { IsCorrected = false, OriginalPath = requestedPath, CorrectedPath = requestedPath, Reason = \u0022Unable to infer symbol name from filename.\u0022 };\n\u002B            }\n\u002B\n\u002B            string correctedPath = FindSymbolPath(symbolName, selectedContexts);\n\u002B            if (string.IsNullOrEmpty(correctedPath)) {\n\u002B                return new PatchTargetCorrectionResult { IsCorrected = false, OriginalPath = requestedPath, CorrectedPath = requestedPath, Reason = \u0022Symbol not found in selected contexts.\u0022 };\n\u002B            }\n\u002B\n\u002B            return new PatchTargetCorrectionResult { IsCorrected = true, OriginalPath = requestedPath, CorrectedPath = correctedPath, Reason = \u0022Path corrected successfully.\u0022 };\n\u002B        }\n\u002B\n\u002B        private string InferSymbolNameFromFilename(string filename) {\n\u002B            // Simplified logic to infer symbol name from filename\n\u002B            return filename.Split(new char[] { \u0027.\u0027, \u0027_\u0027 }, StringSplitOptions.RemoveEmptyEntries).First();\n\u002B        }\n\u002B\n\u002B        private string FindSymbolPath(string symbolName, IReadOnlyList\u003CLocalCoderFileContext\u003E selectedContexts) {\n\u002B            foreach (var context in selectedContexts) {\n\u002B                if (context.Content.Contains($\u0022class {symbolName}\u0022) ||\n\u002B                    context.Content.Contains($\u0022record {symbolName}\u0022) ||\n\u002B                    context.Content.Contains($\u0022interface {symbolName}\u0022)) {\n\u002B                    return context.FullPath;\n\u002B                }\n\u002B            }\n\u002B            return null;\n\u002B        }\n\u002B    }\n\u002B}\n\\ No newline at end of file",
+  "allowedPatchScope": "contextFilesOnly",
+  "allowedPatchFolders": [],
+  "allowedCreateFolders": [
+    "Models/",
+    "Services/"
+  ],
+  "contextFilePaths": [
+    "Models/ProjectKnowledgeIndex.cs",
+    "Models/LocalCoderFileContext.cs"
+  ],
+  "intent": {
+    "goal": "Create:\nModels/PatchTargetCorrectionResult",
+    "allowedFiles": [
+      "Models/ProjectKnowledgeIndex.cs",
+      "Models/LocalCoderFileContext.cs",
+      "Models/PatchTargetCorrectionResult.cs",
+      "Services/PatchTargetCorrectionService.cs"
+    ],
+    "allowedPaths": [
+      "Models/ProjectKnowledgeIndex.cs",
+      "Models/LocalCoderFileContext.cs",
+      "Models/PatchTargetCorrectionResult.cs",
+      "Services/PatchTargetCorrectionService.cs"
+    ],
+    "targetCreatedFiles": [
+      "Models/PatchTargetCorrectionResult.cs",
+      "Services/PatchTargetCorrectionService.cs"
+    ],
+    "allowedCreateFolders": [
+      "Models/",
+      "Services/"
+    ],
+    "protectedPaths": [],
+    "allowedScope": "Context Files Only",
+    "primaryIntent": "modify",
+    "expectedChangeType": "add",
+    "mustNotChange": [
+      "Patch apply logic",
+      "History logic",
+      "Agent profiles"
+    ],
+    "verificationCommand": "dotnet build"
+  },
+  "intentValidation": {
+    "status": "partiallyMatches",
+    "detectedChangeType": "Refactor",
+    "scopeMode": "ContextFilesOnly",
+    "requestedFiles": [
+      "Models/ProjectKnowledgeIndex.cs",
+      "Models/LocalCoderFileContext.cs",
+      "Models/PatchTargetCorrectionResult.cs",
+      "Services/PatchTargetCorrectionService.cs"
+    ],
+    "modifiedFiles": [
+      "Models/PatchTargetCorrectionResult.cs",
+      "Services/PatchTargetCorrectionService.cs"
+    ],
+    "contextFiles": [
+      "Models/LocalCoderFileContext.cs",
+      "Models/ProjectKnowledgeIndex.cs"
+    ],
+    "protectedFiles": [],
+    "fileEvaluations": [
+      {
+        "relativePath": "Models/PatchTargetCorrectionResult.cs",
+        "inContext": false,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      },
+      {
+        "relativePath": "Services/PatchTargetCorrectionService.cs",
+        "inContext": false,
+        "inScope": true,
+        "matchesRequestedFile": true,
+        "explicitlyAllowed": true,
+        "explicitlyProtected": false,
+        "protected": false
+      }
+    ],
+    "reasons": [
+      "Expected Add but detected Refactor."
+    ],
+    "isBlocking": false
+  },
+  "status": "draft",
+  "statusMessage": "Draft patch package created from preview.",
+  "approvalGateResults": [],
+  "approvalGatesPassed": true,
+  "rollbackResult": "",
+  "rollbackError": "",
+  "fileChanges": [
+    {
+      "relativePath": "Models/PatchTargetCorrectionResult.cs",
+      "oldContent": "",
+      "newContent": "using System;\n\nnamespace AiBox.DevPortal.Models {\n    public sealed class PatchTargetCorrectionResult {\n        public bool IsCorrected { get; set; }\n        public string OriginalPath { get; set; }\n        public string CorrectedPath { get; set; }\n        public string Reason { get; set; }\n    }\n}"
+    },
+    {
+      "relativePath": "Services/PatchTargetCorrectionService.cs",
+      "oldContent": "",
+      "newContent": "using System;\nusing System.Collections.Generic;\nusing AiBox.DevPortal.Models;\n\nnamespace AiBox.DevPortal.Services {\n    public class PatchTargetCorrectionService {\n        public PatchTargetCorrectionResult CorrectPath(string requestedPath, IReadOnlyList\u003CLocalCoderFileContext\u003E selectedContexts) {\n            if (selectedContexts.Any(x =\u003E x.FullPath == requestedPath)) {\n                return new PatchTargetCorrectionResult { IsCorrected = false, OriginalPath = requestedPath, CorrectedPath = requestedPath, Reason = \u0022Path already exists.\u0022 };\n            }\n\n            string symbolName = InferSymbolNameFromFilename(requestedPath);\n            if (string.IsNullOrEmpty(symbolName)) {\n                return new PatchTargetCorrectionResult { IsCorrected = false, OriginalPath = requestedPath, CorrectedPath = requestedPath, Reason = \u0022Unable to infer symbol name from filename.\u0022 };\n            }\n\n            string correctedPath = FindSymbolPath(symbolName, selectedContexts);\n            if (string.IsNullOrEmpty(correctedPath)) {\n                return new PatchTargetCorrectionResult { IsCorrected = false, OriginalPath = requestedPath, CorrectedPath = requestedPath, Reason = \u0022Symbol not found in selected contexts.\u0022 };\n            }\n\n            return new PatchTargetCorrectionResult { IsCorrected = true, OriginalPath = requestedPath, CorrectedPath = correctedPath, Reason = \u0022Path corrected successfully.\u0022 };\n        }\n\n        private string InferSymbolNameFromFilename(string filename) {\n            // Simplified logic to infer symbol name from filename\n            return filename.Split(new char[] { \u0027.\u0027, \u0027_\u0027 }, StringSplitOptions.RemoveEmptyEntries).First();\n        }\n\n        private string FindSymbolPath(string symbolName, IReadOnlyList\u003CLocalCoderFileContext\u003E selectedContexts) {\n            foreach (var context in selectedContexts) {\n                if (context.Content.Contains($\u0022class {symbolName}\u0022) ||\n                    context.Content.Contains($\u0022record {symbolName}\u0022) ||\n                    context.Content.Contains($\u0022interface {symbolName}\u0022)) {\n                    return context.FullPath;\n                }\n            }\n            return null;\n        }\n    }\n}"
+    }
+  ]
+}

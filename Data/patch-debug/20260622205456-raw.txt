@@ -1,0 +1,14 @@
+```json
+{
+  "operations": [
+    {
+      "filePath": "Components/Pages/Coder.razor",
+      "operation": "insert_after",
+      "anchor": "<RadzenStack Orientation=\"Orientation.Horizontal\"\n                             Gap=\"0.5rem\"\n                             Wrap=\"FlexWrap.Wrap\"\n                             AlignItems=\"AlignItems.Center\">",
+      "oldText": "",
+      "newText": "\n                <RadzenButton Text=\"Suggest Context\" Icon=\"create_new_folder\" ButtonStyle=\"ButtonStyle.Light\" Click=\"@() NotifyContextSuggestions()\" />",
+      "summary": "Insert 'Suggest Context' button after existing horizontal stack"
+    }
+  ]
+}
+```
