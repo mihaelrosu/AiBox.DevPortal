@@ -304,11 +304,21 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return null;
         }
 
+        if (!ValidateInsertAnchor(filePath, currentContent, anchor, match!, "insert_before", validationErrors))
+        {
+            return null;
+        }
+
         var anchorMatch = match!;
         var normalizedNewText = NormalizeXmlDocumentationFormatting(
             newText,
             GetIndentation(currentContent, anchorMatch.Index),
             DetectLineEnding(currentContent));
+        if (!ValidateInsertResult(filePath, currentContent, anchorMatch.Index, normalizedNewText, true, validationErrors))
+        {
+            return null;
+        }
+
         return currentContent[..anchorMatch.Index] + normalizedNewText + currentContent[anchorMatch.Index..];
     }
 
@@ -333,9 +343,19 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             return null;
         }
 
+        if (!ValidateInsertAnchor(filePath, currentContent, anchor, match!, "insert_after", validationErrors))
+        {
+            return null;
+        }
+
         var insertIndex = match!.Index + match.Length;
         if (TryBuildRazorDirectiveInsertion(currentContent, match, newText, out insertIndex, out var directiveInsertion))
         {
+            if (!ValidateInsertResult(filePath, currentContent, insertIndex, directiveInsertion, false, validationErrors))
+            {
+                return null;
+            }
+
             return currentContent[..insertIndex] + directiveInsertion + currentContent[insertIndex..];
         }
 
@@ -343,6 +363,11 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
             newText,
             GetIndentation(currentContent, match.Index),
             DetectLineEnding(currentContent));
+        if (!ValidateInsertResult(filePath, currentContent, insertIndex, normalizedNewText, false, validationErrors))
+        {
+            return null;
+        }
+
         return currentContent[..insertIndex] + normalizedNewText + currentContent[insertIndex..];
     }
 
@@ -713,6 +738,174 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         var extension = Path.GetExtension(path);
         return extension.Equals(".cs", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".razor", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCSharpPath(string path)
+    {
+        return Path.GetExtension(path).Equals(".cs", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ValidateInsertAnchor(
+        string filePath,
+        string currentContent,
+        string anchor,
+        PatchAnchorMatch match,
+        string operation,
+        List<string> validationErrors)
+    {
+        if (!IsCSharpPath(filePath))
+        {
+            return true;
+        }
+
+        var trimmedAnchor = (anchor ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmedAnchor))
+        {
+            validationErrors.Add($"Operation '{operation}' for file '{filePath}' requires a non-empty anchor.");
+            return false;
+        }
+
+        var lineStartIndex = match.Index == 0
+            ? 0
+            : currentContent.LastIndexOf('\n', match.Index - 1) + 1;
+        lineStartIndex = Math.Max(0, lineStartIndex);
+
+        var lineEndIndex = currentContent.IndexOfAny(['\r', '\n'], match.Index + match.Length);
+        lineEndIndex = lineEndIndex < 0 ? currentContent.Length : lineEndIndex;
+
+        var lineContent = currentContent[lineStartIndex..lineEndIndex].TrimEnd('\r');
+        if (!string.Equals(lineContent.Trim(), trimmedAnchor, StringComparison.Ordinal))
+        {
+            validationErrors.Add($"Insert anchors must match a full line in file '{filePath}': {anchor}");
+            return false;
+        }
+
+        var fullLineMatchCount = CountFullLineMatches(currentContent, trimmedAnchor);
+        if (fullLineMatchCount != 1)
+        {
+            validationErrors.Add($"Insert anchors must match exactly one location in file '{filePath}': {anchor}");
+            return false;
+        }
+
+        if (operation.Equals("insert_after", StringComparison.OrdinalIgnoreCase) && IsPartialControlFlowAnchor(trimmedAnchor))
+        {
+            validationErrors.Add($"Insert anchor is too partial for insert_after in file '{filePath}': {anchor}");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool ValidateInsertResult(
+        string filePath,
+        string currentContent,
+        int insertIndex,
+        string newText,
+        bool beforeAnchor,
+        List<string> validationErrors)
+    {
+        if (string.IsNullOrWhiteSpace(newText))
+        {
+            validationErrors.Add($"Operation '{(beforeAnchor ? "insert_before" : "insert_after")}' for file '{filePath}' must include non-empty newText.");
+            return false;
+        }
+
+        if (!IsCSharpPath(filePath))
+        {
+            return true;
+        }
+
+        var normalizedNewText = newText.ReplaceLineEndings(DetectLineEnding(currentContent));
+        if (beforeAnchor)
+        {
+            if (!normalizedNewText.EndsWith('\n') && !normalizedNewText.EndsWith('\r'))
+            {
+                validationErrors.Add($"Insert text for file '{filePath}' would attach to existing code without a newline boundary.");
+                return false;
+            }
+        }
+        else if (!normalizedNewText.StartsWith('\n') && !normalizedNewText.StartsWith('\r'))
+        {
+            validationErrors.Add($"Insert text for file '{filePath}' would attach to existing code without a newline boundary.");
+            return false;
+        }
+
+        var prospectiveContent = currentContent[..insertIndex] + normalizedNewText + currentContent[insertIndex..];
+        if (!HasBalancedBraces(prospectiveContent))
+        {
+            validationErrors.Add($"Insert text for file '{filePath}' would produce invalid C# brace balance.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool HasBalancedBraces(string content)
+    {
+        var depth = 0;
+        foreach (var ch in content)
+        {
+            if (ch == '{')
+            {
+                depth++;
+            }
+            else if (ch == '}')
+            {
+                depth--;
+                if (depth < 0)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return depth == 0;
+    }
+
+    private static int CountFullLineMatches(string content, string anchor)
+    {
+        if (string.IsNullOrWhiteSpace(content) || string.IsNullOrWhiteSpace(anchor))
+        {
+            return 0;
+        }
+
+        var count = 0;
+        foreach (var line in content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n'))
+        {
+            if (string.Equals(line.Trim(), anchor.Trim(), StringComparison.Ordinal))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static bool IsPartialControlFlowAnchor(string anchor)
+    {
+        var trimmed = anchor.TrimStart();
+        return StartsWithKeyword(trimmed, "if") ||
+               StartsWithKeyword(trimmed, "foreach") ||
+               StartsWithKeyword(trimmed, "for") ||
+               StartsWithKeyword(trimmed, "while") ||
+               StartsWithKeyword(trimmed, "switch") ||
+               StartsWithKeyword(trimmed, "using") ||
+               StartsWithKeyword(trimmed, "lock");
+    }
+
+    private static bool StartsWithKeyword(string value, string keyword)
+    {
+        if (!value.StartsWith(keyword, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (value.Length == keyword.Length)
+        {
+            return true;
+        }
+
+        return char.IsWhiteSpace(value[keyword.Length]) || value[keyword.Length] is '(' or '{';
     }
 
     private async Task<string> BuildPatchTextAsync(

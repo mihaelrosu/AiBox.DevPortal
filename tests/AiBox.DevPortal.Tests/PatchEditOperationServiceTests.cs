@@ -1743,6 +1743,289 @@ public sealed class PatchEditOperationServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_InsertBefore_ReturnErrors_Succeeds()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-insert-before-return-errors-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public sealed class Example
+        {
+            public IReadOnlyList<string> GetErrors(IReadOnlyList<string> errors)
+            {
+                return errors;
+            }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var result = await service.BuildAsync(
+                projectRoot,
+                [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    operations = new[]
+                    {
+                        new
+                        {
+                            filePath = relativePath,
+                            operation = "insert_before",
+                            anchor = "return errors;",
+                            oldText = string.Empty,
+                                newText = string.Join(
+                                    Environment.NewLine,
+                                    "if (errors.Count == 0)",
+                                    "{",
+                                    "    return Array.Empty<string>();",
+                                    "}") + Environment.NewLine
+                        }
+                    }
+                }));
+
+            Assert.Contains("if (errors.Count == 0)", result.FileChanges[0].NewContent, StringComparison.Ordinal);
+            Assert.Contains("return errors;", result.FileChanges[0].NewContent, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_InsertAfter_PartialControlFlowAnchor_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-insert-after-partial-control-flow-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public sealed class Example
+        {
+            public void Run()
+            {
+                if (string.IsNullOrWhiteSpace(plan.Goal))
+                {
+                    return;
+                }
+            }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "insert_after",
+                                anchor = "if (string.IsNullOrWhiteSpace(plan.Goal))",
+                                oldText = string.Empty,
+                                newText = string.Join(
+                                    Environment.NewLine,
+                                    "foreach (var slice in plan.Slices)",
+                                    "{",
+                                    "}") + Environment.NewLine
+                            }
+                        }
+                    })));
+
+            Assert.Contains("too partial", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_InsertDoesNotAttachForeachToIfLine_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-insert-attach-foreach-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public sealed class Example
+        {
+            public void Run()
+            {
+                if (string.IsNullOrWhiteSpace(plan.Goal))
+                {
+                    return errors;
+                }
+            }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "insert_after",
+                                anchor = "return errors;",
+                                oldText = string.Empty,
+                                newText = string.Join(
+                                    Environment.NewLine,
+                                    "foreach (var slice in plan.Slices)",
+                                    "{",
+                                    "}") + Environment.NewLine
+                            }
+                        }
+                    })));
+
+            Assert.Contains("newline boundary", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_DuplicateAnchor_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-duplicate-anchor-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public sealed class Example
+        {
+            public void Run()
+            {
+                return errors;
+                return errors;
+            }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "insert_before",
+                                anchor = "return errors;",
+                                oldText = string.Empty,
+                                newText = "// note\n"
+                            }
+                        }
+                    })));
+
+            Assert.Contains("exactly one location", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_MissingAnchor_FailsValidation()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-missing-anchor-test-{Guid.NewGuid():N}");
+        const string relativePath = "Example.cs";
+        const string content = """
+        public sealed class Example
+        {
+            public void Run()
+            {
+                return errors;
+            }
+        }
+        """;
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            await File.WriteAllTextAsync(Path.Combine(projectRoot, relativePath), content);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [new LocalCoderFileContext { RelativePath = relativePath, Content = content }],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = relativePath,
+                                operation = "insert_after",
+                                anchor = "missing anchor",
+                                oldText = string.Empty,
+                                newText = string.Join(
+                                    Environment.NewLine,
+                                    "foreach (var slice in plan.Slices)",
+                                    "{",
+                                    "}") + Environment.NewLine
+                            }
+                        }
+                    })));
+
+            Assert.Contains("Anchor not found", string.Join(Environment.NewLine, exception.ValidationErrors), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task BuildAsync_ReplaceMissingOldText_FailsValidation()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-replace-empty-old-test-{Guid.NewGuid():N}");
