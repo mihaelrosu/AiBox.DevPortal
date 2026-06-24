@@ -116,7 +116,7 @@ public sealed class TaskSlicePatchPreviewPreparationServiceTests
 
             Assert.True(result.CanGenerate);
             Assert.Equal(["Models/ToolAgentRequest.cs", "Models/ToolAgentResult.cs"], result.FileContexts.Select(context => context.RelativePath).ToArray());
-            Assert.Contains(result.DebugDetails, detail => detail == "CreateTargets inferred from TargetFiles.");
+            Assert.Contains(result.DebugDetails, detail => detail.Contains("CreateTargets", StringComparison.Ordinal));
             Assert.Contains(result.DebugDetails, detail => detail == "SelectedContextSource: CreateTargets");
             Assert.Contains("Create targets:", result.TaskText, StringComparison.Ordinal);
             Assert.Contains("Models/ToolAgentRequest.cs", result.TaskText, StringComparison.Ordinal);

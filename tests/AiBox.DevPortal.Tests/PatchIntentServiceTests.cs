@@ -54,6 +54,45 @@ public sealed class PatchIntentServiceTests
     }
 
     [Fact]
+    public void BuildIntent_CreateTask_SinglePathExtractsTargetFileAndFolder()
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = "Create Models/TaskWorkflowSlice.cs",
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Models/LocalCoderHistoryEntry.cs" }
+            ]
+        });
+
+        Assert.Equal(["Models/TaskWorkflowSlice.cs"], intent.TargetCreatedFiles);
+        Assert.Equal(["Models/"], intent.AllowedCreateFolders);
+    }
+
+    [Theory]
+    [InlineData("Create Models/TaskWorkflowSlice.cs")]
+    [InlineData("Create Models/TaskWorkflowSlice.cs.")]
+    [InlineData("Create Models/TaskWorkflowSlice.cs,")]
+    public void BuildIntent_CreateTask_WithTrailingPunctuation_ExtractsTargetFileAndFolder(string task)
+    {
+        var intent = PatchIntentService.BuildIntent(new LocalCoderRequest
+        {
+            ProjectPath = "/project",
+            Task = task,
+            AllowedPatchScope = PatchScopeMode.ContextFilesOnly,
+            FileContexts =
+            [
+                new LocalCoderFileContext { RelativePath = "Models/LocalCoderHistoryEntry.cs" }
+            ]
+        });
+
+        Assert.Contains("Models/TaskWorkflowSlice.cs", intent.TargetCreatedFiles);
+        Assert.Contains("Models/", intent.AllowedCreateFolders);
+    }
+
+    [Fact]
     public void ExtractRequestedCreateFiles_CreateSection_ExtractsPaths()
     {
         var files = PatchIntentService.ExtractRequestedCreateFiles("""

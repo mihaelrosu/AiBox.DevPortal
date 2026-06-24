@@ -240,6 +240,12 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
         var oldText = operation.OldText ?? string.Empty;
         var newText = operation.NewText ?? string.Empty;
 
+        if (IsSourceCodePath(filePath) && ContainsAny(newText, "\"filePath\":", "\"operation\":", "\"oldText\":", "\"newText\":"))
+        {
+            validationErrors.Add("Patch text appears to contain patch operation JSON metadata inside source code.");
+            return null;
+        }
+
         if (normalizedOperation.Equals("create", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(newText))
@@ -700,6 +706,13 @@ public sealed class PatchEditOperationService(ILogger<PatchEditOperationService>
     private static bool IsBinaryOrMediaPath(string path)
     {
         return BinaryAndMediaExtensions.Contains(Path.GetExtension(path));
+    }
+
+    private static bool IsSourceCodePath(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".cs", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".razor", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<string> BuildPatchTextAsync(

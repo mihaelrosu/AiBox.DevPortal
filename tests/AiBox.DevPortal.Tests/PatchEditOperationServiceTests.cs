@@ -924,6 +924,63 @@ public sealed class PatchEditOperationServiceTests
         }
     }
 
+    [Theory]
+    [InlineData("Models/Contaminated.cs", "Models/")]
+    [InlineData("Components/Contaminated.razor", "Components/")]
+    public async Task BuildAsync_SourceCreateOperation_WithPatchMetadataInNewText_FailsValidation(
+        string createdRelativePath,
+        string allowedCreateFolder)
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"aibox-patch-json-contamination-test-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+
+            var service = new PatchEditOperationService(new ListLogger<PatchEditOperationService>());
+            var exception = await Assert.ThrowsAsync<PatchPreviewValidationException>(() =>
+                service.BuildAsync(
+                    projectRoot,
+                    [],
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        operations = new[]
+                        {
+                            new
+                            {
+                                filePath = createdRelativePath,
+                                operation = "create",
+                                anchor = string.Empty,
+                                oldText = string.Empty,
+                                newText = """
+                                {
+                                  "operation": "create",
+                                  "filePath": "Models/Contaminated.cs",
+                                  "oldText": "",
+                                  "newText": ""
+                                }
+                                """
+                            }
+                        }
+                    }),
+                    new PatchIntent
+                    {
+                        AllowedCreateFolders = [allowedCreateFolder]
+                    }));
+
+            Assert.Contains(
+                "Patch text appears to contain patch operation JSON metadata inside source code.",
+                exception.ValidationErrors);
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
     [Fact]
     public async Task BuildAsync_CreateOnlyWithoutSelectedContext_OutsideAllowedCreateFoldersFails()
     {

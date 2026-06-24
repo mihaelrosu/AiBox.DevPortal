@@ -59,99 +59,102 @@
                           Disabled="@(IsLoading || isResolvingPreset)" />
         </RadzenStack>
 
-        <RadzenStack Gap="0.5rem">
-            <RadzenFormField Text="Allowed Patch Scope" Style="min-width: 16rem;">
-                <RadzenDropDown TValue="PatchScopeMode"
-                                Value="@AllowedPatchScope"
-                                Change="@OnAllowedPatchScopeChangedAsync"
-                                Data="@scopeOptions"
-                                TextProperty="Label"
-                                ValueProperty="Value"
-                                Style="width: 100%;" />
-            </RadzenFormField>
+        @if (ShowAdvancedPatchScopeControls)
+        {
+            <RadzenStack Gap="0.5rem">
+                <RadzenFormField Text="Allowed Patch Scope" Style="min-width: 16rem;">
+                    <RadzenDropDown TValue="PatchScopeMode"
+                                    Value="@AllowedPatchScope"
+                                    Change="@OnAllowedPatchScopeChangedAsync"
+                                    Data="@scopeOptions"
+                                    TextProperty="Label"
+                                    ValueProperty="Value"
+                                    Style="width: 100%;" />
+                </RadzenFormField>
 
-            @if (AllowedPatchScope == PatchScopeMode.SelectedFolders)
-            {
-                <RadzenStack Gap="0.5rem">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End"
-                                 Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                        <RadzenTextBox @bind-Value="allowedFolderInput"
-                                       Placeholder="Components/Coder/"
-                                       Style="min-width: 16rem; flex: 1;" />
-                        <RadzenButton Text="Add Folder" Icon="add" ButtonStyle="ButtonStyle.Primary"
-                                      Click="@AddAllowedFolderAsync"
-                                      Disabled="@(string.IsNullOrWhiteSpace(allowedFolderInput))" />
-                    </RadzenStack>
-
-                    @if (AllowedPatchFolders.Count == 0)
-                    {
-                        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
-                            Add at least one allowed folder before approving or applying a patch.
-                        </RadzenAlert>
-                    }
-                    else
-                    {
-                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
-                            @foreach (var folder in AllowedPatchFolders)
-                            {
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                             Gap="0.25rem"
-                                             Style="padding: 0.2rem 0.45rem; border: 1px solid var(--rz-base-300); border-radius: 999px;">
-                                    <RadzenText Text="@folder" TextStyle="TextStyle.Body2" />
-                                    <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
-                                                  Click="@(() => RemoveAllowedFolderAsync(folder))" />
-                                </RadzenStack>
-                            }
+                @if (AllowedPatchScope == PatchScopeMode.SelectedFolders)
+                {
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End"
+                                     Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenTextBox @bind-Value="allowedFolderInput"
+                                           Placeholder="Components/Coder/"
+                                           Style="min-width: 16rem; flex: 1;" />
+                            <RadzenButton Text="Add Folder" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                                          Click="@AddAllowedFolderAsync"
+                                          Disabled="@(string.IsNullOrWhiteSpace(allowedFolderInput))" />
                         </RadzenStack>
-                    }
-                </RadzenStack>
-            }
-            else if (AllowedPatchScope == PatchScopeMode.ContextFilesOnly)
-            {
-                <RadzenStack Gap="0.5rem">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End"
-                                 Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                        <RadzenTextBox @bind-Value="allowedCreateFolderInput"
-                                       Placeholder="Components/Coder/"
-                                       Style="min-width: 16rem; flex: 1;" />
-                        <RadzenButton Text="Add Folder" Icon="add" ButtonStyle="ButtonStyle.Primary"
-                                      Click="@AddAllowedCreateFolderAsync"
-                                      Disabled="@(string.IsNullOrWhiteSpace(allowedCreateFolderInput))" />
-                        <RadzenButton Text="Use Context Folders" Icon="folder_copy" ButtonStyle="ButtonStyle.Light"
-                                      Click="@InferAllowedCreateFoldersAsync"
-                                      Disabled="@(SelectedFiles.Count == 0)" />
-                    </RadzenStack>
 
-                    @if (AllowedCreateFolders.Count == 0)
-                    {
-                        <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
-                            Add at least one allowed create folder before generating or applying a patch that creates files.
-                        </RadzenAlert>
-                    }
-                    else
-                    {
-                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
-                            @foreach (var folder in AllowedCreateFolders)
-                            {
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                             Gap="0.25rem"
-                                             Style="padding: 0.2rem 0.45rem; border: 1px solid var(--rz-base-300); border-radius: 999px;">
-                                    <RadzenText Text="@folder" TextStyle="TextStyle.Body2" />
-                                    <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
-                                                  Click="@(() => RemoveAllowedCreateFolderAsync(folder))" />
-                                </RadzenStack>
-                            }
+                        @if (AllowedPatchFolders.Count == 0)
+                        {
+                            <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                                Add at least one allowed folder before approving or applying a patch.
+                            </RadzenAlert>
+                        }
+                        else
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                @foreach (var folder in AllowedPatchFolders)
+                                {
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                                 Gap="0.25rem"
+                                                 Style="padding: 0.2rem 0.45rem; border: 1px solid var(--rz-base-300); border-radius: 999px;">
+                                        <RadzenText Text="@folder" TextStyle="TextStyle.Body2" />
+                                        <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                                      Click="@(() => RemoveAllowedFolderAsync(folder))" />
+                                    </RadzenStack>
+                                }
+                            </RadzenStack>
+                        }
+                    </RadzenStack>
+                }
+                else if (AllowedPatchScope == PatchScopeMode.ContextFilesOnly)
+                {
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End"
+                                     Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                            <RadzenTextBox @bind-Value="allowedCreateFolderInput"
+                                           Placeholder="Components/Coder/"
+                                           Style="min-width: 16rem; flex: 1;" />
+                            <RadzenButton Text="Add Folder" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                                          Click="@AddAllowedCreateFolderAsync"
+                                          Disabled="@(string.IsNullOrWhiteSpace(allowedCreateFolderInput))" />
+                            <RadzenButton Text="Use Context Folders" Icon="folder_copy" ButtonStyle="ButtonStyle.Light"
+                                          Click="@InferAllowedCreateFoldersAsync"
+                                          Disabled="@(SelectedFiles.Count == 0)" />
                         </RadzenStack>
-                    }
-                </RadzenStack>
-            }
-            else if (AllowedPatchScope == PatchScopeMode.AnyProjectFile)
-            {
-                <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
-                    Patch may modify any file in the project.
-                </RadzenAlert>
-            }
-        </RadzenStack>
+
+                        @if (AllowedCreateFolders.Count == 0)
+                        {
+                            <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                                Add at least one allowed create folder before generating or applying a patch that creates files.
+                            </RadzenAlert>
+                        }
+                        else
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Wrap="FlexWrap.Wrap">
+                                @foreach (var folder in AllowedCreateFolders)
+                                {
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                                 Gap="0.25rem"
+                                                 Style="padding: 0.2rem 0.45rem; border: 1px solid var(--rz-base-300); border-radius: 999px;">
+                                        <RadzenText Text="@folder" TextStyle="TextStyle.Body2" />
+                                        <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                                      Click="@(() => RemoveAllowedCreateFolderAsync(folder))" />
+                                    </RadzenStack>
+                                }
+                            </RadzenStack>
+                        }
+                    </RadzenStack>
+                }
+                else if (AllowedPatchScope == PatchScopeMode.AnyProjectFile)
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Warning" ShowIcon="true">
+                        Patch may modify any file in the project.
+                    </RadzenAlert>
+                }
+            </RadzenStack>
+        }
 
         @if (!string.IsNullOrWhiteSpace(presetError))
         {
@@ -270,6 +273,9 @@
     [Parameter] public EventCallback<IReadOnlyList<string>> AllowedPatchFoldersChanged { get; set; }
     [Parameter] public IReadOnlyList<string> AllowedCreateFolders { get; set; } = [];
     [Parameter] public EventCallback<IReadOnlyList<string>> AllowedCreateFoldersChanged { get; set; }
+    [Parameter]
+    public bool ShowAdvancedPatchScopeControls { get; set; } = false;
+
     [Parameter] public EventCallback<IReadOnlyList<FileSearchItem>> SelectedFilesChanged { get; set; }
     [Parameter] public EventCallback<IReadOnlyList<FileSearchItem>> OnLoadPreset { get; set; }
     [Parameter] public EventCallback OnDetectContext { get; set; }

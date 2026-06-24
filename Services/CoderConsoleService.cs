@@ -157,6 +157,7 @@ public sealed class CoderConsoleService(
 
         request.FileContexts = (request.FileContexts ?? [])
             .ToList();
+
         var intent = PatchIntentService.BuildIntent(request);
         RecordPatchPreviewAttempt();
         try
@@ -264,19 +265,24 @@ public sealed class CoderConsoleService(
         var agentInstructionsText = BuildAgentInstructionsText(agentInstructionContext);
         var promptAudit = BuildPatchPromptAudit(request.FileContexts, fileContextText);
         var selectedFilePathsText = BuildSelectedFilePathsText(request.FileContexts);
-        var scopeText = BuildPatchScopeText(request.AllowedPatchScope, request.AllowedPatchFolders, intent.AllowedCreateFolders);
+        var scopeText = BuildPatchScopeText(
+            request.AllowedPatchScope,
+            request.AllowedPatchFolders,
+            intent.AllowedCreateFolders,
+            request.FileContexts.Count == 0 && intent.TargetCreatedFiles.Count > 0);
 
         var prompt = BuildGeneratePatchPreviewPrompt(
             request,
-                selectedFilePathsText,
-                fileContextText,
-                scopeText,
-                intentText,
-                xmlDocumentationMode,
-                deterministicTargetResolution,
-                repairContext,
-                profile,
-                agentInstructionsText);
+            selectedFilePathsText,
+            fileContextText,
+            scopeText,
+            intentText,
+            intent.TargetCreatedFiles,
+            xmlDocumentationMode,
+            deterministicTargetResolution,
+            repairContext,
+            profile,
+            agentInstructionsText);
 
         var model = string.IsNullOrWhiteSpace(request.Model)
             ? configuration["AiBox:LocalCoder:DefaultModel"] ?? "qwen2.5-coder:7b"
@@ -1250,6 +1256,7 @@ public sealed class CoderConsoleService(
         string fileContextText,
         string scopeText,
         string intentText,
+        IReadOnlyList<string>? targetCreatedFiles = null,
         bool xmlDocumentationMode = false,
         PatchPromptTargetResolution? targetResolution = null,
         PatchPreviewRepairContext? repairContext = null,
@@ -1375,7 +1382,18 @@ public sealed class CoderConsoleService(
             ? string.Empty
             : BuildRepairInstructionsText(repairContext);
         var targetResolutionText = BuildPromptTargetResolutionText(targetResolution);
-        var contextInstruction = PatchIntentService.HasExplicitCreateRequest(request.Task)
+        var hasTargetCreatedFiles = (targetCreatedFiles ?? []).Count > 0;
+        var targetCreatedFilesText = hasTargetCreatedFiles
+            ? $"""
+        Target created file(s):
+        {string.Join(Environment.NewLine, (targetCreatedFiles ?? []).Select(path => $"- {path}"))}
+        """
+            : string.Empty;
+        var contextInstruction = hasTargetCreatedFiles
+            ? """
+        Use only files from the selected file context or Target created file(s).
+        """
+            : PatchIntentService.HasExplicitCreateRequest(request.Task)
             ? """
         Modify only selected context files. New files may be created only when explicitly requested and inside Allowed Create Folders.
         """
@@ -1418,6 +1436,8 @@ public sealed class CoderConsoleService(
 
         Patch intent:
         {{intentText}}
+
+        {{targetCreatedFilesText}}
 
         {{targetResolutionText}}
 
@@ -2159,11 +2179,12 @@ public sealed class CoderConsoleService(
     internal static string BuildPatchScopeText(
         PatchScopeMode scopeMode,
         IReadOnlyList<string> allowedFolders,
-        IReadOnlyList<string> allowedCreateFolders)
+        IReadOnlyList<string> allowedCreateFolders,
+        bool useTargetCreatedFilesLabel = false)
     {
         return scopeMode switch
         {
-            PatchScopeMode.ContextFilesOnly => "Context Files Only",
+            PatchScopeMode.ContextFilesOnly => useTargetCreatedFilesLabel ? "Context Files + Target Created Files" : "Context Files Only",
             PatchScopeMode.SelectedFolders when allowedFolders.Count > 0 => string.Join(
                 Environment.NewLine,
                 [

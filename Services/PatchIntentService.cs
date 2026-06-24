@@ -253,7 +253,6 @@ public static class PatchIntentService
             var trimmed = line.Trim();
             if (string.IsNullOrWhiteSpace(trimmed))
             {
-                inCreateSection = false;
                 continue;
             }
 
@@ -270,6 +269,11 @@ public static class PatchIntentService
             }
 
             AddCreatePaths(createdFiles, trimmed);
+        }
+
+        if (createdFiles.Count == 0 && ContainsCreateVerb(normalized))
+        {
+            AddCreatePaths(createdFiles, normalized);
         }
 
         return createdFiles
@@ -341,6 +345,11 @@ public static class PatchIntentService
         return "dotnet build";
     }
 
+    private static bool ContainsCreateVerb(string value)
+    {
+        return Regex.IsMatch(value ?? string.Empty, @"\bcreate\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
     private static void AddCreatePaths(List<string> createdFiles, string text)
     {
         var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -350,7 +359,8 @@ public static class PatchIntentService
 
         foreach (Match match in CreateTaskPathRegex().Matches(text ?? string.Empty))
         {
-            var normalized = NormalizePath(match.Groups["path"].Value);
+            var normalized = NormalizePath(match.Groups["path"].Value)
+                .TrimEnd('.', ',', ';', ':');
             if (string.IsNullOrWhiteSpace(normalized))
             {
                 continue;
@@ -395,7 +405,7 @@ public static class PatchIntentService
         }
 
         return CreateTaskPathRegex().Matches(remainder)
-            .Select(pathMatch => NormalizePath(pathMatch.Groups["path"].Value))
+            .Select(pathMatch => NormalizePath(pathMatch.Groups["path"].Value).TrimEnd('.', ',', ';', ':'))
             .Any(path => string.Equals(Path.GetExtension(path), ".cs", StringComparison.OrdinalIgnoreCase)
                          || string.Equals(Path.GetExtension(path), ".razor", StringComparison.OrdinalIgnoreCase)
                          || string.Equals(Path.GetExtension(path), ".md", StringComparison.OrdinalIgnoreCase)
@@ -587,4 +597,3 @@ public static class PatchIntentService
         "refactor"
     ];
 }
-

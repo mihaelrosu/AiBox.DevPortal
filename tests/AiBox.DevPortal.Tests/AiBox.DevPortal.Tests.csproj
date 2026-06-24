@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../AiBox.DevPortal.csproj" />
   </ItemGroup>
 

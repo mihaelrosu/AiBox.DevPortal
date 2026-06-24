@@ -187,11 +187,10 @@ public sealed class TaskSlicePatchPreviewPreparationService(
                     FullPath = string.IsNullOrWhiteSpace(projectPath) ? path : Path.Combine(projectPath, path),
                     Content = string.Empty,
                     IsTruncated = false,
-                    IsGeneratedFile = false
+                    IsGeneratedFile = true
                 })
                 .ToArray();
         }
-
         if (sliceContexts.Count == 0)
         {
             return Fail(slice, SlicePreviewMissingTargetsMessage, debugDetails);
