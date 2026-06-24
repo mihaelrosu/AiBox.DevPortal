@@ -27,3 +27,6 @@ Data/workflow-backups/
 Data/workflow-overwrite-backups/
 Data/patch-backups/
 .history/
+tools/model-benchmark/results*/
+Data/patch-debug/
+Data/patches/
